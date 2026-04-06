@@ -1,0 +1,6 @@
+@BellaPorto.Api_HostAddress = http://localhost:5250
+
+GET {{BellaPorto.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

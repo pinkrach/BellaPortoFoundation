@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "qgiSbNpYrHo=",
+  "success": true,
+  "projectFilePath": "/Users/rachelpinkney/Documents/Rachel's Library/Bella Porto Foundation/backend/BellaPorto.Api/BellaPorto.Api.csproj",
+  "expectedPackageFiles": [
+    "/Users/rachelpinkney/.nuget/packages/microsoft.aspnetcore.openapi/10.0.1/microsoft.aspnetcore.openapi.10.0.1.nupkg.sha512",
+    "/Users/rachelpinkney/.nuget/packages/microsoft.openapi/2.0.0/microsoft.openapi.2.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}
