@@ -1270,29 +1270,31 @@ const AdminDonors = () => {
                   )}
 
                   <div className={`grid gap-3 sm:grid-cols-2 ${isDonationEditMode ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
-                    {(isDonationEditMode
-                      ? editableDonationFields.map((field) => ({ ...field, value: donationEditValues[field.key] }))
-                      : donationDetailFields
-                    ).map((field) => (
-                      <div key={field.label} className="rounded-xl border border-border bg-muted/20 p-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{field.label}</p>
-                        {isDonationEditMode && "key" in field ? (
-                          <input
-                            type="text"
-                            value={donationEditValues[field.key] ?? ""}
-                            onChange={(e) =>
-                              setDonationEditValues((prev) => ({
-                                ...prev,
-                                [field.key]: e.target.value,
-                              }))
-                            }
-                            className="mt-2 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
-                          />
-                        ) : (
-                          <p className="mt-1 text-sm text-foreground">{field.value == null || field.value === "" ? "-" : String(field.value)}</p>
-                        )}
-                      </div>
-                    ))}
+                    {isDonationEditMode
+                      ? editableDonationFields.map((field) => (
+                          <div key={field.label} className="rounded-xl border border-border bg-muted/20 p-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{field.label}</p>
+                            <input
+                              type="text"
+                              value={donationEditValues[field.key] ?? ""}
+                              onChange={(e) =>
+                                setDonationEditValues((prev) => ({
+                                  ...prev,
+                                  [field.key]: e.target.value,
+                                }))
+                              }
+                              className="mt-2 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
+                            />
+                          </div>
+                        ))
+                      : donationDetailFields.map((field) => (
+                          <div key={field.label} className="rounded-xl border border-border bg-muted/20 p-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{field.label}</p>
+                            <p className="mt-1 text-sm text-foreground">
+                              {field.value == null || field.value === "" ? "-" : String(field.value)}
+                            </p>
+                          </div>
+                        ))}
                   </div>
                 </div>
               </div>
