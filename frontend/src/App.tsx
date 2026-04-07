@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Impact from "./pages/Impact";
+import About from "./pages/About";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import CaseloadInventory from "./pages/CaseloadInventory";
@@ -25,6 +26,7 @@ const App = () => (
         <BrowserRouter basename={routerBasename || undefined}>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/about" element={<About />} />
             <Route path="/impact" element={<Impact />} />
             <Route path="/login" element={<Login />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
