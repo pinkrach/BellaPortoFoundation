@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bella Porto Foundation</title>
+    <script>
+      (function () {
+        var pathSegmentsToKeep = 1;
+        var location = window.location;
+        var pathname = location.pathname
+          .split("/")
+          .slice(0, 1 + pathSegmentsToKeep)
+          .join("/");
+        var route = location.pathname
+          .slice(pathname.length)
+          .replace(/&/g, "~and~");
+        var search = location.search ? location.search.replace(/&/g, "~and~") : "";
+        var redirectUrl =
+          location.protocol +
+          "//" +
+          location.hostname +
+          (location.port ? ":" + location.port : "") +
+          pathname +
+          "/?p=" +
+          encodeURIComponent(route + search + location.hash);
+
+        location.replace(redirectUrl);
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

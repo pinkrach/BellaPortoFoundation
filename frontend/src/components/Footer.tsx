@@ -1,4 +1,5 @@
 import { Anchor } from "lucide-react";
+import { Link } from "react-router-dom";
 import { WaveDividerTop } from "./WaveDivider";
 
 export const Footer = () => (
@@ -12,7 +13,7 @@ export const Footer = () => (
             <span className="font-heading text-lg font-bold">Bella Porto Foundation</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-primary-foreground/70">
-            <a href="#" className="hover:text-primary-foreground transition-colors">Privacy Policy</a>
+            <Link to="/privacy" className="hover:text-primary-foreground transition-colors">Privacy Policy</Link>
             <span>contact@bellaporto.org</span>
           </div>
           <p className="text-sm text-primary-foreground/50">© 2024 Bella Porto Foundation. All rights reserved.</p>
