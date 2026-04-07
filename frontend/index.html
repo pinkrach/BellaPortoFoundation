@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bella Porto Foundation</title>
+    <script>
+      (function () {
+        const redirect = window.location.search.match(/[?&]p=([^&]+)/);
+        if (!redirect) return;
+
+        const restoredPath = decodeURIComponent(redirect[1]).replace(/~and~/g, "&");
+        const cleanUrl =
+          window.location.origin +
+          window.location.pathname.replace(/\/$/, "") +
+          restoredPath +
+          window.location.hash;
+
+        window.history.replaceState(null, "", cleanUrl);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

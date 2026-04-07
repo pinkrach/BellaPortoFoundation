@@ -11,8 +11,10 @@ import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import CaseloadInventory from "./pages/CaseloadInventory";
 import NotFound from "./pages/NotFound";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 const queryClient = new QueryClient();
+const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -20,11 +22,12 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter basename={routerBasename || undefined}>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/impact" element={<Impact />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/caseload" element={<ProtectedRoute><CaseloadInventory /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
