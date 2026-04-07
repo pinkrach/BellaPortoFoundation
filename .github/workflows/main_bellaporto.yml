@@ -24,11 +24,13 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Build with dotnet
-        run: dotnet build --configuration Release
+        # Update: Added the path to your project file
+        run: dotnet build backend/BellaPorto.Api/BellaPorto.Api.csproj --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
-
+        # Update: Added the path here as well
+        run: dotnet publish backend/BellaPorto.Api/BellaPorto.Api.csproj -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+        
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
