@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import SignUpPage from "./pages/SignUpPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import CaseloadInventory from "./pages/CaseloadInventory";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import DonorDashboard from "./pages/DonorDashboard";
@@ -54,6 +55,14 @@ const App = () => (
               element={
                 <ProtectedRoute requiredRole="admin">
                   <CaseloadInventory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/reports"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <Reports />
                 </ProtectedRoute>
               }
             />

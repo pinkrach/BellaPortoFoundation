@@ -1,23 +1,32 @@
 import { AdminLayout } from "@/components/AdminLayout";
 import { motion } from "framer-motion";
 import { Users, Heart, BarChart3, Calendar, Sparkles } from "lucide-react";
-import { adminStats, residentStatusByHouse, mlInsights, recentDonations } from "@/data/mockData";
+import { mlInsights } from "@/data/mockData";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { useAdminDashboardData } from "@/hooks/useAdminDashboardData";
+import { useNavigate } from "react-router-dom";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 15 },
   visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.4 } }),
 };
 
-const kpis = [
-  { label: "Active Residents", value: adminStats.activeResidents, icon: Users },
-  { label: "Monthly Donations", value: `$${adminStats.monthlyDonations}`, icon: Heart },
-  { label: "Social Engagement", value: adminStats.socialMediaEngagement.toLocaleString(), icon: BarChart3 },
-  { label: "Upcoming Conferences", value: adminStats.upcomingConferences, icon: Calendar },
-];
+const AdminDashboard = () => {
+  const { data } = useAdminDashboardData();
+  const navigate = useNavigate();
 
-const AdminDashboard = () => (
-  <AdminLayout>
+  const kpis = [
+    { label: "Active Residents", value: data?.kpis?.[0]?.value ?? "—", icon: Users },
+    { label: "Monthly Donations", value: data?.kpis?.[1]?.value ?? "—", icon: Heart },
+    { label: "Social Engagement", value: data?.kpis?.[2]?.value ?? "—", icon: BarChart3 },
+    { label: "Upcoming Conferences", value: data?.kpis?.[3]?.value ?? "—", icon: Calendar },
+  ];
+
+  const residentStatusByHouse = data?.residentStatusByHouse ?? [];
+  const recentDonations = data?.recentDonations ?? [];
+
+  return (
+    <AdminLayout>
     {/* KPI Cards */}
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
       {kpis.map((kpi, i) => (
@@ -62,16 +71,25 @@ const AdminDashboard = () => (
         <div className="bg-card rounded-2xl shadow-warm overflow-hidden">
           <div className="bg-primary px-6 py-3 flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-accent" />
-            <h3 className="font-heading text-base font-semibold text-primary-foreground">ML Insights & Recommendations</h3>
+            <h3 className="font-heading text-base font-semibold text-primary-foreground">Reports</h3>
           </div>
           <div className="p-4 space-y-3">
             {mlInsights.map((insight, i) => (
-              <div key={i} className="p-3 rounded-xl bg-muted/50">
+              <button
+                key={i}
+                onClick={() => navigate(`/admin/reports?item=${i}`)}
+                className="w-full text-left p-3 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors"
+              >
                 <p className="text-sm font-semibold text-foreground">{insight.title}</p>
                 <p className="text-xs text-muted-foreground mt-1">{insight.description}</p>
-              </div>
+              </button>
             ))}
-            <button className="text-sm text-primary font-medium hover:underline">View Details →</button>
+            <button
+              onClick={() => navigate("/admin/reports")}
+              className="text-sm text-primary font-medium hover:underline"
+            >
+              View all reports →
+            </button>
           </div>
         </div>
 
@@ -105,7 +123,8 @@ const AdminDashboard = () => (
         </div>
       </div>
     </div>
-  </AdminLayout>
-);
+    </AdminLayout>
+  );
+};
 
 export default AdminDashboard;
