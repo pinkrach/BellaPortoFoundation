@@ -27,9 +27,12 @@ const ForgotPassword = () => {
 
     setIsSubmitting(true);
     try {
-      const redirectTo = `${window.location.origin}/reset-password`;
+      const redirectUrl =
+        window.location.hostname === "localhost"
+          ? "http://localhost:8080/reset-password"
+          : "https://bella-porto-foundation.vercel.app/reset-password";
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo,
+        redirectTo: redirectUrl,
       });
 
       if (resetError) {
