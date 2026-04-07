@@ -8,7 +8,7 @@
  * safehouse_monthly_metrics, safehouses, social_media_posts, supporters.
  */
 
-import { supabase } from '../lib/supabaseClient.js'
+import { supabase } from '../lib/supabaseClient'
 
 export class DatabaseServiceError extends Error {
   /**
@@ -53,6 +53,15 @@ function throwIfSupabaseError(error) {
   }
 }
 
+function requireSupabase(context) {
+  if (!supabase) {
+    throw new DatabaseServiceError(
+      `${context}: Supabase is not configured (missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).`,
+    )
+  }
+  return supabase
+}
+
 /**
  * @param {unknown} err
  * @param {string} context
@@ -94,7 +103,8 @@ function resolveSupporterName(supporter) {
  */
 export async function getResidents() {
   try {
-    const { data, error } = await supabase
+    const sb = requireSupabase('getResidents')
+    const { data, error } = await sb
       .from('residents')
       .select('*, safehouses(safehouse_id, name)')
       .order('resident_id', { ascending: true })
@@ -121,7 +131,8 @@ export async function getResidents() {
 export async function getDonations(options = {}) {
   const limit = options.limit ?? 50
   try {
-    const { data, error } = await supabase
+    const sb = requireSupabase('getDonations')
+    const { data, error } = await sb
       .from('donations')
       .select(
         `
@@ -183,7 +194,8 @@ export async function getDonations(options = {}) {
 export async function getPublicImpact(options = {}) {
   const publishedOnly = options.publishedOnly ?? false
   try {
-    let q = supabase
+    const sb = requireSupabase('getPublicImpact')
+    let q = sb
       .from('public_impact_snapshots')
       .select(
         'snapshot_id, snapshot_date, headline, summary_text, metric_payload_json, is_published, published_at',
@@ -207,7 +219,8 @@ export async function getPublicImpact(options = {}) {
  */
 export async function getMonthlyMetrics() {
   try {
-    const { data, error } = await supabase
+    const sb = requireSupabase('getMonthlyMetrics')
+    const { data, error } = await sb
       .from('safehouse_monthly_metrics')
       .select(
         `
@@ -237,7 +250,8 @@ export async function getMonthlyMetrics() {
 
 export async function getDonationAllocations() {
   try {
-    const { data, error } = await supabase.from('donation_allocations').select('*')
+    const sb = requireSupabase('getDonationAllocations')
+    const { data, error } = await sb.from('donation_allocations').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -248,7 +262,8 @@ export async function getDonationAllocations() {
 /** @param {number | string} allocationId */
 export async function getDonationAllocationById(allocationId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getDonationAllocationById')
+    const result = await sb
       .from('donation_allocations')
       .select('*')
       .eq('allocation_id', allocationId)
@@ -263,7 +278,8 @@ export async function getDonationAllocationById(allocationId) {
 
 export async function getAllDonations() {
   try {
-    const { data, error } = await supabase.from('donations').select('*')
+    const sb = requireSupabase('getAllDonations')
+    const { data, error } = await sb.from('donations').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -274,7 +290,8 @@ export async function getAllDonations() {
 /** @param {number | string} donationId */
 export async function getDonationById(donationId) {
   try {
-    const result = await supabase.from('donations').select('*').eq('donation_id', donationId).maybeSingle()
+    const sb = requireSupabase('getDonationById')
+    const result = await sb.from('donations').select('*').eq('donation_id', donationId).maybeSingle()
     return assertSingle(result, 'getDonationById')
   } catch (e) {
     wrapUnexpected(e, 'getDonationById')
@@ -285,7 +302,8 @@ export async function getDonationById(donationId) {
 
 export async function getEducationRecords() {
   try {
-    const { data, error } = await supabase.from('education_records').select('*')
+    const sb = requireSupabase('getEducationRecords')
+    const { data, error } = await sb.from('education_records').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -296,7 +314,8 @@ export async function getEducationRecords() {
 /** @param {number | string} educationRecordId */
 export async function getEducationRecordById(educationRecordId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getEducationRecordById')
+    const result = await sb
       .from('education_records')
       .select('*')
       .eq('education_record_id', educationRecordId)
@@ -311,7 +330,8 @@ export async function getEducationRecordById(educationRecordId) {
 
 export async function getHealthWellbeingRecords() {
   try {
-    const { data, error } = await supabase.from('health_wellbeing_records').select('*')
+    const sb = requireSupabase('getHealthWellbeingRecords')
+    const { data, error } = await sb.from('health_wellbeing_records').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -322,7 +342,8 @@ export async function getHealthWellbeingRecords() {
 /** @param {number | string} healthRecordId */
 export async function getHealthWellbeingRecordById(healthRecordId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getHealthWellbeingRecordById')
+    const result = await sb
       .from('health_wellbeing_records')
       .select('*')
       .eq('health_record_id', healthRecordId)
@@ -337,7 +358,8 @@ export async function getHealthWellbeingRecordById(healthRecordId) {
 
 export async function getHomeVisitations() {
   try {
-    const { data, error } = await supabase.from('home_visitations').select('*')
+    const sb = requireSupabase('getHomeVisitations')
+    const { data, error } = await sb.from('home_visitations').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -348,7 +370,8 @@ export async function getHomeVisitations() {
 /** @param {number | string} visitationId */
 export async function getHomeVisitationById(visitationId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getHomeVisitationById')
+    const result = await sb
       .from('home_visitations')
       .select('*')
       .eq('visitation_id', visitationId)
@@ -363,7 +386,8 @@ export async function getHomeVisitationById(visitationId) {
 
 export async function getInKindDonationItems() {
   try {
-    const { data, error } = await supabase.from('in_kind_donation_items').select('*')
+    const sb = requireSupabase('getInKindDonationItems')
+    const { data, error } = await sb.from('in_kind_donation_items').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -374,7 +398,8 @@ export async function getInKindDonationItems() {
 /** @param {number | string} itemId */
 export async function getInKindDonationItemById(itemId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getInKindDonationItemById')
+    const result = await sb
       .from('in_kind_donation_items')
       .select('*')
       .eq('item_id', itemId)
@@ -389,7 +414,8 @@ export async function getInKindDonationItemById(itemId) {
 
 export async function getIncidentReports() {
   try {
-    const { data, error } = await supabase.from('incident_reports').select('*')
+    const sb = requireSupabase('getIncidentReports')
+    const { data, error } = await sb.from('incident_reports').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -400,7 +426,8 @@ export async function getIncidentReports() {
 /** @param {number | string} incidentId */
 export async function getIncidentReportById(incidentId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getIncidentReportById')
+    const result = await sb
       .from('incident_reports')
       .select('*')
       .eq('incident_id', incidentId)
@@ -415,7 +442,8 @@ export async function getIncidentReportById(incidentId) {
 
 export async function getInterventionPlans() {
   try {
-    const { data, error } = await supabase.from('intervention_plans').select('*')
+    const sb = requireSupabase('getInterventionPlans')
+    const { data, error } = await sb.from('intervention_plans').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -426,7 +454,8 @@ export async function getInterventionPlans() {
 /** @param {number | string} planId */
 export async function getInterventionPlanById(planId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getInterventionPlanById')
+    const result = await sb
       .from('intervention_plans')
       .select('*')
       .eq('plan_id', planId)
@@ -441,7 +470,8 @@ export async function getInterventionPlanById(planId) {
 
 export async function getPartnerAssignments() {
   try {
-    const { data, error } = await supabase.from('partner_assignments').select('*')
+    const sb = requireSupabase('getPartnerAssignments')
+    const { data, error } = await sb.from('partner_assignments').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -452,7 +482,8 @@ export async function getPartnerAssignments() {
 /** @param {number | string} assignmentId */
 export async function getPartnerAssignmentById(assignmentId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getPartnerAssignmentById')
+    const result = await sb
       .from('partner_assignments')
       .select('*')
       .eq('assignment_id', assignmentId)
@@ -467,7 +498,8 @@ export async function getPartnerAssignmentById(assignmentId) {
 
 export async function getPartners() {
   try {
-    const { data, error } = await supabase.from('partners').select('*')
+    const sb = requireSupabase('getPartners')
+    const { data, error } = await sb.from('partners').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -478,7 +510,8 @@ export async function getPartners() {
 /** @param {number | string} partnerId */
 export async function getPartnerById(partnerId) {
   try {
-    const result = await supabase.from('partners').select('*').eq('partner_id', partnerId).maybeSingle()
+    const sb = requireSupabase('getPartnerById')
+    const result = await sb.from('partners').select('*').eq('partner_id', partnerId).maybeSingle()
     return assertSingle(result, 'getPartnerById')
   } catch (e) {
     wrapUnexpected(e, 'getPartnerById')
@@ -489,7 +522,8 @@ export async function getPartnerById(partnerId) {
 
 export async function getProcessRecordings() {
   try {
-    const { data, error } = await supabase.from('process_recordings').select('*')
+    const sb = requireSupabase('getProcessRecordings')
+    const { data, error } = await sb.from('process_recordings').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -500,7 +534,8 @@ export async function getProcessRecordings() {
 /** @param {number | string} recordingId */
 export async function getProcessRecordingById(recordingId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getProcessRecordingById')
+    const result = await sb
       .from('process_recordings')
       .select('*')
       .eq('recording_id', recordingId)
@@ -520,7 +555,8 @@ export async function getPublicImpactSnapshots() {
 /** @param {number | string} snapshotId */
 export async function getPublicImpactSnapshotById(snapshotId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getPublicImpactSnapshotById')
+    const result = await sb
       .from('public_impact_snapshots')
       .select('*')
       .eq('snapshot_id', snapshotId)
@@ -535,7 +571,8 @@ export async function getPublicImpactSnapshotById(snapshotId) {
 
 export async function getResidentsRaw() {
   try {
-    const { data, error } = await supabase.from('residents').select('*')
+    const sb = requireSupabase('getResidentsRaw')
+    const { data, error } = await sb.from('residents').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -546,7 +583,8 @@ export async function getResidentsRaw() {
 /** @param {number | string} residentId */
 export async function getResidentById(residentId) {
   try {
-    const result = await supabase.from('residents').select('*').eq('resident_id', residentId).maybeSingle()
+    const sb = requireSupabase('getResidentById')
+    const result = await sb.from('residents').select('*').eq('resident_id', residentId).maybeSingle()
     return assertSingle(result, 'getResidentById')
   } catch (e) {
     wrapUnexpected(e, 'getResidentById')
@@ -562,7 +600,8 @@ export async function getSafehouseMonthlyMetricsAll() {
 /** @param {number | string} metricId */
 export async function getSafehouseMonthlyMetricById(metricId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getSafehouseMonthlyMetricById')
+    const result = await sb
       .from('safehouse_monthly_metrics')
       .select('*')
       .eq('metric_id', metricId)
@@ -577,7 +616,8 @@ export async function getSafehouseMonthlyMetricById(metricId) {
 
 export async function getSafehouses() {
   try {
-    const { data, error } = await supabase.from('safehouses').select('*')
+    const sb = requireSupabase('getSafehouses')
+    const { data, error } = await sb.from('safehouses').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -588,7 +628,8 @@ export async function getSafehouses() {
 /** @param {number | string} safehouseId */
 export async function getSafehouseById(safehouseId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getSafehouseById')
+    const result = await sb
       .from('safehouses')
       .select('*')
       .eq('safehouse_id', safehouseId)
@@ -603,7 +644,8 @@ export async function getSafehouseById(safehouseId) {
 
 export async function getSocialMediaPosts() {
   try {
-    const { data, error } = await supabase.from('social_media_posts').select('*')
+    const sb = requireSupabase('getSocialMediaPosts')
+    const { data, error } = await sb.from('social_media_posts').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -614,7 +656,8 @@ export async function getSocialMediaPosts() {
 /** @param {number | string} postId */
 export async function getSocialMediaPostById(postId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getSocialMediaPostById')
+    const result = await sb
       .from('social_media_posts')
       .select('*')
       .eq('post_id', postId)
@@ -629,7 +672,8 @@ export async function getSocialMediaPostById(postId) {
 
 export async function getSupporters() {
   try {
-    const { data, error } = await supabase.from('supporters').select('*')
+    const sb = requireSupabase('getSupporters')
+    const { data, error } = await sb.from('supporters').select('*')
     throwIfSupabaseError(error)
     return data ?? []
   } catch (e) {
@@ -640,7 +684,8 @@ export async function getSupporters() {
 /** @param {number | string} supporterId */
 export async function getSupporterById(supporterId) {
   try {
-    const result = await supabase
+    const sb = requireSupabase('getSupporterById')
+    const result = await sb
       .from('supporters')
       .select('*')
       .eq('supporter_id', supporterId)
@@ -661,7 +706,8 @@ export async function insertRecord(table, row) {
     throw new DatabaseServiceError(`insertRecord: unknown table "${table}"`)
   }
   try {
-    const { data, error } = await supabase.from(table).insert(row).select()
+    const sb = requireSupabase(`insertRecord(${table})`)
+    const { data, error } = await sb.from(table).insert(row).select()
     throwIfSupabaseError(error)
     return data
   } catch (e) {
@@ -680,7 +726,8 @@ export async function updateRecord(table, id, patch) {
     throw new DatabaseServiceError(`updateRecord: unknown table "${table}"`)
   }
   try {
-    const { data, error } = await supabase.from(table).update(patch).eq(pk, id).select()
+    const sb = requireSupabase(`updateRecord(${table})`)
+    const { data, error } = await sb.from(table).update(patch).eq(pk, id).select()
     throwIfSupabaseError(error)
     return data
   } catch (e) {
@@ -698,7 +745,8 @@ export async function deleteRecord(table, id) {
     throw new DatabaseServiceError(`deleteRecord: unknown table "${table}"`)
   }
   try {
-    const { data, error } = await supabase.from(table).delete().eq(pk, id).select()
+    const sb = requireSupabase(`deleteRecord(${table})`)
+    const { data, error } = await sb.from(table).delete().eq(pk, id).select()
     throwIfSupabaseError(error)
     return data
   } catch (e) {

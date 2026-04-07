@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Anchor, Leaf } from "lucide-react";
@@ -8,15 +8,41 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const emailIsValid = useMemo(() => {
+    // Simple but reliable enough for client-side validation.
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  }, [email]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (login(email, password)) {
-      navigate("/admin");
-    } else {
-      setError("Please enter valid credentials");
+    setError("");
+
+    const trimmedEmail = email.trim();
+    if (!emailIsValid) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (!password) {
+      setError("Password is required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await login(trimmedEmail, password);
+      if (result.ok) {
+        navigate("/admin");
+        return;
+      }
+      setError(result.message || "Incorrect email or password.");
+    } catch {
+      setError("Unable to sign in right now. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -56,6 +82,7 @@ const Login = () => {
               placeholder="admin@bellaporto.org"
               className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
               required
+              autoComplete="email"
             />
           </div>
           <div>
@@ -67,13 +94,15 @@ const Login = () => {
               placeholder="••••••••"
               className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
               required
+              autoComplete="current-password"
             />
           </div>
           <button
             type="submit"
-            className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm"
+            disabled={isSubmitting}
+            className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none"
           >
-            Sign In
+            {isSubmitting ? "Signing in..." : "Sign In"}
           </button>
           <div className="text-center">
             <a href="#" className="text-sm text-secondary hover:underline">Forgot password?</a>
