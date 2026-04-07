@@ -15,6 +15,8 @@ import CaseloadInventory from "./pages/CaseloadInventory";
 import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import DonorDashboard from "./pages/DonorDashboard";
+import ForgotPassword from "./pages/ForgotPassword";
+import UpdatePassword from "./pages/UpdatePassword";
 
 const queryClient = new QueryClient();
 const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -32,6 +34,8 @@ const App = () => (
             <Route path="/impact" element={<Impact />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<UpdatePassword />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route
               path="/dashboard"

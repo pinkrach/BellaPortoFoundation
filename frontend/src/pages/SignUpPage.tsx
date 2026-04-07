@@ -10,6 +10,7 @@ const SignUpPage = () => {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -17,6 +18,17 @@ const SignUpPage = () => {
   const navigate = useNavigate();
 
   const emailIsValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()), [email]);
+  const hasMinLength = useMemo(() => password.length >= 8, [password]);
+  const hasUppercase = useMemo(() => /[A-Z]/.test(password), [password]);
+  const hasSpecial = useMemo(() => /[!@#$%^&*]/.test(password), [password]);
+  const passwordMeetsRequirements = useMemo(
+    () => hasMinLength && hasUppercase && hasSpecial,
+    [hasMinLength, hasUppercase, hasSpecial],
+  );
+  const passwordsMatch = useMemo(
+    () => password.length > 0 && confirmPassword.length > 0 && password === confirmPassword,
+    [password, confirmPassword],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +39,12 @@ const SignUpPage = () => {
     if (!lastName.trim()) return setError("Last name is required.");
     if (!emailIsValid) return setError("Please enter a valid email address.");
     if (!password) return setError("Password is required.");
+    if (!passwordMeetsRequirements) {
+      return setError(
+        "Password must be at least 8 characters and include 1 uppercase letter and 1 special character (!@#$%^&*).",
+      );
+    }
+    if (password !== confirmPassword) return setError("Passwords do not match");
 
     setIsSubmitting(true);
     try {
@@ -165,9 +183,40 @@ const SignUpPage = () => {
             />
           </div>
 
+          <div>
+            <label className="text-sm font-medium text-foreground mb-1 block">Confirm password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm password"
+              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              required
+              autoComplete="new-password"
+            />
+          </div>
+
+          <div className="rounded-xl border border-border bg-muted/50 p-4">
+            <div className="text-sm font-medium text-foreground mb-2">Password requirements</div>
+            <ul className="space-y-1 text-sm">
+              <li className={hasMinLength ? "text-emerald-600" : "text-muted-foreground"}>
+                At least 8 characters
+              </li>
+              <li className={hasUppercase ? "text-emerald-600" : "text-muted-foreground"}>
+                Contains an uppercase letter (A–Z)
+              </li>
+              <li className={hasSpecial ? "text-emerald-600" : "text-muted-foreground"}>
+                Contains a special character (!@#$%^&*)
+              </li>
+              <li className={passwordsMatch ? "text-emerald-600" : "text-muted-foreground"}>
+                Passwords match
+              </li>
+            </ul>
+          </div>
+
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !passwordMeetsRequirements || !passwordsMatch}
             className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none"
           >
             {isSubmitting ? "Creating account..." : "Sign Up"}
