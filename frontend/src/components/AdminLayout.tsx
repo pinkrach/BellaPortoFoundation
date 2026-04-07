@@ -65,7 +65,13 @@ export const AdminLayout = ({
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className={`relative flex items-center border-b border-sidebar-border px-4 py-5 ${sidebarCollapsed ? "justify-center lg:px-3" : "justify-between gap-3"}`}>
+        <div
+          className={`border-b border-sidebar-border px-4 py-5 ${
+            sidebarCollapsed
+              ? "flex flex-col items-center gap-3 lg:px-3"
+              : "flex items-center justify-between gap-3"
+          }`}
+        >
           <Link
             to="/"
             onClick={() => setSidebarOpen(false)}
@@ -79,7 +85,7 @@ export const AdminLayout = ({
           <button
             type="button"
             onClick={handleSidebarCollapse}
-            className={`hidden rounded-lg p-2 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground lg:inline-flex ${sidebarCollapsed ? "absolute top-4 left-1/2 -translate-x-1/2" : ""}`}
+            className="hidden rounded-lg p-2 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground lg:inline-flex"
             aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
