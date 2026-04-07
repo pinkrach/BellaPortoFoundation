@@ -30,6 +30,194 @@ app.UseHttpsRedirection();
 
 app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
 
+app.MapGet("/api/supporters", async (
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        var supporters = await FetchAllSupportersAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+        return Results.Ok(supporters);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapPut("/api/supporters/{supporterId:int}", async (
+    int supporterId,
+    Dictionary<string, object?> updates,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        // supporter_id is route-owned and cannot be changed.
+        updates.Remove("supporter_id");
+        if (updates.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No update fields were provided." });
+        }
+
+        var updated = await UpdateSupporterAsync(
+            httpClientFactory.CreateClient(),
+            settings.Url!,
+            settings.Key!,
+            supporterId,
+            updates
+        );
+
+        return Results.Ok(updated);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapDelete("/api/supporters/{supporterId:int}", async (
+    int supporterId,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        await DeleteSupporterAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, supporterId);
+        return Results.NoContent();
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/donations", async (
+    int? supporterId,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        var donations = await FetchAllDonationsAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, supporterId);
+        return Results.Ok(donations);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapPut("/api/donations/{donationId:int}", async (
+    int donationId,
+    Dictionary<string, object?> updates,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        // donation_id is route-owned and cannot be changed.
+        updates.Remove("donation_id");
+        updates.Remove("supporters");
+        if (updates.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No update fields were provided." });
+        }
+
+        var updated = await UpdateDonationAsync(
+            httpClientFactory.CreateClient(),
+            settings.Url!,
+            settings.Key!,
+            donationId,
+            updates
+        );
+
+        return updated is null
+            ? Results.NotFound(new { message = $"Donation #{donationId} was not found." })
+            : Results.Ok(updated);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapDelete("/api/donations/{donationId:int}", async (
+    int donationId,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        await DeleteDonationAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, donationId);
+        return Results.NoContent();
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.MapGet("/api/ml/social/latest", () =>
 {
     var repoRoot = GetRepoRoot(app.Environment);
@@ -230,6 +418,165 @@ static async Task<List<Dictionary<string, object?>>> FetchAllSocialPostsAsync(Ht
     }
 
     return results;
+}
+
+static async Task<List<Dictionary<string, object?>>> FetchAllSupportersAsync(HttpClient client, string supabaseUrl, string apiKey)
+{
+    var results = new List<Dictionary<string, object?>>();
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    const int pageSize = 1000;
+
+    for (var start = 0; ; start += pageSize)
+    {
+        var end = start + pageSize - 1;
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"{baseUrl}/rest/v1/supporters?select=*&order=supporter_id.asc"
+        );
+        request.Headers.TryAddWithoutValidation("apikey", apiKey);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+        request.Headers.TryAddWithoutValidation("Range-Unit", "items");
+        request.Headers.TryAddWithoutValidation("Range", $"{start}-{end}");
+
+        using var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync();
+        var page = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+        results.AddRange(page);
+
+        if (page.Count < pageSize)
+        {
+            break;
+        }
+    }
+
+    return results;
+}
+
+static async Task<List<Dictionary<string, object?>>> FetchAllDonationsAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    int? supporterId = null)
+{
+    var results = new List<Dictionary<string, object?>>();
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    const int pageSize = 1000;
+    var supporterFilter = supporterId is int id ? $"&supporter_id=eq.{id}" : string.Empty;
+
+    for (var start = 0; ; start += pageSize)
+    {
+        var end = start + pageSize - 1;
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"{baseUrl}/rest/v1/donations?select=donation_id,supporter_id,donation_type,donation_date,is_recurring,campaign_name,channel_source,currency_code,amount,estimated_value,impact_unit,notes,referral_post_id,supporters(display_name,organization_name,first_name,last_name){supporterFilter}&order=donation_date.desc"
+        );
+        request.Headers.TryAddWithoutValidation("apikey", apiKey);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+        request.Headers.TryAddWithoutValidation("Range-Unit", "items");
+        request.Headers.TryAddWithoutValidation("Range", $"{start}-{end}");
+
+        using var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync();
+        var page = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+        results.AddRange(page);
+
+        if (page.Count < pageSize)
+        {
+            break;
+        }
+    }
+
+    return results;
+}
+
+static async Task<Dictionary<string, object?>?> UpdateSupporterAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    int supporterId,
+    Dictionary<string, object?> updates)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Patch,
+        $"{baseUrl}/rest/v1/supporters?supporter_id=eq.{supporterId}&select=*"
+    );
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+    request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
+    request.Content = new StringContent(JsonSerializer.Serialize(updates), Encoding.UTF8, "application/json");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
+
+    var body = await response.Content.ReadAsStringAsync();
+    var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+    return rows.FirstOrDefault();
+}
+
+static async Task DeleteSupporterAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    int supporterId)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Delete,
+        $"{baseUrl}/rest/v1/supporters?supporter_id=eq.{supporterId}"
+    );
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
+}
+
+static async Task<Dictionary<string, object?>?> UpdateDonationAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    int donationId,
+    Dictionary<string, object?> updates)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Patch,
+        $"{baseUrl}/rest/v1/donations?donation_id=eq.{donationId}&select=donation_id,supporter_id,donation_type,donation_date,is_recurring,campaign_name,channel_source,currency_code,amount,estimated_value,impact_unit,notes,referral_post_id,supporters(display_name,organization_name,first_name,last_name)"
+    );
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+    request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
+    request.Content = new StringContent(JsonSerializer.Serialize(updates), Encoding.UTF8, "application/json");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
+
+    var body = await response.Content.ReadAsStringAsync();
+    var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+    return rows.FirstOrDefault();
+}
+
+static async Task DeleteDonationAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    int donationId)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Delete,
+        $"{baseUrl}/rest/v1/donations?donation_id=eq.{donationId}"
+    );
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
 }
 
 static JsonSerializerOptions JsonOptions()

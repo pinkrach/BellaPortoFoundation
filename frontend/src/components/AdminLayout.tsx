@@ -95,7 +95,6 @@ export const AdminLayout = ({
             </button>
             <div>
               <h1 className="font-heading text-lg font-semibold text-foreground">{title}</h1>
-              {subtitle ? <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p> : null}
             </div>
           </div>
           <div className="flex items-center gap-4">

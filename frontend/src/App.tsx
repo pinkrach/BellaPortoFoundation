@@ -11,6 +11,7 @@ import About from "./pages/About";
 import Login from "./pages/Login";
 import SignUpPage from "./pages/SignUpPage";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminDonors from "./pages/AdminDonors";
 import CaseloadInventory from "./pages/CaseloadInventory";
 import SocialMediaDashboard from "./pages/SocialMediaDashboard";
 import NotFound from "./pages/NotFound";
@@ -39,6 +40,14 @@ const App = () => (
               element={
                 <ProtectedRoute requiredRole="donor">
                   <DonorDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/donors"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminDonors />
                 </ProtectedRoute>
               }
             />
