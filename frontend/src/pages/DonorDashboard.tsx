@@ -1,7 +1,7 @@
 import { Anchor, Leaf } from "lucide-react";
 import { motion } from "framer-motion";
 
-const Signup = () => {
+const DonorDashboard = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-10 right-10 text-accent/20">
@@ -17,12 +17,14 @@ const Signup = () => {
         className="w-full max-w-md bg-card rounded-2xl shadow-warm-lg p-8"
       >
         <div className="flex flex-col items-center">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-6">
             <Anchor className="h-7 w-7 text-accent" />
           </div>
-          <h1 className="font-heading text-2xl font-bold text-foreground">Create your account</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Sign up is coming soon.
+          <h1 className="font-heading text-2xl font-bold text-foreground">
+            Welcome to your Donor Portal
+          </h1>
+          <p className="text-muted-foreground text-sm mt-2 text-center">
+            Your dashboard is ready. More features coming soon.
           </p>
         </div>
       </motion.div>
@@ -30,5 +32,5 @@ const Signup = () => {
   );
 };
 
-export default Signup;
+export default DonorDashboard;
 

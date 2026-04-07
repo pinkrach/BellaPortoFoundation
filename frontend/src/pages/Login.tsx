@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
 import { Anchor, Leaf } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -35,7 +36,23 @@ const Login = () => {
     try {
       const result = await login(trimmedEmail, password);
       if (result.ok) {
-        navigate("/admin");
+        // If role isn't available yet (e.g., profile row missing/slow), re-check once directly.
+        let role = result.role;
+        if (!role && supabase) {
+          const { data: userData } = await supabase.auth.getUser();
+          const userId = userData.user?.id;
+          if (userId) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", userId)
+              .maybeSingle();
+            if (profile?.role === "admin" || profile?.role === "donor") role = profile.role;
+          }
+        }
+
+        if (role === "admin") navigate("/admin");
+        else navigate("/dashboard");
         return;
       }
       setError(result.message || "Incorrect email or password.");
