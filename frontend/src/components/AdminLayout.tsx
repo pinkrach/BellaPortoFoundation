@@ -10,7 +10,7 @@ const sidebarItems = [
   { label: "Dashboard", to: "/admin", icon: LayoutDashboard },
   { label: "Caseload Inventory", to: "/admin/caseload", icon: Users },
   { label: "Process Recordings", to: "/admin/recordings", icon: FileText },
-  { label: "Home Visitations", to: "/admin/visitations", icon: Home },
+  { label: "Visitations & Conferences", to: "/admin/visitations", icon: Home },
   { label: "Donors & Contributions", to: "/admin/donors", icon: Heart },
   { label: "Reports & Analytics", to: "/admin/reports", icon: BarChart3 },
   { label: "Social Media", to: "/admin/social", icon: Share2 },
