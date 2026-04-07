@@ -19,7 +19,7 @@ export const Navbar = () => {
       <div className="container mx-auto flex items-center justify-between py-4 px-4">
         <Link to="/" className="flex items-center gap-2">
           <Anchor className="h-7 w-7 text-accent" />
-          <span className="font-heading text-xl font-bold text-primary-foreground">Bella Porto Foundation</span>
+          <span className="font-heading text-xl font-bold text-primary-foreground">Bella Bay Foundation</span>
         </Link>
 
         {/* Desktop */}
