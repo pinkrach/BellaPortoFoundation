@@ -16,7 +16,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 8080,
       strictPort: false,
-    },
+    host: true,
+    open: true,
+  },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
