@@ -121,9 +121,9 @@ const Login = () => {
             {isSubmitting ? "Signing in..." : "Sign In"}
           </button>
           <div className="pt-1 space-y-2 text-center">
-            <a href="#" className="text-sm text-secondary hover:underline">
+            <Link to="/forgot-password" className="text-sm text-secondary hover:underline">
               Forgot password?
-            </a>
+            </Link>
             <div className="text-sm text-muted-foreground">
               Don&apos;t have an account?{" "}
               <Link to="/signup" className="text-secondary hover:underline">

@@ -10,16 +10,35 @@ const SignUpPage = () => {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confirmTouched, setConfirmTouched] = useState(false);
 
   const { setAuthFromProfile } = useAuth();
   const navigate = useNavigate();
 
   const emailIsValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()), [email]);
+  const hasMinLength = useMemo(() => password.length >= 8, [password]);
+  const hasUppercase = useMemo(() => /[A-Z]/.test(password), [password]);
+  const hasSpecial = useMemo(() => /[!@#$%^&*]/.test(password), [password]);
+  const passwordMeetsRequirements = useMemo(
+    () => hasMinLength && hasUppercase && hasSpecial,
+    [hasMinLength, hasUppercase, hasSpecial],
+  );
+  const confirmHasText = useMemo(() => confirmPassword.trim().length > 0, [confirmPassword]);
+  const passwordsMatch = useMemo(() => password === confirmPassword, [password, confirmPassword]);
+
+  const showPasswordError = (passwordTouched || submitAttempted) && password.trim().length > 0 && !passwordMeetsRequirements;
+  const showConfirmMismatch = (confirmTouched || submitAttempted) && confirmHasText && !passwordsMatch;
+  const passwordErrorText = "Password must be at least 8 characters and include an uppercase letter and a special character.";
+  const confirmErrorText = "Passwords do not match";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitAttempted(true);
     setError("");
 
     const trimmedEmail = email.trim();
@@ -27,6 +46,10 @@ const SignUpPage = () => {
     if (!lastName.trim()) return setError("Last name is required.");
     if (!emailIsValid) return setError("Please enter a valid email address.");
     if (!password) return setError("Password is required.");
+    if (!passwordMeetsRequirements) {
+      return setError(passwordErrorText);
+    }
+    if (confirmHasText && password !== confirmPassword) return setError(confirmErrorText);
 
     setIsSubmitting(true);
     try {
@@ -152,17 +175,56 @@ const SignUpPage = () => {
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-1 block">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-              required
-              autoComplete="new-password"
-            />
+          <div className="space-y-2">
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => setPasswordTouched(true)}
+                placeholder="Password"
+                className={[
+                  "w-full px-4 py-3 rounded-xl bg-muted border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow",
+                  showPasswordError ? "border-destructive" : "border-border",
+                ].join(" ")}
+                required
+                autoComplete="new-password"
+              />
+              <div
+                className={[
+                  "overflow-hidden transition-[max-height,opacity] duration-200",
+                  showPasswordError ? "max-h-10 opacity-100" : "max-h-0 opacity-0",
+                ].join(" ")}
+              >
+                <div className="mt-1 text-xs text-destructive">{passwordErrorText}</div>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">Confirm password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={() => setConfirmTouched(true)}
+                placeholder="Confirm password"
+                className={[
+                  "w-full px-4 py-3 rounded-xl bg-muted border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow",
+                  showConfirmMismatch ? "border-destructive" : "border-border",
+                ].join(" ")}
+                required
+                autoComplete="new-password"
+              />
+              <div
+                className={[
+                  "overflow-hidden transition-[max-height,opacity] duration-200",
+                  showConfirmMismatch ? "max-h-6 opacity-100" : "max-h-0 opacity-0",
+                ].join(" ")}
+              >
+                <div className="mt-1 text-xs text-destructive">{confirmErrorText}</div>
+              </div>
+            </div>
           </div>
 
           <button
