@@ -7,12 +7,32 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
+
+var defaultCorsOrigins = new[]
+{
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "https://bella-porto-foundation.vercel.app",
+    "https://www.bella-porto-foundation.vercel.app",
+};
+var configuredCorsOrigins =
+    builder.Configuration["Cors:AllowedOrigins"]
+    ?? Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")
+    ?? string.Empty;
+var allowedCorsOrigins = defaultCorsOrigins
+    .Concat(
+        configuredCorsOrigins
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    )
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("frontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:8080", "http://127.0.0.1:8080")
+            .WithOrigins(allowedCorsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
