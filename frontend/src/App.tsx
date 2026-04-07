@@ -16,6 +16,7 @@ import CaseloadInventory from "./pages/CaseloadInventory";
 import HomeVisitationsPage from "./pages/HomeVisitationsPage";
 import ProcessRecordingsPage from "./pages/ProcessRecordingsPage";
 import SocialMediaDashboard from "./pages/SocialMediaDashboard";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import DonorDashboard from "./pages/DonorDashboard";
@@ -96,6 +97,22 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredRole="admin">
                     <SocialMediaDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/reports"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <SocialMediaDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/settings"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <SettingsPage />
                   </ProtectedRoute>
                 }
               />
