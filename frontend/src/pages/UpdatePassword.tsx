@@ -11,6 +11,9 @@ const UpdatePassword = () => {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [canReset, setCanReset] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confirmTouched, setConfirmTouched] = useState(false);
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -22,10 +25,17 @@ const UpdatePassword = () => {
     () => hasMinLength && hasUppercase && hasSpecial,
     [hasMinLength, hasUppercase, hasSpecial],
   );
+  const confirmHasText = useMemo(() => confirmPassword.trim().length > 0, [confirmPassword]);
   const passwordsMatch = useMemo(
     () => newPassword.length > 0 && confirmPassword.length > 0 && newPassword === confirmPassword,
     [newPassword, confirmPassword],
   );
+  const showPasswordError =
+    (passwordTouched || submitAttempted) && newPassword.trim().length > 0 && !passwordMeetsRequirements;
+  const showConfirmMismatch = (confirmTouched || submitAttempted) && confirmHasText && !passwordsMatch;
+  const passwordErrorText =
+    "Password must be at least 8 characters and include an uppercase letter and a special character.";
+  const confirmErrorText = "Passwords do not match";
 
   useEffect(() => {
     let mounted = true;
@@ -61,15 +71,14 @@ const UpdatePassword = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitAttempted(true);
     setError("");
 
     if (!newPassword.trim()) return setError("New password is required.");
     if (!passwordMeetsRequirements) {
-      return setError(
-        "Password must be at least 8 characters and include 1 uppercase letter and 1 special character (!@#$%^&*).",
-      );
+      return setError(passwordErrorText);
     }
-    if (newPassword !== confirmPassword) return setError("Passwords do not match");
+    if (confirmHasText && newPassword !== confirmPassword) return setError(confirmErrorText);
     if (!supabase) {
       setError("Password update is unavailable: Supabase is not configured.");
       return;
@@ -132,53 +141,61 @@ const UpdatePassword = () => {
             </div>
           )}
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-1 block">New password</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="New password"
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-              required
-              autoComplete="new-password"
-            />
-          </div>
+          <div className="space-y-2">
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">New password</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                onBlur={() => setPasswordTouched(true)}
+                placeholder="New password"
+                className={[
+                  "w-full px-4 py-3 rounded-xl bg-muted border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow",
+                  showPasswordError ? "border-destructive" : "border-border",
+                ].join(" ")}
+                required
+                autoComplete="new-password"
+              />
+              <div
+                className={[
+                  "overflow-hidden transition-[max-height,opacity] duration-200",
+                  showPasswordError ? "max-h-10 opacity-100" : "max-h-0 opacity-0",
+                ].join(" ")}
+              >
+                <div className="mt-1 text-xs text-destructive">{passwordErrorText}</div>
+              </div>
+            </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-1 block">Confirm password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm password"
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-              required
-              autoComplete="new-password"
-            />
-          </div>
-
-          <div className="rounded-xl border border-border bg-muted/50 p-4">
-            <div className="text-sm font-medium text-foreground mb-2">Password requirements</div>
-            <ul className="space-y-1 text-sm">
-              <li className={hasMinLength ? "text-emerald-600" : "text-muted-foreground"}>
-                At least 8 characters
-              </li>
-              <li className={hasUppercase ? "text-emerald-600" : "text-muted-foreground"}>
-                Contains an uppercase letter (A–Z)
-              </li>
-              <li className={hasSpecial ? "text-emerald-600" : "text-muted-foreground"}>
-                Contains a special character (!@#$%^&*)
-              </li>
-              <li className={passwordsMatch ? "text-emerald-600" : "text-muted-foreground"}>
-                Passwords match
-              </li>
-            </ul>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">Confirm password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={() => setConfirmTouched(true)}
+                placeholder="Confirm password"
+                className={[
+                  "w-full px-4 py-3 rounded-xl bg-muted border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow",
+                  showConfirmMismatch ? "border-destructive" : "border-border",
+                ].join(" ")}
+                required
+                autoComplete="new-password"
+              />
+              <div
+                className={[
+                  "overflow-hidden transition-[max-height,opacity] duration-200",
+                  showConfirmMismatch ? "max-h-6 opacity-100" : "max-h-0 opacity-0",
+                ].join(" ")}
+              >
+                <div className="mt-1 text-xs text-destructive">{confirmErrorText}</div>
+              </div>
+            </div>
           </div>
 
           <button
             type="submit"
-            disabled={isSubmitting || !canReset || !passwordMeetsRequirements || !passwordsMatch}
+            disabled={isSubmitting || !canReset}
             className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none"
           >
             {isSubmitting ? "Updating..." : "Update password"}

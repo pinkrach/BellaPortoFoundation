@@ -13,6 +13,9 @@ const SignUpPage = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confirmTouched, setConfirmTouched] = useState(false);
 
   const { setAuthFromProfile } = useAuth();
   const navigate = useNavigate();
@@ -25,13 +28,17 @@ const SignUpPage = () => {
     () => hasMinLength && hasUppercase && hasSpecial,
     [hasMinLength, hasUppercase, hasSpecial],
   );
-  const passwordsMatch = useMemo(
-    () => password.length > 0 && confirmPassword.length > 0 && password === confirmPassword,
-    [password, confirmPassword],
-  );
+  const confirmHasText = useMemo(() => confirmPassword.trim().length > 0, [confirmPassword]);
+  const passwordsMatch = useMemo(() => password === confirmPassword, [password, confirmPassword]);
+
+  const showPasswordError = (passwordTouched || submitAttempted) && password.trim().length > 0 && !passwordMeetsRequirements;
+  const showConfirmMismatch = (confirmTouched || submitAttempted) && confirmHasText && !passwordsMatch;
+  const passwordErrorText = "Password must be at least 8 characters and include an uppercase letter and a special character.";
+  const confirmErrorText = "Passwords do not match";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitAttempted(true);
     setError("");
 
     const trimmedEmail = email.trim();
@@ -40,11 +47,9 @@ const SignUpPage = () => {
     if (!emailIsValid) return setError("Please enter a valid email address.");
     if (!password) return setError("Password is required.");
     if (!passwordMeetsRequirements) {
-      return setError(
-        "Password must be at least 8 characters and include 1 uppercase letter and 1 special character (!@#$%^&*).",
-      );
+      return setError(passwordErrorText);
     }
-    if (password !== confirmPassword) return setError("Passwords do not match");
+    if (confirmHasText && password !== confirmPassword) return setError(confirmErrorText);
 
     setIsSubmitting(true);
     try {
@@ -170,53 +175,61 @@ const SignUpPage = () => {
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-1 block">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-              required
-              autoComplete="new-password"
-            />
-          </div>
+          <div className="space-y-2">
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => setPasswordTouched(true)}
+                placeholder="Password"
+                className={[
+                  "w-full px-4 py-3 rounded-xl bg-muted border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow",
+                  showPasswordError ? "border-destructive" : "border-border",
+                ].join(" ")}
+                required
+                autoComplete="new-password"
+              />
+              <div
+                className={[
+                  "overflow-hidden transition-[max-height,opacity] duration-200",
+                  showPasswordError ? "max-h-10 opacity-100" : "max-h-0 opacity-0",
+                ].join(" ")}
+              >
+                <div className="mt-1 text-xs text-destructive">{passwordErrorText}</div>
+              </div>
+            </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-1 block">Confirm password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm password"
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-              required
-              autoComplete="new-password"
-            />
-          </div>
-
-          <div className="rounded-xl border border-border bg-muted/50 p-4">
-            <div className="text-sm font-medium text-foreground mb-2">Password requirements</div>
-            <ul className="space-y-1 text-sm">
-              <li className={hasMinLength ? "text-emerald-600" : "text-muted-foreground"}>
-                At least 8 characters
-              </li>
-              <li className={hasUppercase ? "text-emerald-600" : "text-muted-foreground"}>
-                Contains an uppercase letter (A–Z)
-              </li>
-              <li className={hasSpecial ? "text-emerald-600" : "text-muted-foreground"}>
-                Contains a special character (!@#$%^&*)
-              </li>
-              <li className={passwordsMatch ? "text-emerald-600" : "text-muted-foreground"}>
-                Passwords match
-              </li>
-            </ul>
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1 block">Confirm password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={() => setConfirmTouched(true)}
+                placeholder="Confirm password"
+                className={[
+                  "w-full px-4 py-3 rounded-xl bg-muted border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow",
+                  showConfirmMismatch ? "border-destructive" : "border-border",
+                ].join(" ")}
+                required
+                autoComplete="new-password"
+              />
+              <div
+                className={[
+                  "overflow-hidden transition-[max-height,opacity] duration-200",
+                  showConfirmMismatch ? "max-h-6 opacity-100" : "max-h-0 opacity-0",
+                ].join(" ")}
+              >
+                <div className="mt-1 text-xs text-destructive">{confirmErrorText}</div>
+              </div>
+            </div>
           </div>
 
           <button
             type="submit"
-            disabled={isSubmitting || !passwordMeetsRequirements || !passwordsMatch}
+            disabled={isSubmitting}
             className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none"
           >
             {isSubmitting ? "Creating account..." : "Sign Up"}
