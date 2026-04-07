@@ -12,7 +12,7 @@ import Login from "./pages/Login";
 import SignUpPage from "./pages/SignUpPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import CaseloadInventory from "./pages/CaseloadInventory";
-import Reports from "./pages/Reports";
+import SocialMediaDashboard from "./pages/SocialMediaDashboard";
 import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import DonorDashboard from "./pages/DonorDashboard";
@@ -59,10 +59,10 @@ const App = () => (
               }
             />
             <Route
-              path="/admin/reports"
+              path="/admin/social"
               element={
                 <ProtectedRoute requiredRole="admin">
-                  <Reports />
+                  <SocialMediaDashboard />
                 </ProtectedRoute>
               }
             />

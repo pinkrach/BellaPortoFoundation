@@ -17,7 +17,15 @@ const sidebarItems = [
   { label: "Settings", to: "/admin/settings", icon: Settings },
 ];
 
-export const AdminLayout = ({ children }: { children: ReactNode }) => {
+export const AdminLayout = ({
+  children,
+  title = "Admin Dashboard",
+  subtitle,
+}: {
+  children: ReactNode;
+  title?: string;
+  subtitle?: string;
+}) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { logout } = useAuth();
@@ -85,7 +93,10 @@ export const AdminLayout = ({ children }: { children: ReactNode }) => {
             <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
               <Menu className="h-6 w-6 text-foreground" />
             </button>
-            <h1 className="font-heading text-lg font-semibold text-foreground">Admin Dashboard</h1>
+            <div>
+              <h1 className="font-heading text-lg font-semibold text-foreground">{title}</h1>
+              {subtitle ? <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p> : null}
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <button className="relative text-muted-foreground hover:text-foreground transition-colors">
