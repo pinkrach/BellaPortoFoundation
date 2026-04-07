@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Impact from "./pages/Impact";
 import About from "./pages/About";
 import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import AdminDashboard from "./pages/AdminDashboard";
 import CaseloadInventory from "./pages/CaseloadInventory";
 import NotFound from "./pages/NotFound";
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/about" element={<About />} />
             <Route path="/impact" element={<Impact />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/caseload" element={<ProtectedRoute><CaseloadInventory /></ProtectedRoute>} />

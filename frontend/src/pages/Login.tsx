@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Anchor, Leaf } from "lucide-react";
 import { motion } from "framer-motion";
@@ -61,12 +61,11 @@ const Login = () => {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md bg-card rounded-2xl shadow-warm-lg p-8"
       >
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4">
+        <div className="flex flex-col items-center mt-2 mb-10">
+          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-6">
             <Anchor className="h-7 w-7 text-accent" />
           </div>
           <h1 className="font-heading text-2xl font-bold text-foreground">Welcome back</h1>
-          <p className="text-muted-foreground text-sm mt-1">Sign in to your admin dashboard</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -79,7 +78,7 @@ const Login = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@bellaporto.org"
+              placeholder="Email address"
               className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
               required
               autoComplete="email"
@@ -91,7 +90,7 @@ const Login = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="Password"
               className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
               required
               autoComplete="current-password"
@@ -104,8 +103,16 @@ const Login = () => {
           >
             {isSubmitting ? "Signing in..." : "Sign In"}
           </button>
-          <div className="text-center">
-            <a href="#" className="text-sm text-secondary hover:underline">Forgot password?</a>
+          <div className="pt-1 space-y-2 text-center">
+            <a href="#" className="text-sm text-secondary hover:underline">
+              Forgot password?
+            </a>
+            <div className="text-sm text-muted-foreground">
+              Don&apos;t have an account?{" "}
+              <Link to="/signup" className="text-secondary hover:underline">
+                Sign Up
+              </Link>
+            </div>
           </div>
         </form>
       </motion.div>
