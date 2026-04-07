@@ -11,6 +11,7 @@ import About from "./pages/About";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import CaseloadInventory from "./pages/CaseloadInventory";
+import SocialMediaDashboard from "./pages/SocialMediaDashboard";
 import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/caseload" element={<ProtectedRoute><CaseloadInventory /></ProtectedRoute>} />
+            <Route path="/admin/social" element={<ProtectedRoute><SocialMediaDashboard /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

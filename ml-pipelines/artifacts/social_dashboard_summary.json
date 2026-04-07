@@ -1,0 +1,307 @@
+{
+  "generatedAt": "2026-04-07T19:20:00.562507+00:00",
+  "dataset": {
+    "rowCount": 812,
+    "dateMin": "2023-01-05T18:52:00+00:00",
+    "dateMax": "2026-02-26T21:56:00+00:00",
+    "referralRate": 0.6429,
+    "avgDonationValuePhp": 39772.09,
+    "postsAboveThreshold": 520
+  },
+  "model": {
+    "isTrained": true,
+    "threshold": 0.55,
+    "precision": 0.8586,
+    "recall": 0.8173,
+    "f1": 0.8374,
+    "rocAuc": 0.8955,
+    "averagePrecision": 0.9473,
+    "artifacts": {
+      "classifierPath": "/Users/jimmychurchill/Documents/Intex II/Website/BellaPortoFoundation/ml-pipelines/artifacts/social_referral_live_random_forest.joblib",
+      "regressorPath": "/Users/jimmychurchill/Documents/Intex II/Website/BellaPortoFoundation/ml-pipelines/artifacts/social_donation_live_random_forest.joblib"
+    }
+  },
+  "kpis": [
+    {
+      "label": "Posts analyzed",
+      "value": 812,
+      "detail": "Current social media dataset"
+    },
+    {
+      "label": "Referral rate",
+      "value": 64.3,
+      "detail": "Posts that generated at least one referral",
+      "unit": "%"
+    },
+    {
+      "label": "Model precision",
+      "value": 85.9,
+      "detail": "At the 55% decision threshold",
+      "unit": "%"
+    },
+    {
+      "label": "Avg donation value",
+      "value": 39772.09,
+      "detail": "Average estimated donation value per post",
+      "unit": "PHP"
+    }
+  ],
+  "postTypeReferralChart": [
+    {
+      "postType": "ImpactStory",
+      "posts": 203,
+      "referralRate": 0.9458
+    },
+    {
+      "postType": "Campaign",
+      "posts": 156,
+      "referralRate": 0.8205
+    },
+    {
+      "postType": "FundraisingAppeal",
+      "posts": 90,
+      "referralRate": 0.8111
+    },
+    {
+      "postType": "ThankYou",
+      "posts": 118,
+      "referralRate": 0.3814
+    },
+    {
+      "postType": "EducationalContent",
+      "posts": 114,
+      "referralRate": 0.3509
+    },
+    {
+      "postType": "EventPromotion",
+      "posts": 131,
+      "referralRate": 0.3359
+    }
+  ],
+  "postTypeValueChart": [
+    {
+      "postType": "ImpactStory",
+      "posts": 203,
+      "avgDonationValuePhp": 116160.67
+    },
+    {
+      "postType": "FundraisingAppeal",
+      "posts": 90,
+      "avgDonationValuePhp": 36155.81
+    },
+    {
+      "postType": "Campaign",
+      "posts": 156,
+      "avgDonationValuePhp": 28141.3
+    },
+    {
+      "postType": "EducationalContent",
+      "posts": 114,
+      "avgDonationValuePhp": 3183.23
+    },
+    {
+      "postType": "ThankYou",
+      "posts": 118,
+      "avgDonationValuePhp": 2927.61
+    },
+    {
+      "postType": "EventPromotion",
+      "posts": 131,
+      "avgDonationValuePhp": 2762.69
+    }
+  ],
+  "liftMetrics": [
+    {
+      "factor": "Resident story",
+      "withLabel": "Resident story",
+      "withoutLabel": "No resident story",
+      "withRate": 0.9697,
+      "withoutRate": 0.5595,
+      "liftPoints": 41.0
+    },
+    {
+      "factor": "CTA",
+      "withLabel": "CTA",
+      "withoutLabel": "No CTA",
+      "withRate": 0.6957,
+      "withoutRate": 0.5611,
+      "liftPoints": 13.5
+    }
+  ],
+  "hourPerformance": [
+    {
+      "label": "13.0",
+      "posts": 37,
+      "referralRate": 0.8919
+    },
+    {
+      "label": "19.0",
+      "posts": 68,
+      "referralRate": 0.8529
+    },
+    {
+      "label": "10.0",
+      "posts": 47,
+      "referralRate": 0.8298
+    },
+    {
+      "label": "20.0",
+      "posts": 46,
+      "referralRate": 0.7826
+    },
+    {
+      "label": "18.0",
+      "posts": 40,
+      "referralRate": 0.75
+    },
+    {
+      "label": "9.0",
+      "posts": 50,
+      "referralRate": 0.74
+    },
+    {
+      "label": "8.0",
+      "posts": 46,
+      "referralRate": 0.7391
+    },
+    {
+      "label": "21.0",
+      "posts": 40,
+      "referralRate": 0.725
+    }
+  ],
+  "tonePerformance": [
+    {
+      "label": "Celebratory",
+      "posts": 113,
+      "referralRate": 0.7434
+    },
+    {
+      "label": "Emotional",
+      "posts": 138,
+      "referralRate": 0.7246
+    },
+    {
+      "label": "Urgent",
+      "posts": 120,
+      "referralRate": 0.6583
+    },
+    {
+      "label": "Hopeful",
+      "posts": 149,
+      "referralRate": 0.6443
+    },
+    {
+      "label": "Grateful",
+      "posts": 130,
+      "referralRate": 0.6385
+    }
+  ],
+  "timingSignals": [
+    {
+      "label": "Best referral hour",
+      "value": "13.0",
+      "detail": "Highest current referral rate by posting hour"
+    },
+    {
+      "label": "Best donation-value hour",
+      "value": "10.0",
+      "detail": "Highest current average donation value by posting hour"
+    },
+    {
+      "label": "Best referral tone",
+      "value": "Celebratory",
+      "detail": "Highest current referral rate by tone"
+    },
+    {
+      "label": "Best donation-value tone",
+      "value": "Urgent",
+      "detail": "Highest current average donation value by tone"
+    }
+  ],
+  "summary": {
+    "headline": "Current data suggests starting with ImpactStory posts when the goal is more donation referrals.",
+    "bestOverallFormat": "ImpactStory",
+    "bestValueFormat": "ImpactStory"
+  },
+  "recommendations": [
+    "Prioritize ImpactStory posts first because they currently lead the dataset for referral performance.",
+    "Use ImpactStory when the team wants stronger average donation value per post.",
+    "Adding a resident story currently improves referral rate by about 41.0 percentage points.",
+    "Adding a CTA currently improves referral rate by about 13.5 percentage points."
+  ],
+  "scoredPosts": [
+    {
+      "label": "ImpactStory on Instagram (2023-09-03)",
+      "platform": "Instagram",
+      "postType": "ImpactStory",
+      "createdAt": "2023-09-03T17:03:00+00:00",
+      "predictedReferralProbability": 0.9971,
+      "actualDonationValuePhp": 234063.74,
+      "predictedDonationValuePhp": 302440.05
+    },
+    {
+      "label": "ImpactStory on Instagram (2025-06-09)",
+      "platform": "Instagram",
+      "postType": "ImpactStory",
+      "createdAt": "2025-06-09T21:59:00+00:00",
+      "predictedReferralProbability": 0.9966,
+      "actualDonationValuePhp": 214655.68,
+      "predictedDonationValuePhp": 168905.96
+    },
+    {
+      "label": "Summer of Safety (Twitter, 2024-04-07)",
+      "platform": "Twitter",
+      "postType": "ImpactStory",
+      "createdAt": "2024-04-07T13:23:00+00:00",
+      "predictedReferralProbability": 0.9962,
+      "actualDonationValuePhp": 48126.35,
+      "predictedDonationValuePhp": 57764.04
+    },
+    {
+      "label": "ImpactStory on Facebook (2024-08-25)",
+      "platform": "Facebook",
+      "postType": "ImpactStory",
+      "createdAt": "2024-08-25T13:06:00+00:00",
+      "predictedReferralProbability": 0.996,
+      "actualDonationValuePhp": 16847.69,
+      "predictedDonationValuePhp": 33905.05
+    },
+    {
+      "label": "GivingTuesday (Instagram, 2025-11-08)",
+      "platform": "Instagram",
+      "postType": "ImpactStory",
+      "createdAt": "2025-11-08T09:09:00+00:00",
+      "predictedReferralProbability": 0.9958,
+      "actualDonationValuePhp": 99467.32,
+      "predictedDonationValuePhp": 227367.5
+    },
+    {
+      "label": "ImpactStory on Twitter (2025-06-22)",
+      "platform": "Twitter",
+      "postType": "ImpactStory",
+      "createdAt": "2025-06-22T08:38:00+00:00",
+      "predictedReferralProbability": 0.9946,
+      "actualDonationValuePhp": 216950.79,
+      "predictedDonationValuePhp": 137846.23
+    },
+    {
+      "label": "ImpactStory on Instagram (2023-02-27)",
+      "platform": "Instagram",
+      "postType": "ImpactStory",
+      "createdAt": "2023-02-27T11:15:00+00:00",
+      "predictedReferralProbability": 0.994,
+      "actualDonationValuePhp": 210848.57,
+      "predictedDonationValuePhp": 313295.01
+    },
+    {
+      "label": "ImpactStory on Instagram (2024-02-29)",
+      "platform": "Instagram",
+      "postType": "ImpactStory",
+      "createdAt": "2024-02-29T12:22:00+00:00",
+      "predictedReferralProbability": 0.9925,
+      "actualDonationValuePhp": 147191.88,
+      "predictedDonationValuePhp": 89730.61
+    }
+  ]
+}
