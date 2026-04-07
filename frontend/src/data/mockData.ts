@@ -89,6 +89,6 @@ export const impactStories = [
 
 export const testimonials = [
   { quote: "Seeing the transformation in these girls' lives is the most rewarding thing I've ever been a part of.", author: "Monthly Donor" },
-  { quote: "Bella Porto gives these girls not just shelter, but a real chance at life. Every peso counts.", author: "Community Partner" },
+  { quote: "Bella Bay gives these girls not just shelter, but a real chance at life. Every peso counts.", author: "Community Partner" },
   { quote: "The transparency and warmth of this organization makes me confident my donations are making a real difference.", author: "Annual Supporter" },
 ];

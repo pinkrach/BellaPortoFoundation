@@ -137,7 +137,7 @@ const About = () => (
             </h2>
             <div className="mt-6 space-y-5 text-lg leading-relaxed text-muted-foreground">
               <p>
-                Bella Porto means beautiful harbor. That image guides our work: a place of refuge after chaos, a place
+                Bella Bay means beautiful harbor. That image guides our work: a place of refuge after chaos, a place
                 where frightened girls are welcomed with gentleness rather than urgency.
               </p>
               <p>
@@ -221,7 +221,7 @@ const About = () => (
               Restoration is a journey, not a single intervention.
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-              The heart of Bella Porto is not just rescue. It is the careful, ongoing work of helping a girl feel safe
+              The heart of Bella Bay is not just rescue. It is the careful, ongoing work of helping a girl feel safe
               enough to heal, belong, and imagine a future again.
             </p>
           </motion.div>

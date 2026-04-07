@@ -1,6 +1,6 @@
 **Last Updated: April 6, 2026**
 
-Bella Porto (“we,” “our,” or “us”) is committed to protecting the privacy and security of all individuals whose information is processed through our platform, including donors, administrators, employees, residents, and other authorized users.
+Bella Bay (“we,” “our,” or “us”) is committed to protecting the privacy and security of all individuals whose information is processed through our platform, including donors, administrators, employees, residents, and other authorized users.
 
 This Privacy Notice explains how we collect, use, store, and protect personal information when you access our website, donor dashboard, administrative portal, and case inventory system.
 
@@ -8,7 +8,7 @@ This Privacy Notice explains how we collect, use, store, and protect personal in
 
 ## 1. Who We Are
 
-Bella Porto is a nonprofit support platform designed to help administrators manage resident cases and provide donors with transparent insight into how their contributions support children and families in need.
+Bella Bay is a nonprofit support platform designed to help administrators manage resident cases and provide donors with transparent insight into how their contributions support children and families in need.
 
 Our platform includes:
 
@@ -188,7 +188,7 @@ Requests may be submitted to:
 
 ## 12. Protection of Children’s Data
 
-Because the platform contains information relating to minors and vulnerable individuals, Bella Porto applies heightened security and access controls.
+Because the platform contains information relating to minors and vulnerable individuals, Bella Bay applies heightened security and access controls.
 
 Only authorized administrators, employees, and approved case personnel may access resident records.
 

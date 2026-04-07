@@ -51,7 +51,7 @@ export const AdminLayout = ({
       >
         <div className="flex items-center gap-2 px-6 py-5 border-b border-sidebar-border">
           <Anchor className="h-6 w-6 text-accent" />
-          <span className="font-heading text-lg font-bold">Bella Porto</span>
+          <span className="font-heading text-lg font-bold">Bella Bay</span>
         </div>
 
         <nav className="flex-1 py-4 space-y-1 px-3 overflow-y-auto">
