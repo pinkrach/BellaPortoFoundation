@@ -282,12 +282,6 @@ const About = () => (
               >
                 See Our Impact <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link
-                to="/privacy"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-primary-foreground/30 px-6 py-3 font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/10"
-              >
-                Read Privacy Policy
-              </Link>
             </div>
           </div>
         </motion.div>
