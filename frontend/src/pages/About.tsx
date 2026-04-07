@@ -77,13 +77,13 @@ const About = () => (
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65 }} className="max-w-4xl">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary-foreground/25 bg-primary-foreground/10 px-4 py-2 text-sm text-primary-foreground/90">
             <Sparkles className="h-4 w-4" />
-            About Bella Porto Foundation
+            About Bella Bay Foundation
           </div>
           <h1 className="max-w-3xl font-heading text-4xl font-bold leading-tight text-primary-foreground md:text-6xl">
             We believe healing begins when a girl is finally met with safety, tenderness, and room to dream again.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-primary-foreground/82 md:text-xl">
-            Bella Porto Foundation exists to create a beautiful harbor for girls recovering from abuse and trafficking,
+            Bella Bay Foundation exists to create a beautiful harbor for girls recovering from abuse and trafficking,
             pairing immediate protection with the long, careful work of restoration.
           </p>
           <div className="mt-8 flex flex-wrap gap-4">
@@ -137,7 +137,7 @@ const About = () => (
             </h2>
             <div className="mt-6 space-y-5 text-lg leading-relaxed text-muted-foreground">
               <p>
-                Bella Porto means beautiful harbor. That image guides our work: a place of refuge after chaos, a place
+                Bella Bay means beautiful harbor. That image guides our work: a place of refuge after chaos, a place
                 where frightened girls are welcomed with gentleness rather than urgency.
               </p>
               <p>
@@ -221,7 +221,7 @@ const About = () => (
               Restoration is a journey, not a single intervention.
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-              The heart of Bella Porto is not just rescue. It is the careful, ongoing work of helping a girl feel safe
+              The heart of Bella Bay is not just rescue. It is the careful, ongoing work of helping a girl feel safe
               enough to heal, belong, and imagine a future again.
             </p>
           </motion.div>

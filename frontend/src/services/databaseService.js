@@ -591,6 +591,136 @@ export async function getResidentById(residentId) {
   }
 }
 
+/** @param {number | string} residentId */
+export async function getEducationRecordsByResidentId(residentId) {
+  try {
+    const sb = requireSupabase('getEducationRecordsByResidentId')
+    const { data, error } = await sb
+      .from('education_records')
+      .select('*')
+      .eq('resident_id', residentId)
+      .order('record_date', { ascending: false, nullsFirst: false })
+    throwIfSupabaseError(error)
+    return data ?? []
+  } catch (e) {
+    wrapUnexpected(e, 'getEducationRecordsByResidentId')
+  }
+}
+
+/** @param {number | string} residentId */
+export async function getHealthWellbeingRecordsByResidentId(residentId) {
+  try {
+    const sb = requireSupabase('getHealthWellbeingRecordsByResidentId')
+    const { data, error } = await sb
+      .from('health_wellbeing_records')
+      .select('*')
+      .eq('resident_id', residentId)
+      .order('record_date', { ascending: false, nullsFirst: false })
+    throwIfSupabaseError(error)
+    return data ?? []
+  } catch (e) {
+    wrapUnexpected(e, 'getHealthWellbeingRecordsByResidentId')
+  }
+}
+
+/** @param {number | string} residentId */
+export async function getHomeVisitationsByResidentId(residentId) {
+  try {
+    const sb = requireSupabase('getHomeVisitationsByResidentId')
+    const { data, error } = await sb
+      .from('home_visitations')
+      .select('*')
+      .eq('resident_id', residentId)
+      .order('visit_date', { ascending: false, nullsFirst: false })
+    throwIfSupabaseError(error)
+    return data ?? []
+  } catch (e) {
+    wrapUnexpected(e, 'getHomeVisitationsByResidentId')
+  }
+}
+
+/** @param {number | string} residentId */
+export async function getIncidentReportsByResidentId(residentId) {
+  try {
+    const sb = requireSupabase('getIncidentReportsByResidentId')
+    const { data, error } = await sb
+      .from('incident_reports')
+      .select('*')
+      .eq('resident_id', residentId)
+      .order('incident_date', { ascending: false, nullsFirst: false })
+    throwIfSupabaseError(error)
+    return data ?? []
+  } catch (e) {
+    wrapUnexpected(e, 'getIncidentReportsByResidentId')
+  }
+}
+
+/** @param {number | string} residentId */
+export async function getInterventionPlansByResidentId(residentId) {
+  try {
+    const sb = requireSupabase('getInterventionPlansByResidentId')
+    const { data, error } = await sb
+      .from('intervention_plans')
+      .select('*')
+      .eq('resident_id', residentId)
+      .order('created_at', { ascending: false, nullsFirst: false })
+    throwIfSupabaseError(error)
+    return data ?? []
+  } catch (e) {
+    wrapUnexpected(e, 'getInterventionPlansByResidentId')
+  }
+}
+
+/** @param {number | string} residentId */
+export async function getProcessRecordingsByResidentId(residentId) {
+  try {
+    const sb = requireSupabase('getProcessRecordingsByResidentId')
+    const { data, error } = await sb
+      .from('process_recordings')
+      .select('*')
+      .eq('resident_id', residentId)
+      .order('recording_id', { ascending: false, nullsFirst: false })
+    throwIfSupabaseError(error)
+    return data ?? []
+  } catch (e) {
+    wrapUnexpected(e, 'getProcessRecordingsByResidentId')
+  }
+}
+
+/** @param {number | string} residentId */
+export async function getResidentProfileBundle(residentId) {
+  try {
+    const resident = await getResidentById(residentId)
+    const [
+      educationRecords,
+      healthRecords,
+      homeVisitations,
+      incidentReports,
+      interventionPlans,
+      processRecordings,
+    ] = await Promise.all([
+      getEducationRecordsByResidentId(residentId),
+      getHealthWellbeingRecordsByResidentId(residentId),
+      getHomeVisitationsByResidentId(residentId),
+      getIncidentReportsByResidentId(residentId),
+      getInterventionPlansByResidentId(residentId),
+      getProcessRecordingsByResidentId(residentId),
+    ])
+
+    return {
+      resident,
+      educationRecords,
+      healthRecords,
+      homeVisitations,
+      incidentReports,
+      interventionPlans,
+      processRecordings,
+    }
+  } catch (e) {
+    wrapUnexpected(e, 'getResidentProfileBundle')
+  }
+}
+
 // --- safehouse_monthly_metrics (see also getMonthlyMetrics)
 
 export async function getSafehouseMonthlyMetricsAll() {
@@ -787,6 +917,13 @@ const databaseService = {
   getPublicImpactSnapshotById,
   getResidentsRaw,
   getResidentById,
+  getEducationRecordsByResidentId,
+  getHealthWellbeingRecordsByResidentId,
+  getHomeVisitationsByResidentId,
+  getIncidentReportsByResidentId,
+  getInterventionPlansByResidentId,
+  getProcessRecordingsByResidentId,
+  getResidentProfileBundle,
   getSafehouseMonthlyMetricsAll,
   getSafehouseMonthlyMetricById,
   getSafehouses,

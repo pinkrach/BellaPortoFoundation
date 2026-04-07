@@ -96,7 +96,7 @@ const Index = () => (
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={0}>
             <h2 className="font-heading text-3xl md:text-4xl font-bold text-foreground">Our Mission</h2>
             <p className="mt-4 text-muted-foreground text-lg leading-relaxed">
-              Bella Porto Foundation provides a safe harbor for girls in the Philippines who have survived abuse and trafficking.
+              Bella Bay Foundation provides a safe harbor for girls in the Philippines who have survived abuse and trafficking.
               Through our network of safehouses, we offer shelter, trauma-informed care, education, and a pathway to healing.
               Every girl deserves a chance to dream again.
             </p>
