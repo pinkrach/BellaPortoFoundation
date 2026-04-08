@@ -21,7 +21,7 @@ const About = () => (
           {/* Text column */}
           <div className="space-y-5 text-[hsl(200_14%_38%)] md:space-y-6">
             <p className="text-lg leading-relaxed">
-              Bella Bay Foundation provides safety, dignity, and long‑term support for girls recovering from trafficking and abuse.
+              Bella Bay Foundation provides safety, healing, and long‑term support for girls recovering from trafficking and abuse.
             </p>
             <p className="text-lg leading-relaxed">
               Inspired by Portofino, Italy, our name reflects the belief that healing—like the layered homes along the coast—is built gradually, through care, stability, and community.
@@ -41,7 +41,7 @@ const About = () => (
                 Support care that heals
               </Link>
               <Link
-                to="/impact"
+                to="/login"
                 className="inline-flex items-center justify-center rounded-full bg-[#6E8F6B] px-7 py-2.5 text-sm font-semibold text-[hsl(40_44%_99%)] shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6E8F6B]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 Become a donor

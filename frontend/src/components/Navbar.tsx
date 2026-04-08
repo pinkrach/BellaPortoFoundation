@@ -29,7 +29,11 @@ export const Navbar = () => {
   const profileMenuItems = getRoleMenuItems(role);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const isHome = location.pathname === "/";
-  const isCreamNavRoute = location.pathname === "/about" || location.pathname === "/impact" || location.pathname === "/login";
+  const isCreamNavRoute =
+    location.pathname === "/about" ||
+    location.pathname === "/impact" ||
+    location.pathname === "/privacy" ||
+    location.pathname === "/login";
   const isCreamNav = !isHome && isCreamNavRoute;
 
   const brandName = isHome ? "Bella Bay Foundation" : isCreamNav ? "Bella Bay Foundation" : "Bella Porto Foundation";

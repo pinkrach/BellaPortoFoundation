@@ -15,7 +15,7 @@ export const WaveDivider = ({ className = "" }: { className?: string }) => (
     aria-hidden="true"
   >
     <svg
-      className="animate-wave-slow block h-14 w-full min-w-full md:h-[5.25rem]"
+      className="block h-14 w-full min-w-full md:h-[5.25rem]"
       aria-hidden="true"
       focusable="false"
       viewBox="0 0 1440 120"
