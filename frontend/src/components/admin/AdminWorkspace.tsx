@@ -1,4 +1,4 @@
-import { startTransition, type ReactNode, useDeferredValue, useEffect, useId, useMemo, useState } from "react";
+import { startTransition, type ReactNode, useCallback, useDeferredValue, useEffect, useId, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -18,7 +18,6 @@ import {
   Home,
   LayoutDashboard,
   Megaphone,
-  MoreHorizontal,
   Pencil,
   Plus,
   Search,
@@ -56,12 +55,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
@@ -351,12 +344,31 @@ type ProcessRecordFormState = {
   emotional_state_end: string;
   session_narrative: string;
   interventions_applied: string;
+  interventions_none: string;
   follow_up_actions: string;
+  follow_up_none: string;
   progress_noted: string;
   concerns_flagged: string;
   referral_made: string;
   notes_restricted: string;
 };
+
+function validateProcessRecordFormState(state: ProcessRecordFormState, isNewRecord: boolean): string | null {
+  if (!state.resident_id.trim()) return "Please select a resident.";
+  if (!state.session_date.trim()) return "Session date is required.";
+  if (!state.social_worker.trim()) return "Social worker is required.";
+  if (!state.session_type.trim()) return "Session type is required (Individual or Group).";
+  if (isNewRecord && state.session_type !== "Individual" && state.session_type !== "Group") {
+    return "For a new record, choose session type Individual or Group.";
+  }
+  if (!state.emotional_state_observed.trim()) return "Emotional state observed is required.";
+  if (!state.session_narrative.trim()) return "A narrative summary of the session is required.";
+  const interventionsOk = state.interventions_none === "true" || state.interventions_applied.trim().length > 0;
+  if (!interventionsOk) return "Enter interventions applied or check None.";
+  const followUpOk = state.follow_up_none === "true" || state.follow_up_actions.trim().length > 0;
+  if (!followUpOk) return "Enter follow-up actions or check None.";
+  return null;
+}
 
 type VisitationFormState = {
   resident_id: string;
@@ -616,6 +628,10 @@ function compareDatesDescending(a: unknown, b: unknown) {
   return bTime - aTime;
 }
 
+function startOfLocalDayMs(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
 function sortUpcomingThenRecent<T extends Record<string, unknown>>(rows: T[], dateKey: string) {
   const now = new Date();
   const future = rows
@@ -720,14 +736,23 @@ function SectionCard({
   return (
     <Card className="rounded-2xl border-border/70 bg-card shadow-warm">
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-        <div>
+        <div className="min-w-0 flex-1">
           <h2 className="font-heading text-xl font-semibold leading-none tracking-tight text-foreground">{title}</h2>
           {description ? <CardDescription className="mt-1">{description}</CardDescription> : null}
         </div>
-        {action}
+        {action ? <div className="flex shrink-0 flex-col items-end">{action}</div> : null}
       </CardHeader>
       <CardContent className={cn("pt-0", contentClassName)}>{children}</CardContent>
     </Card>
+  );
+}
+
+function TableAddButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <Button type="button" variant="default" className="gap-2 rounded-xl shadow-sm" onClick={onClick}>
+      <Plus className="h-4 w-4 shrink-0" aria-hidden />
+      {label}
+    </Button>
   );
 }
 
@@ -803,11 +828,11 @@ function FilterCheckboxGroup({
 
   return (
     <fieldset className="rounded-2xl border border-border/70 bg-background p-4">
-      <legend className="mb-3 w-full text-left text-xs font-semibold uppercase tracking-[0.2em] text-foreground/80">
+      <legend className="mb-3 w-full text-left text-sm font-semibold uppercase tracking-[0.14em] text-foreground/80">
         {title}
       </legend>
-      <div className="space-y-3 text-sm text-foreground">
-        <label className="flex items-center gap-3 font-medium">
+      <div className="space-y-3 text-sm font-medium text-foreground">
+        <label className="flex items-center gap-3">
           <input
             type="checkbox"
             checked={allSelected}
@@ -817,7 +842,7 @@ function FilterCheckboxGroup({
           {allLabel}
         </label>
         {options.map((option) => (
-          <label key={option} className="flex items-center gap-3">
+          <label key={option} className="flex items-center gap-3 font-medium">
             <input
               type="checkbox"
               checked={selected.includes(option)}
@@ -907,7 +932,7 @@ function Toolbar({
               <span
                 className={cn(
                   "text-foreground",
-                  open ? "text-base font-semibold tracking-tight" : "text-xs font-medium tracking-wide text-muted-foreground",
+                  open ? "text-sm font-semibold tracking-tight" : "text-xs font-medium tracking-wide text-muted-foreground",
                 )}
               >
                 {title}
@@ -920,21 +945,15 @@ function Toolbar({
           </CollapsibleTrigger>
           {actionItems?.length ? (
             <div className={cn("shrink-0 pr-4", open ? "py-4" : "py-1.5")}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className={cn("rounded-full px-4", open ? "h-10" : "h-8 text-xs")}>
-                    <MoreHorizontal className="h-4 w-4" />
-                    Actions
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 rounded-xl">
-                  {actionItems.map((item) => (
-                    <DropdownMenuItem key={item.label} onClick={item.onClick}>
-                      {item.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button
+                type="button"
+                variant="outline"
+                className={cn("gap-2 rounded-full px-4 font-medium", open ? "h-10 text-sm" : "h-8 text-xs")}
+                onClick={() => actionItems[0]?.onClick()}
+              >
+                <Download className={cn("shrink-0 opacity-80", open ? "h-4 w-4" : "h-3.5 w-3.5")} aria-hidden />
+                Export CSV
+              </Button>
             </div>
           ) : null}
         </div>
@@ -952,12 +971,12 @@ function Toolbar({
                     value={searchValue}
                     onChange={(event) => onSearchChange(event.target.value)}
                     placeholder={searchPlaceholder}
-                    className="h-11 rounded-full border-border/80 bg-background pl-9"
+                    className="h-11 rounded-full border-border/80 bg-background pl-9 text-sm"
                     autoComplete="off"
                   />
                 </div>
                 {onClearFilters ? (
-                  <Button variant="outline" className="h-11 rounded-full px-6" onClick={onClearFilters}>
+                  <Button variant="outline" className="h-11 rounded-full px-6 text-sm font-medium" onClick={onClearFilters}>
                     Clear filters
                   </Button>
                 ) : null}
@@ -970,7 +989,7 @@ function Toolbar({
                   id={`${searchFieldId}-sort`}
                   value={sortValue}
                   onChange={(event) => onSortChange(event.target.value)}
-                  className="h-11 rounded-full border border-input bg-background px-4 text-sm text-foreground"
+                  className="h-11 rounded-full border border-input bg-background px-4 text-sm font-medium text-foreground"
                 >
                   {sortOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -1008,6 +1027,65 @@ function PaginatedRows<T>({
     start: rows.length ? start + 1 : 0,
     end: Math.min(start + perPage, rows.length),
   };
+}
+
+type TableColumnSort = { key: string; dir: "asc" | "desc" };
+
+function compareSortValues(a: unknown, b: unknown): number {
+  if (a == null || a === "") {
+    if (b == null || b === "") return 0;
+    return 1;
+  }
+  if (b == null || b === "") return -1;
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+
+function sortRowsByColumn<T>(rows: T[], sort: TableColumnSort | undefined, getValue: (row: T, key: string) => unknown): T[] {
+  if (!sort?.key) return rows;
+  const mult = sort.dir === "asc" ? 1 : -1;
+  return [...rows].sort((rowA, rowB) => mult * compareSortValues(getValue(rowA, sort.key), getValue(rowB, sort.key)));
+}
+
+function SortableTableHead({
+  tableId,
+  columnKey,
+  children,
+  activeSort,
+  onToggle,
+  className,
+}: {
+  tableId: string;
+  columnKey: string;
+  children: ReactNode;
+  activeSort: TableColumnSort | undefined;
+  onToggle: (tableId: string, columnKey: string) => void;
+  className?: string;
+}) {
+  const active = activeSort?.key === columnKey;
+  const dir = activeSort?.dir;
+  const alignRight = Boolean(className?.includes("text-right"));
+  return (
+    <TableHead className={cn("select-none", className)}>
+      <button
+        type="button"
+        className={cn(
+          "inline-flex max-w-full items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-foreground hover:bg-muted/60",
+          alignRight ? "ms-auto w-full justify-end" : "-mx-2 -my-1 justify-start text-left",
+        )}
+        onClick={() => onToggle(tableId, columnKey)}
+      >
+        <span className="truncate">{children}</span>
+        {active ? (
+          dir === "asc" ? (
+            <ChevronUp className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+          )
+        ) : null}
+      </button>
+    </TableHead>
+  );
 }
 
 function TablePagination({
@@ -1100,15 +1178,31 @@ function TablePagination({
 type FormField = {
   key: string;
   label: string;
-  type?: "text" | "date" | "number" | "textarea" | "select" | "email";
+  type?: "text" | "date" | "number" | "textarea" | "select" | "email" | "checkbox";
   options?: Array<{ value: string; label: string }>;
   /** Show a red star and block submit when empty / invalid for this field type */
   required?: boolean;
+  /** When this state key is the string "true", disable the text/textarea/select control */
+  disabledWhenKeyTrue?: string;
+  /** Visible text beside a checkbox (defaults to label) */
+  checkboxCaption?: string;
+  /** Smaller textarea, tighter label spacing */
+  compact?: boolean;
+  /** Smaller checkbox row, placed close to the field above */
+  checkboxCompact?: boolean;
 };
+
+function stringOptionsFromDataOrFallbacks(observed: string[], fallbacks: string[]): Array<{ value: string; label: string }> {
+  const source = observed.length > 0 ? observed : fallbacks;
+  const unique = Array.from(new Set(source.map((s) => String(s).trim()).filter(Boolean)));
+  unique.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  return unique.map((v) => ({ value: v, label: v }));
+}
 
 const REQUIRED_FIELDS_MESSAGE = "Please fill in all required fields marked with a red star (*).";
 
 function isRequiredFieldValueMissing(value: string, field: FormField): boolean {
+  if (field.type === "checkbox") return false;
   const trimmed = value.trim();
   if (trimmed === "") return true;
   if (field.type === "number") {
@@ -1150,6 +1244,11 @@ function EntityModal<T extends Record<string, string>>({
   const handleSubmit = () => {
     const missingRequired = fields.some((field) => {
       if (!field.required) return false;
+      if (field.type === "checkbox") return false;
+      const pairNoneActive =
+        Boolean(field.disabledWhenKeyTrue) &&
+        String(state[field.disabledWhenKeyTrue as keyof T] ?? "") === "true";
+      if (pairNoneActive) return false;
       const raw = state[field.key as keyof T];
       return isRequiredFieldValueMissing(String(raw ?? ""), field);
     });
@@ -1173,55 +1272,117 @@ function EntityModal<T extends Record<string, string>>({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 md:grid-cols-2">
-          {fields.map((field) => (
-            <label
-              key={field.key}
-              className={cn("grid gap-2 text-sm", field.type === "textarea" ? "md:col-span-2" : "")}
-            >
-              <span className="font-medium text-foreground">
-                {field.label}
-                {field.required ? (
-                  <span className="text-destructive" aria-hidden>
-                    {" "}
-                    *
-                  </span>
-                ) : null}
-              </span>
-              {field.type === "textarea" ? (
-                <Textarea
-                  value={state[field.key as keyof T]}
-                  onChange={(event) => onChange(field.key as keyof T, event.target.value)}
-                  className="min-h-28 rounded-xl border-border/80 bg-background"
-                  required={field.required}
-                  aria-required={field.required}
-                />
-              ) : field.type === "select" ? (
-                <select
-                  value={state[field.key as keyof T]}
-                  onChange={(event) => onChange(field.key as keyof T, event.target.value)}
-                  className="h-11 rounded-xl border border-input bg-background px-3 text-sm text-foreground"
-                  required={field.required}
-                  aria-required={field.required}
+          {fields.map((field) => {
+            const pairNoneActive =
+              Boolean(field.disabledWhenKeyTrue) &&
+              String(state[field.disabledWhenKeyTrue as keyof T] ?? "") === "true";
+
+            const clearPairNoneOnFocus = () => {
+              if (
+                field.disabledWhenKeyTrue &&
+                String(state[field.disabledWhenKeyTrue as keyof T] ?? "") === "true"
+              ) {
+                onChange(field.disabledWhenKeyTrue as keyof T, "false");
+              }
+            };
+
+            if (field.type === "checkbox") {
+              return (
+                <label
+                  key={field.key}
+                  className={cn(
+                    "md:col-span-2 flex cursor-pointer items-center rounded-md border border-transparent text-foreground hover:bg-muted/30",
+                    field.checkboxCompact ? "-mt-1 gap-1.5 pl-0.5 pt-0.5 text-xs" : "gap-3 px-1 py-1 text-sm",
+                  )}
                 >
-                  <option value="">Select…</option>
-                  {field.options?.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  type={field.type ?? "text"}
-                  value={state[field.key as keyof T]}
-                  onChange={(event) => onChange(field.key as keyof T, event.target.value)}
-                  className="h-11 rounded-xl border-border/80 bg-background"
-                  required={field.required}
-                  aria-required={field.required}
-                />
-              )}
-            </label>
-          ))}
+                  <input
+                    type="checkbox"
+                    checked={String(state[field.key as keyof T]) === "true"}
+                    onChange={(event) => onChange(field.key as keyof T, event.target.checked ? "true" : "false")}
+                    className={cn(
+                      "shrink-0 rounded border-border text-primary",
+                      field.checkboxCompact ? "h-3 w-3" : "h-4 w-4",
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      field.checkboxCompact ? "font-normal leading-snug text-muted-foreground" : "font-medium text-foreground",
+                    )}
+                  >
+                    {field.checkboxCaption ?? field.label}
+                  </span>
+                </label>
+              );
+            }
+
+            return (
+              <label
+                key={field.key}
+                className={cn(
+                  "grid text-sm",
+                  field.compact ? "gap-1" : "gap-2",
+                  field.type === "textarea" ? "md:col-span-2" : "",
+                )}
+              >
+                <span className="font-medium text-foreground">
+                  {field.label}
+                  {field.required ? (
+                    <span className="text-destructive" aria-hidden>
+                      {" "}
+                      *
+                    </span>
+                  ) : null}
+                </span>
+                {field.type === "textarea" ? (
+                  <Textarea
+                    value={state[field.key as keyof T]}
+                    onChange={(event) => onChange(field.key as keyof T, event.target.value)}
+                    onFocus={field.disabledWhenKeyTrue ? clearPairNoneOnFocus : undefined}
+                    readOnly={Boolean(field.disabledWhenKeyTrue) && pairNoneActive}
+                    className={cn(
+                      "rounded-xl border-border/80 bg-background",
+                      field.compact ? "min-h-[4.5rem] text-xs leading-relaxed" : "min-h-28",
+                      field.disabledWhenKeyTrue && pairNoneActive && "cursor-pointer bg-muted/40",
+                    )}
+                    required={field.required}
+                    aria-required={field.required}
+                    disabled={false}
+                  />
+                ) : field.type === "select" ? (
+                  <select
+                    value={state[field.key as keyof T]}
+                    onChange={(event) => onChange(field.key as keyof T, event.target.value)}
+                    className="h-11 rounded-xl border border-input bg-background px-3 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                    required={field.required}
+                    aria-required={field.required}
+                    disabled={pairNoneActive}
+                  >
+                    <option value="">Select…</option>
+                    {field.options?.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <Input
+                    type={field.type ?? "text"}
+                    value={state[field.key as keyof T]}
+                    onChange={(event) => onChange(field.key as keyof T, event.target.value)}
+                    onFocus={field.disabledWhenKeyTrue ? clearPairNoneOnFocus : undefined}
+                    readOnly={Boolean(field.disabledWhenKeyTrue) && pairNoneActive}
+                    className={cn(
+                      "h-11 rounded-xl border-border/80 bg-background",
+                      field.disabledWhenKeyTrue && pairNoneActive && "cursor-pointer bg-muted/40",
+                    )}
+                    required={field.required}
+                    aria-required={field.required}
+                    disabled={false}
+                  />
+                )}
+              </label>
+            );
+          })}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
@@ -1310,9 +1471,12 @@ export function AdminWorkspace() {
   const [safehouseStatusFilter, setSafehouseStatusFilter] = useState<string[]>([]);
   const [safehouseRegionFilter, setSafehouseRegionFilter] = useState<string[]>([]);
   const [safehouseSort, setSafehouseSort] = useState("occupancy");
+  /** Monthly metrics: occurred = month_start date strictly before today (local day); future = today or later; all = no date filter. */
+  const [monthlyMetricsPeriodFilter, setMonthlyMetricsPeriodFilter] = useState<"occurred" | "future" | "all">("occurred");
   const deferredSafehouseSearch = useDeferredValue(safehouseSearch);
   const [tablePages, setTablePages] = useState<Record<string, number>>({});
   const [tablePageSizes, setTablePageSizes] = useState<Record<string, number>>({});
+  const [tableColumnSort, setTableColumnSort] = useState<Record<string, TableColumnSort>>({});
 
   const [residentDetailId, setResidentDetailId] = useState<number | null>(null);
   const [residentModalOpen, setResidentModalOpen] = useState(false);
@@ -1421,7 +1585,9 @@ export function AdminWorkspace() {
     emotional_state_end: "",
     session_narrative: "",
     interventions_applied: "",
+    interventions_none: "false",
     follow_up_actions: "",
+    follow_up_none: "false",
     progress_noted: "false",
     concerns_flagged: "false",
     referral_made: "false",
@@ -1651,6 +1817,109 @@ export function AdminWorkspace() {
     [workspace.incidents],
   );
 
+  const socialWorkersObserved = useMemo(() => {
+    const set = new Set<string>();
+    workspace.residents.forEach((r) => {
+      const w = String(r.assigned_social_worker ?? "").trim();
+      if (w) set.add(w);
+    });
+    workspace.processRecordings.forEach((row) => {
+      const w = String(row.social_worker ?? "").trim();
+      if (w) set.add(w);
+    });
+    workspace.visitations.forEach((row) => {
+      const w = String(row.social_worker ?? "").trim();
+      if (w) set.add(w);
+    });
+    return Array.from(set);
+  }, [workspace.processRecordings, workspace.residents, workspace.visitations]);
+
+  const caseCategoryFormOptions = useMemo(() => {
+    const observed = Array.from(
+      new Set(workspace.residents.map((r) => String(r.case_category ?? "").trim()).filter(Boolean)),
+    );
+    return stringOptionsFromDataOrFallbacks(observed, [
+      "Physical abuse",
+      "Sexual abuse",
+      "Neglect",
+      "Emotional abuse",
+      "Exploitation",
+      "At risk",
+      "Other",
+    ]);
+  }, [workspace.residents]);
+
+  const socialWorkerFormOptions = useMemo(
+    () =>
+      stringOptionsFromDataOrFallbacks(socialWorkersObserved, [
+        "Case manager",
+        "Supervising social worker",
+        "Psychosocial support staff",
+      ]),
+    [socialWorkersObserved],
+  );
+
+  const visitTypeFormOptions = useMemo(
+    () =>
+      stringOptionsFromDataOrFallbacks(visitationTypeOptions, [
+        "Home visit",
+        "Follow-up",
+        "School visit",
+        "Office visit",
+        "Conference",
+        "Court",
+        "Other",
+      ]),
+    [visitationTypeOptions],
+  );
+
+  const enrollmentStatusFormOptions = useMemo(
+    () =>
+      stringOptionsFromDataOrFallbacks(educationEnrollmentOptions, [
+        "Enrolled",
+        "Pending",
+        "Active",
+        "Suspended",
+        "Completed",
+        "Withdrawn",
+        "Not enrolled",
+      ]),
+    [educationEnrollmentOptions],
+  );
+
+  const planCategoryFormOptions = useMemo(
+    () =>
+      stringOptionsFromDataOrFallbacks(interventionCategoryOptions, [
+        "Education",
+        "Health",
+        "Psychosocial",
+        "Legal",
+        "Family reunification",
+        "Livelihood",
+        "Other",
+      ]),
+    [interventionCategoryOptions],
+  );
+
+  const incidentTypeFormOptions = useMemo(
+    () =>
+      stringOptionsFromDataOrFallbacks(incidentTypeOptions, [
+        "Medical",
+        "Behavioral",
+        "Safety",
+        "Conflict",
+        "AWOL",
+        "Substance-related",
+        "Other",
+      ]),
+    [incidentTypeOptions],
+  );
+
+  const incidentSeverityFormOptions = useMemo(
+    () => stringOptionsFromDataOrFallbacks(incidentSeverityOptions, ["Low", "Medium", "High", "Critical"]),
+    [incidentSeverityOptions],
+  );
+
   const selectedResidents = selectedResidentIds
     .map((residentId) => residentMap.get(residentId))
     .filter((resident): resident is ResidentWithSafehouse => Boolean(resident));
@@ -1675,6 +1944,16 @@ export function AdminWorkspace() {
     setTablePageSizes((current) => ({ ...current, [key]: size }));
     setTablePages((current) => ({ ...current, [key]: 1 }));
   };
+
+  const toggleTableColumnSort = useCallback((tableId: string, columnKey: string) => {
+    setTableColumnSort((prev) => {
+      const cur = prev[tableId];
+      if (cur?.key === columnKey) {
+        return { ...prev, [tableId]: { key: columnKey, dir: cur.dir === "asc" ? "desc" : "asc" } };
+      }
+      return { ...prev, [tableId]: { key: columnKey, dir: "asc" } };
+    });
+  }, []);
 
   const setTab = (tab: MainTab) => {
     setParams({ tab });
@@ -2173,13 +2452,32 @@ export function AdminWorkspace() {
     [filteredAllocations, selectedSafehouseId],
   );
 
-  const safehouseMetrics = useMemo(
-    () =>
-      [...workspace.monthlyMetrics]
-        .filter((metric) => !selectedSafehouseId || metric.safehouse_id === selectedSafehouseId)
-        .sort((left, right) => compareDatesDescending(left.month_start, right.month_start)),
-    [selectedSafehouseId, workspace.monthlyMetrics],
-  );
+  const safehouseMetrics = useMemo(() => {
+    const todayStart = startOfLocalDayMs(new Date());
+    return [...workspace.monthlyMetrics]
+      .filter((metric) => !selectedSafehouseId || metric.safehouse_id === selectedSafehouseId)
+      .filter((metric) => {
+        if (monthlyMetricsPeriodFilter === "all") return true;
+        const parsed = metric.month_start ? new Date(String(metric.month_start)) : null;
+        if (!parsed || Number.isNaN(parsed.getTime())) return false;
+        const metricDay = startOfLocalDayMs(parsed);
+        if (monthlyMetricsPeriodFilter === "occurred") return metricDay < todayStart;
+        return metricDay >= todayStart;
+      })
+      .sort((left, right) => compareDatesDescending(left.month_start, right.month_start));
+  }, [monthlyMetricsPeriodFilter, selectedSafehouseId, workspace.monthlyMetrics]);
+
+  const safehouseTableStats = useMemo(() => {
+    const map = new Map<number, { residents: number; allocationsTotal: number }>();
+    for (const sh of workspace.safehouses) {
+      const residentsAssigned = workspace.residents.filter((resident) => resident.safehouse_id === sh.safehouse_id).length;
+      const donationAllocations = workspace.allocations
+        .filter((allocation) => allocation.safehouse_id === sh.safehouse_id)
+        .reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0);
+      map.set(sh.safehouse_id, { residents: residentsAssigned, allocationsTotal: donationAllocations });
+    }
+    return map;
+  }, [workspace.allocations, workspace.residents, workspace.safehouses]);
 
   const dashboardKpis = useMemo(() => {
     const activeResidents = workspace.residents.filter((resident) => (resident.case_status ?? "").toLowerCase() === "active").length;
@@ -2253,12 +2551,59 @@ export function AdminWorkspace() {
     ];
   }, [workspace.allocations, workspace.donations, workspace.incidents, workspace.residents, workspace.safehouses, workspace.visitations]);
 
-  const dashboardRecentIncidents = useMemo(
-    () => [...workspace.incidents].sort((left, right) => compareDatesDescending(left.incident_date, right.incident_date)).slice(0, 6),
-    [workspace.incidents],
-  );
+  const dashboardIncidentsForTable = useMemo(() => {
+    const sort = tableColumnSort["dashboard-incidents"];
+    const base = [...workspace.incidents];
+    const rows = !sort?.key
+      ? base.sort((left, right) => compareDatesDescending(left.incident_date, right.incident_date))
+      : sortRowsByColumn(base, sort, (row, key) => {
+          switch (key) {
+            case "resident":
+              return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+            case "incident_date": {
+              const t = row.incident_date ? new Date(String(row.incident_date)).getTime() : 0;
+              return Number.isNaN(t) ? 0 : t;
+            }
+            case "incident_type":
+              return String(row.incident_type ?? "");
+            case "severity":
+              return String(row.severity ?? "");
+            case "status":
+              return String(row.resolved).toLowerCase() === "true" ? 1 : 0;
+            default:
+              return row.incident_id;
+          }
+        });
+    return rows.slice(0, 6);
+  }, [residentMap, tableColumnSort, workspace.incidents]);
+
   const dashboardUpcomingVisitations = residentVisitationSplit.upcoming.slice(0, 6);
-  const dashboardRecentDonations = filteredDonations.slice(0, 6);
+
+  const dashboardDonationsForTable = useMemo(() => {
+    const sort = tableColumnSort["dashboard-donations"];
+    const base = [...filteredDonations];
+    const rows = !sort?.key
+      ? base.sort((left, right) => compareDatesDescending(left.donation_date, right.donation_date))
+      : sortRowsByColumn(base, sort, (row, key) => {
+          switch (key) {
+            case "supporter":
+              return row.supporter_id
+                ? supporterLabel(supporterMap.get(row.supporter_id) ?? ({} as Supporter))
+                : row.supporter_name ?? "Anonymous";
+            case "donation_date": {
+              const t = row.donation_date ? new Date(String(row.donation_date)).getTime() : 0;
+              return Number.isNaN(t) ? 0 : t;
+            }
+            case "donation_type":
+              return String(row.donation_type ?? "");
+            case "value":
+              return toNumber(row.amount ?? row.estimated_value);
+            default:
+              return row.donation_id;
+          }
+        });
+    return rows.slice(0, 6);
+  }, [filteredDonations, supporterMap, tableColumnSort]);
 
   const occupancyChartData = useMemo(
     () =>
@@ -2379,68 +2724,466 @@ export function AdminWorkspace() {
       }));
   }, [workspace.donations, workspace.incidents, workspace.monthlyMetrics]);
 
-  const residentsTablePage = PaginatedRows({ rows: filteredResidentsTable, page: getPage("residents"), perPage: getPageSize("residents") });
-  const processTablePage = PaginatedRows({ rows: residentProcessSplit.currentAndPast, page: getPage("process-records"), perPage: getPageSize("process-records") });
-  const visitationsTablePage = PaginatedRows({ rows: residentVisitationSplit.currentAndPast, page: getPage("visitations"), perPage: getPageSize("visitations") });
-  const educationTablePage = PaginatedRows({ rows: residentEducationSplit.currentAndPast, page: getPage("education"), perPage: getPageSize("education") });
-  const healthTablePage = PaginatedRows({ rows: residentHealthSplit.currentAndPast, page: getPage("health"), perPage: getPageSize("health") });
-  const interventionsTablePage = PaginatedRows({ rows: residentInterventionSplit.currentAndPast, page: getPage("interventions"), perPage: getPageSize("interventions") });
-  const incidentsTablePage = PaginatedRows({ rows: residentIncidentSplit.currentAndPast, page: getPage("incidents"), perPage: getPageSize("incidents") });
-  const supportersTablePage = PaginatedRows({ rows: filteredSupporters, page: getPage("supporters"), perPage: getPageSize("supporters") });
-  const donationsTablePage = PaginatedRows({ rows: filteredDonations, page: getPage("donations"), perPage: getPageSize("donations") });
-  const inKindTablePage = PaginatedRows({ rows: filteredInKind, page: getPage("in-kind"), perPage: getPageSize("in-kind") });
-  const allocationsTablePage = PaginatedRows({ rows: filteredAllocations, page: getPage("allocations"), perPage: getPageSize("allocations") });
-  const safehousesTablePage = PaginatedRows({ rows: filteredSafehouses, page: getPage("safe-houses"), perPage: getPageSize("safe-houses") });
-  const allocationHistoryTablePage = PaginatedRows({ rows: safehouseAllocations, page: getPage("allocation-history"), perPage: getPageSize("allocation-history") });
-  const monthlyMetricsTablePage = PaginatedRows({ rows: safehouseMetrics, page: getPage("monthly-metrics"), perPage: getPageSize("monthly-metrics") });
+  const residentsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredResidentsTable, tableColumnSort.residents, (r, key) => {
+        switch (key) {
+          case "name":
+            return residentLabel(r);
+          case "age":
+            return toNumber(r.present_age);
+          case "case_status":
+            return r.case_status ?? "";
+          case "safe_house":
+            return safehouseMap.get(r.safehouse_id ?? -1)?.name ?? "";
+          case "latest_visitation": {
+            const d = latestVisitationByResident.get(r.resident_id)?.visit_date;
+            if (!d) return 0;
+            const t = new Date(String(d)).getTime();
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "risk":
+            return r.current_risk_level ?? "";
+          case "date_added": {
+            if (!r.created_at) return 0;
+            const t = new Date(String(r.created_at)).getTime();
+            return Number.isNaN(t) ? 0 : t;
+          }
+          default:
+            return r.resident_id;
+        }
+      }),
+    [filteredResidentsTable, latestVisitationByResident, safehouseMap, tableColumnSort.residents],
+  );
+
+  const processRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentProcessSplit.currentAndPast, tableColumnSort["process-records"], (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "session_date": {
+            const t = row.session_date ? new Date(String(row.session_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "social_worker":
+            return String(row.social_worker ?? "");
+          case "session_type":
+            return String(row.session_type ?? "");
+          case "concerns_flagged":
+            return String(row.concerns_flagged).toLowerCase() === "true" ? 1 : 0;
+          case "follow_up":
+            return String(row.follow_up_actions ?? "");
+          default:
+            return row.recording_id;
+        }
+      }),
+    [residentMap, residentProcessSplit.currentAndPast, tableColumnSort["process-records"]],
+  );
+
+  const visitationsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentVisitationSplit.currentAndPast, tableColumnSort.visitations, (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "visit_date": {
+            const t = row.visit_date ? new Date(String(row.visit_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "visit_type":
+            return String(row.visit_type ?? "");
+          case "location":
+            return String(row.location_visited ?? "");
+          case "social_worker":
+            return String(row.social_worker ?? "");
+          case "outcome":
+            return String(row.visit_outcome ?? "");
+          default:
+            return row.visitation_id;
+        }
+      }),
+    [residentMap, residentVisitationSplit.currentAndPast, tableColumnSort.visitations],
+  );
+
+  const educationRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentEducationSplit.currentAndPast, tableColumnSort.education, (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "record_date": {
+            const t = row.record_date ? new Date(String(row.record_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "level":
+            return String(row.education_level ?? "");
+          case "school":
+            return String(row.school_name ?? "");
+          case "enrollment":
+            return String(row.enrollment_status ?? "");
+          case "progress":
+            return toNumber(row.progress_percent);
+          default:
+            return row.education_record_id;
+        }
+      }),
+    [residentMap, residentEducationSplit.currentAndPast, tableColumnSort.education],
+  );
+
+  const healthRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentHealthSplit.currentAndPast, tableColumnSort.health, (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "record_date": {
+            const t = row.record_date ? new Date(String(row.record_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "health_score":
+            return toNumber(row.general_health_score);
+          case "nutrition":
+            return toNumber(row.nutrition_score);
+          case "sleep":
+            return toNumber(row.sleep_quality_score);
+          case "bmi":
+            return toNumber(row.bmi);
+          default:
+            return row.health_record_id;
+        }
+      }),
+    [residentMap, residentHealthSplit.currentAndPast, tableColumnSort.health],
+  );
+
+  const interventionsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentInterventionSplit.currentAndPast, tableColumnSort.interventions, (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "category":
+            return String(row.plan_category ?? "");
+          case "target_date": {
+            const t = row.target_date ? new Date(String(row.target_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "status":
+            return String(row.status ?? "");
+          case "conference_date": {
+            const t = row.case_conference_date ? new Date(String(row.case_conference_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "services":
+            return String(row.services_provided ?? "");
+          default:
+            return row.plan_id;
+        }
+      }),
+    [residentMap, residentInterventionSplit.currentAndPast, tableColumnSort.interventions],
+  );
+
+  const incidentsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentIncidentSplit.currentAndPast, tableColumnSort.incidents, (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "incident_date": {
+            const t = row.incident_date ? new Date(String(row.incident_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "incident_type":
+            return String(row.incident_type ?? "");
+          case "severity":
+            return String(row.severity ?? "");
+          case "reported_by":
+            return String(row.reported_by ?? "");
+          case "resolved":
+            return String(row.resolved).toLowerCase() === "true" ? 1 : 0;
+          default:
+            return row.incident_id;
+        }
+      }),
+    [residentMap, residentIncidentSplit.currentAndPast, tableColumnSort.incidents],
+  );
+
+  const supportersRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredSupporters, tableColumnSort.supporters, (s, key) => {
+        switch (key) {
+          case "name":
+            return supporterLabel(s);
+          case "type":
+            return String(s.supporter_type ?? "");
+          case "status":
+            return String(s.status ?? "");
+          case "region":
+            return String(s.region ?? "");
+          case "first_donation": {
+            const t = s.first_donation_date ? new Date(String(s.first_donation_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "channel":
+            return String(s.acquisition_channel ?? "");
+          default:
+            return s.supporter_id;
+        }
+      }),
+    [filteredSupporters, tableColumnSort.supporters],
+  );
+
+  const donationsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredDonations, tableColumnSort["donations-tab"], (row, key) => {
+        switch (key) {
+          case "supporter":
+            return row.supporter_id
+              ? supporterLabel(supporterMap.get(row.supporter_id) ?? ({} as Supporter))
+              : row.supporter_name ?? "Anonymous";
+          case "donation_date": {
+            const t = row.donation_date ? new Date(String(row.donation_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "donation_type":
+            return String(row.donation_type ?? "");
+          case "campaign":
+            return String(row.campaign_name ?? "");
+          case "channel":
+            return String(row.channel_source ?? "");
+          case "amount":
+            return toNumber(row.amount ?? row.estimated_value);
+          default:
+            return row.donation_id;
+        }
+      }),
+    [filteredDonations, supporterMap, tableColumnSort["donations-tab"]],
+  );
+
+  const inKindRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredInKind, tableColumnSort["in-kind"], (item, key) => {
+        switch (key) {
+          case "donation":
+            return toNumber(item.donation_id);
+          case "item":
+            return String(item.item_name ?? "");
+          case "category":
+            return String(item.item_category ?? "");
+          case "quantity":
+            return toNumber(item.quantity);
+          case "intended_use":
+            return String(item.intended_use ?? "");
+          case "condition":
+            return String(item.received_condition ?? "");
+          default:
+            return item.item_id;
+        }
+      }),
+    [filteredInKind, tableColumnSort["in-kind"]],
+  );
+
+  const allocationsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredAllocations, tableColumnSort.allocations, (allocation, key) => {
+        switch (key) {
+          case "donation":
+            return toNumber(allocation.donation_id);
+          case "safe_house":
+            return safehouseMap.get(allocation.safehouse_id ?? -1)?.name ?? "";
+          case "program_area":
+            return String(allocation.program_area ?? "");
+          case "allocation_date": {
+            const t = allocation.allocation_date ? new Date(String(allocation.allocation_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "amount":
+            return toNumber(allocation.amount_allocated);
+          default:
+            return allocation.allocation_id;
+        }
+      }),
+    [filteredAllocations, safehouseMap, tableColumnSort.allocations],
+  );
+
+  const safehousesRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredSafehouses, tableColumnSort["safe-houses"], (sh, key) => {
+        const stats = safehouseTableStats.get(sh.safehouse_id) ?? { residents: 0, allocationsTotal: 0 };
+        switch (key) {
+          case "name":
+            return asText(sh.name, "");
+          case "region":
+            return [sh.city, sh.region].filter(Boolean).join(", ");
+          case "status":
+            return String(sh.status ?? "");
+          case "capacity":
+            return toNumber(sh.capacity_girls);
+          case "occupancy":
+            return toNumber(sh.current_occupancy);
+          case "residents_assigned":
+            return stats.residents;
+          case "donation_allocations":
+            return stats.allocationsTotal;
+          default:
+            return sh.safehouse_id;
+        }
+      }),
+    [filteredSafehouses, safehouseTableStats, tableColumnSort["safe-houses"]],
+  );
+
+  const allocationHistoryRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(safehouseAllocations, tableColumnSort["allocation-history"], (allocation, key) => {
+        switch (key) {
+          case "safe_house":
+            return safehouseMap.get(allocation.safehouse_id ?? -1)?.name ?? "";
+          case "donation":
+            return toNumber(allocation.donation_id);
+          case "program_area":
+            return String(allocation.program_area ?? "");
+          case "allocation_date": {
+            const t = allocation.allocation_date ? new Date(String(allocation.allocation_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "amount":
+            return toNumber(allocation.amount_allocated);
+          default:
+            return allocation.allocation_id;
+        }
+      }),
+    [safehouseAllocations, safehouseMap, tableColumnSort["allocation-history"]],
+  );
+
+  const monthlyMetricsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(safehouseMetrics, tableColumnSort["monthly-metrics"], (metric, key) => {
+        switch (key) {
+          case "safe_house":
+            return safehouseMap.get(metric.safehouse_id ?? -1)?.name ?? "";
+          case "month": {
+            const t = metric.month_start ? new Date(String(metric.month_start)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "active_residents":
+            return toNumber(metric.active_residents);
+          case "education_progress":
+            return toNumber(metric.avg_education_progress);
+          case "health_score":
+            return toNumber(metric.avg_health_score);
+          case "visitations":
+            return toNumber(metric.home_visitation_count);
+          case "incidents":
+            return toNumber(metric.incident_count);
+          default:
+            return metric.metric_id;
+        }
+      }),
+    [safehouseMap, safehouseMetrics, tableColumnSort["monthly-metrics"]],
+  );
+
+  const outreachPostsRowsSorted = useMemo(() => {
+    const base = [...workspace.socialPosts];
+    if (!tableColumnSort["social-posts"]?.key) {
+      return base.sort((left, right) => compareDatesDescending(left.created_at, right.created_at));
+    }
+    return sortRowsByColumn(base, tableColumnSort["social-posts"], (post, key) => {
+      switch (key) {
+        case "platform":
+          return String(post.platform ?? "");
+        case "date": {
+          const t = post.created_at ? new Date(String(post.created_at)).getTime() : 0;
+          return Number.isNaN(t) ? 0 : t;
+        }
+        case "post_type":
+          return String(post.post_type ?? "");
+        case "impressions":
+          return toNumber(post.impressions);
+        case "estimated_value":
+          return toNumber(post.estimated_donation_value_php);
+        default:
+          return post.post_id;
+      }
+    });
+  }, [tableColumnSort, workspace.socialPosts]);
+
+  const residentsTablePage = PaginatedRows({ rows: residentsRowsSorted, page: getPage("residents"), perPage: getPageSize("residents") });
+  const processTablePage = PaginatedRows({ rows: processRowsSorted, page: getPage("process-records"), perPage: getPageSize("process-records") });
+  const visitationsTablePage = PaginatedRows({ rows: visitationsRowsSorted, page: getPage("visitations"), perPage: getPageSize("visitations") });
+  const educationTablePage = PaginatedRows({ rows: educationRowsSorted, page: getPage("education"), perPage: getPageSize("education") });
+  const healthTablePage = PaginatedRows({ rows: healthRowsSorted, page: getPage("health"), perPage: getPageSize("health") });
+  const interventionsTablePage = PaginatedRows({ rows: interventionsRowsSorted, page: getPage("interventions"), perPage: getPageSize("interventions") });
+  const incidentsTablePage = PaginatedRows({ rows: incidentsRowsSorted, page: getPage("incidents"), perPage: getPageSize("incidents") });
+  const supportersTablePage = PaginatedRows({ rows: supportersRowsSorted, page: getPage("supporters"), perPage: getPageSize("supporters") });
+  const donationsTablePage = PaginatedRows({ rows: donationsRowsSorted, page: getPage("donations"), perPage: getPageSize("donations") });
+  const inKindTablePage = PaginatedRows({ rows: inKindRowsSorted, page: getPage("in-kind"), perPage: getPageSize("in-kind") });
+  const allocationsTablePage = PaginatedRows({ rows: allocationsRowsSorted, page: getPage("allocations"), perPage: getPageSize("allocations") });
+  const safehousesTablePage = PaginatedRows({ rows: safehousesRowsSorted, page: getPage("safe-houses"), perPage: getPageSize("safe-houses") });
+  const allocationHistoryTablePage = PaginatedRows({ rows: allocationHistoryRowsSorted, page: getPage("allocation-history"), perPage: getPageSize("allocation-history") });
+  const monthlyMetricsTablePage = PaginatedRows({ rows: monthlyMetricsRowsSorted, page: getPage("monthly-metrics"), perPage: getPageSize("monthly-metrics") });
   const outreachPostsTablePage = PaginatedRows({
-    rows: [...workspace.socialPosts].sort((left, right) => compareDatesDescending(left.created_at, right.created_at)),
+    rows: outreachPostsRowsSorted,
     page: getPage("social-posts"),
     perPage: getPageSize("social-posts"),
   });
 
-  const residentFields: FormField[] = [
-    { key: "case_control_no", label: "Case Control No." },
-    { key: "internal_code", label: "Internal Code" },
-    {
-      key: "safehouse_id",
-      label: "Safe House",
-      type: "select",
-      required: true,
-      options: workspace.safehouses.map((safehouse) => ({
-        value: String(safehouse.safehouse_id),
-        label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
-      })),
-    },
-    {
-      key: "case_status",
-      label: "Case Status",
-      type: "select",
-      required: true,
-      options: ["Active", "Open", "Closed", "Transferred"].map((entry) => ({ value: entry, label: entry })),
-    },
-    {
-      key: "sex",
-      label: "Sex",
-      type: "select",
-      required: true,
-      options: ["F", "M"].map((entry) => ({ value: entry, label: entry })),
-    },
-    { key: "date_of_birth", label: "Date of Birth", type: "date" },
-    { key: "place_of_birth", label: "Place of Birth" },
-    { key: "religion", label: "Religion" },
-    { key: "case_category", label: "Case Category", required: true },
-    { key: "date_of_admission", label: "Intake Date", type: "date", required: true },
-    { key: "assigned_social_worker", label: "Assigned Social Worker", required: true },
-    {
-      key: "current_risk_level",
-      label: "Risk Status",
-      type: "select",
-      required: true,
-      options: ["Low", "Medium", "High", "Critical"].map((entry) => ({ value: entry, label: entry })),
-    },
-    { key: "notes_restricted", label: "Notes", type: "textarea" },
-  ];
+  const residentFields: FormField[] = useMemo(
+    () => [
+      { key: "case_control_no", label: "Case Control No." },
+      { key: "internal_code", label: "Internal Code" },
+      {
+        key: "safehouse_id",
+        label: "Safe House",
+        type: "select",
+        required: true,
+        options: workspace.safehouses.map((safehouse) => ({
+          value: String(safehouse.safehouse_id),
+          label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
+        })),
+      },
+      {
+        key: "case_status",
+        label: "Case Status",
+        type: "select",
+        required: true,
+        options: ["Active", "Open", "Closed", "Transferred"].map((entry) => ({ value: entry, label: entry })),
+      },
+      {
+        key: "sex",
+        label: "Sex",
+        type: "select",
+        required: true,
+        options: ["F", "M"].map((entry) => ({ value: entry, label: entry })),
+      },
+      { key: "date_of_birth", label: "Date of Birth", type: "date" },
+      { key: "place_of_birth", label: "Place of Birth" },
+      { key: "religion", label: "Religion" },
+      {
+        key: "case_category",
+        label: "Case Category",
+        type: "select",
+        required: true,
+        options: caseCategoryFormOptions,
+      },
+      { key: "date_of_admission", label: "Intake Date", type: "date", required: true },
+      {
+        key: "assigned_social_worker",
+        label: "Assigned Social Worker",
+        type: "select",
+        required: true,
+        options: socialWorkerFormOptions,
+      },
+      {
+        key: "current_risk_level",
+        label: "Risk Status",
+        type: "select",
+        required: true,
+        options: ["Low", "Medium", "High", "Critical"].map((entry) => ({ value: entry, label: entry })),
+      },
+      { key: "notes_restricted", label: "Notes", type: "textarea" },
+    ],
+    [caseCategoryFormOptions, socialWorkerFormOptions, workspace.safehouses],
+  );
 
   const supporterFields: FormField[] = [
     {
@@ -2595,52 +3338,140 @@ export function AdminWorkspace() {
     { key: "current_occupancy", label: "Current Occupancy", type: "number", required: true },
     { key: "notes", label: "Notes", type: "textarea" },
   ];
-  const residentSelectOptions = workspace.residents.map((resident) => ({
-    value: String(resident.resident_id),
-    label: residentLabel(resident),
-  }));
-  const processFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
-    { key: "session_date", label: "Session Date", type: "date", required: true },
-    { key: "social_worker", label: "Social Worker", required: true },
-    { key: "session_type", label: "Session Type", required: true },
-    { key: "session_duration_minutes", label: "Duration (minutes)", type: "number" },
-    { key: "emotional_state_observed", label: "Emotional State Observed" },
-    { key: "emotional_state_end", label: "Emotional State End" },
-    { key: "session_narrative", label: "Session Narrative", type: "textarea" },
-    { key: "interventions_applied", label: "Interventions Applied" },
-    { key: "follow_up_actions", label: "Follow-up Actions" },
-    { key: "progress_noted", label: "Progress Noted", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "concerns_flagged", label: "Concerns Flagged", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "referral_made", label: "Referral Made", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "notes_restricted", label: "Notes", type: "textarea" },
-  ];
-  const visitationFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
-    { key: "visit_date", label: "Visit Date", type: "date", required: true },
-    { key: "social_worker", label: "Social Worker", required: true },
-    { key: "visit_type", label: "Visit Type", required: true },
-    { key: "location_visited", label: "Location Visited", required: true },
-    { key: "family_members_present", label: "Family Members Present" },
-    { key: "purpose", label: "Purpose", type: "textarea" },
-    { key: "observations", label: "Observations", type: "textarea" },
-    { key: "family_cooperation_level", label: "Family Cooperation" },
-    { key: "safety_concerns_noted", label: "Safety Concerns", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "follow_up_needed", label: "Follow-up Needed", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "follow_up_notes", label: "Follow-up Notes", type: "textarea" },
-    { key: "visit_outcome", label: "Visit Outcome" },
-  ];
-  const educationFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
-    { key: "record_date", label: "Record Date", type: "date", required: true },
-    { key: "education_level", label: "Education Level", required: true },
-    { key: "school_name", label: "School Name", required: true },
-    { key: "enrollment_status", label: "Enrollment Status", required: true },
-    { key: "attendance_rate", label: "Attendance Rate", type: "number" },
-    { key: "progress_percent", label: "Progress Percent", type: "number" },
-    { key: "completion_status", label: "Completion Status" },
-    { key: "notes", label: "Notes", type: "textarea" },
-  ];
+  const residentSelectOptions = useMemo(
+    () => workspace.residents.map((resident) => ({ value: String(resident.resident_id), label: residentLabel(resident) })),
+    [workspace.residents],
+  );
+
+  const processSessionTypeSelectOptions = useMemo(() => {
+    const base = [
+      { value: "Individual", label: "Individual" },
+      { value: "Group", label: "Group" },
+    ];
+    const cur = processForm.session_type.trim();
+    if (cur && !base.some((o) => o.value === cur)) {
+      return [...base, { value: cur, label: `${cur} (saved value)` }];
+    }
+    return base;
+  }, [processForm.session_type]);
+
+  const processFields: FormField[] = useMemo(
+    () => [
+      { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+      { key: "session_date", label: "Session Date", type: "date", required: true },
+      {
+        key: "social_worker",
+        label: "Social Worker",
+        type: "select",
+        required: true,
+        options: socialWorkerFormOptions,
+      },
+      {
+        key: "session_type",
+        label: "Session Type",
+        type: "select",
+        required: true,
+        options: processSessionTypeSelectOptions,
+      },
+      { key: "emotional_state_observed", label: "Emotional State Observed", required: true },
+      {
+        key: "session_narrative",
+        label: "Narrative Summary of Session",
+        type: "textarea",
+        required: true,
+      },
+      {
+        key: "interventions_applied",
+        label: "Interventions Applied",
+        type: "textarea",
+        required: true,
+        compact: true,
+        disabledWhenKeyTrue: "interventions_none",
+      },
+      {
+        key: "interventions_none",
+        label: "None",
+        type: "checkbox",
+        checkboxCompact: true,
+        checkboxCaption: "None — no interventions applied",
+      },
+      {
+        key: "follow_up_actions",
+        label: "Follow-up Actions",
+        type: "textarea",
+        required: true,
+        compact: true,
+        disabledWhenKeyTrue: "follow_up_none",
+      },
+      {
+        key: "follow_up_none",
+        label: "None",
+        type: "checkbox",
+        checkboxCompact: true,
+        checkboxCaption: "None — no follow-up actions",
+      },
+      { key: "session_duration_minutes", label: "Duration (minutes)", type: "number" },
+      { key: "emotional_state_end", label: "Emotional State End" },
+      { key: "progress_noted", label: "Progress Noted", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "concerns_flagged", label: "Concerns Flagged", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "referral_made", label: "Referral Made", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "notes_restricted", label: "Notes", type: "textarea" },
+    ],
+    [processSessionTypeSelectOptions, residentSelectOptions, socialWorkerFormOptions],
+  );
+
+  const visitationFields: FormField[] = useMemo(
+    () => [
+      { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+      { key: "visit_date", label: "Visit Date", type: "date", required: true },
+      {
+        key: "social_worker",
+        label: "Social Worker",
+        type: "select",
+        required: true,
+        options: socialWorkerFormOptions,
+      },
+      {
+        key: "visit_type",
+        label: "Visit Type",
+        type: "select",
+        required: true,
+        options: visitTypeFormOptions,
+      },
+      { key: "location_visited", label: "Location Visited", required: true },
+      { key: "family_members_present", label: "Family Members Present" },
+      { key: "purpose", label: "Purpose", type: "textarea" },
+      { key: "observations", label: "Observations", type: "textarea" },
+      { key: "family_cooperation_level", label: "Family Cooperation" },
+      { key: "safety_concerns_noted", label: "Safety Concerns", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "follow_up_needed", label: "Follow-up Needed", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "follow_up_notes", label: "Follow-up Notes", type: "textarea" },
+      { key: "visit_outcome", label: "Visit Outcome" },
+    ],
+    [residentSelectOptions, socialWorkerFormOptions, visitTypeFormOptions],
+  );
+
+  const educationFields: FormField[] = useMemo(
+    () => [
+      { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+      { key: "record_date", label: "Record Date", type: "date", required: true },
+      { key: "education_level", label: "Education Level", required: true },
+      { key: "school_name", label: "School Name", required: true },
+      {
+        key: "enrollment_status",
+        label: "Enrollment Status",
+        type: "select",
+        required: true,
+        options: enrollmentStatusFormOptions,
+      },
+      { key: "attendance_rate", label: "Attendance Rate", type: "number" },
+      { key: "progress_percent", label: "Progress Percent", type: "number" },
+      { key: "completion_status", label: "Completion Status" },
+      { key: "notes", label: "Notes", type: "textarea" },
+    ],
+    [enrollmentStatusFormOptions, residentSelectOptions],
+  );
+
   const healthFields: FormField[] = [
     { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
     { key: "record_date", label: "Record Date", type: "date", required: true },
@@ -2656,38 +3487,64 @@ export function AdminWorkspace() {
     { key: "psychological_checkup_done", label: "Psychological Checkup", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
     { key: "notes", label: "Notes", type: "textarea" },
   ];
-  const interventionFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
-    { key: "plan_category", label: "Plan Category", required: true },
-    { key: "plan_description", label: "Plan Description", type: "textarea", required: true },
-    { key: "services_provided", label: "Services Provided" },
-    { key: "target_value", label: "Target Value", type: "number" },
-    { key: "target_date", label: "Target Date", type: "date", required: true },
-    { key: "status", label: "Status", required: true },
-    { key: "case_conference_date", label: "Case Conference Date", type: "date" },
-  ];
-  const incidentFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
-    {
-      key: "safehouse_id",
-      label: "Safe House",
-      type: "select",
-      required: true,
-      options: workspace.safehouses.map((safehouse) => ({
-        value: String(safehouse.safehouse_id),
-        label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
-      })),
-    },
-    { key: "incident_date", label: "Incident Date", type: "date", required: true },
-    { key: "incident_type", label: "Incident Type", required: true },
-    { key: "severity", label: "Severity", required: true },
-    { key: "description", label: "Description", type: "textarea", required: true },
-    { key: "response_taken", label: "Response Taken", type: "textarea" },
-    { key: "resolved", label: "Resolved", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "resolution_date", label: "Resolution Date", type: "date" },
-    { key: "reported_by", label: "Reported By", required: true },
-    { key: "follow_up_required", label: "Follow-up Required", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-  ];
+
+  const interventionFields: FormField[] = useMemo(
+    () => [
+      { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+      {
+        key: "plan_category",
+        label: "Plan Category",
+        type: "select",
+        required: true,
+        options: planCategoryFormOptions,
+      },
+      { key: "plan_description", label: "Plan Description", type: "textarea", required: true },
+      { key: "services_provided", label: "Services Provided" },
+      { key: "target_value", label: "Target Value", type: "number" },
+      { key: "target_date", label: "Target Date", type: "date", required: true },
+      { key: "status", label: "Status", required: true },
+      { key: "case_conference_date", label: "Case Conference Date", type: "date" },
+    ],
+    [planCategoryFormOptions, residentSelectOptions],
+  );
+
+  const incidentFields: FormField[] = useMemo(
+    () => [
+      { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+      {
+        key: "safehouse_id",
+        label: "Safe House",
+        type: "select",
+        required: true,
+        options: workspace.safehouses.map((safehouse) => ({
+          value: String(safehouse.safehouse_id),
+          label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
+        })),
+      },
+      { key: "incident_date", label: "Incident Date", type: "date", required: true },
+      {
+        key: "incident_type",
+        label: "Incident Type",
+        type: "select",
+        required: true,
+        options: incidentTypeFormOptions,
+      },
+      {
+        key: "severity",
+        label: "Severity",
+        type: "select",
+        required: true,
+        options: incidentSeverityFormOptions,
+      },
+      { key: "description", label: "Description", type: "textarea", required: true },
+      { key: "response_taken", label: "Response Taken", type: "textarea" },
+      { key: "resolved", label: "Resolved", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "resolution_date", label: "Resolution Date", type: "date" },
+      { key: "reported_by", label: "Reported By", required: true },
+      { key: "follow_up_required", label: "Follow-up Required", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+    ],
+    [incidentSeverityFormOptions, incidentTypeFormOptions, residentSelectOptions, workspace.safehouses],
+  );
 
   const validateResidentIdentifiers = (s: ResidentFormState): string | null => {
     if (!s.case_control_no.trim() && !s.internal_code.trim()) {
@@ -2836,6 +3693,12 @@ export function AdminWorkspace() {
 
   const openProcessForm = (row?: RecordRow) => {
     setEditingProcessId(row ? toNumber(row.recording_id) : null);
+    const interventionsRaw = String(row?.interventions_applied ?? "").trim();
+    const followUpRaw = String(row?.follow_up_actions ?? "").trim();
+    const interventionsIsNone =
+      !interventionsRaw || interventionsRaw.toLowerCase() === "none" || interventionsRaw.toLowerCase() === "n/a";
+    const followUpIsNone =
+      !followUpRaw || followUpRaw.toLowerCase() === "none" || followUpRaw.toLowerCase() === "n/a";
     setProcessForm({
       resident_id: row?.resident_id ? String(row.resident_id) : selectedResidentIds[0] ? String(selectedResidentIds[0]) : "",
       session_date: String(row?.session_date ?? ""),
@@ -2845,8 +3708,10 @@ export function AdminWorkspace() {
       emotional_state_observed: String(row?.emotional_state_observed ?? ""),
       emotional_state_end: String(row?.emotional_state_end ?? ""),
       session_narrative: String(row?.session_narrative ?? ""),
-      interventions_applied: String(row?.interventions_applied ?? ""),
-      follow_up_actions: String(row?.follow_up_actions ?? ""),
+      interventions_applied: interventionsIsNone ? "" : interventionsRaw,
+      interventions_none: interventionsIsNone ? "true" : "false",
+      follow_up_actions: followUpIsNone ? "" : followUpRaw,
+      follow_up_none: followUpIsNone ? "true" : "false",
       progress_noted: toBooleanString(row?.progress_noted),
       concerns_flagged: toBooleanString(row?.concerns_flagged),
       referral_made: toBooleanString(row?.referral_made),
@@ -3072,8 +3937,10 @@ export function AdminWorkspace() {
       emotional_state_observed: processForm.emotional_state_observed || null,
       emotional_state_end: processForm.emotional_state_end || null,
       session_narrative: processForm.session_narrative || null,
-      interventions_applied: processForm.interventions_applied || null,
-      follow_up_actions: processForm.follow_up_actions || null,
+      interventions_applied:
+        processForm.interventions_none === "true" ? "None" : processForm.interventions_applied.trim() || null,
+      follow_up_actions:
+        processForm.follow_up_none === "true" ? "None" : processForm.follow_up_actions.trim() || null,
       progress_noted: toNullableBoolean(processForm.progress_noted),
       concerns_flagged: toNullableBoolean(processForm.concerns_flagged),
       referral_made: toNullableBoolean(processForm.referral_made),
@@ -3303,31 +4170,6 @@ export function AdminWorkspace() {
         ]}
         onSortChange={setResidentSort}
         actionItems={[
-          {
-            label:
-              residentsSubTab === "all-residents"
-                ? "Add resident"
-                : residentsSubTab === "process-records"
-                  ? "Add process record"
-                  : residentsSubTab === "visitations"
-                    ? "Add visitation"
-                    : residentsSubTab === "education"
-                      ? "Add education record"
-                      : residentsSubTab === "health"
-                        ? "Add health record"
-                        : residentsSubTab === "interventions"
-                          ? "Add intervention"
-                          : "Add incident",
-            onClick: () => {
-              if (residentsSubTab === "all-residents") openResidentForm();
-              else if (residentsSubTab === "process-records") openProcessForm();
-              else if (residentsSubTab === "visitations") openVisitationForm();
-              else if (residentsSubTab === "education") openEducationForm();
-              else if (residentsSubTab === "health") openHealthForm();
-              else if (residentsSubTab === "interventions") openInterventionForm();
-              else openIncidentForm();
-            },
-          },
           {
             label: "Export current view as CSV",
             onClick: () => {
@@ -3601,22 +4443,6 @@ export function AdminWorkspace() {
         onSortChange={onSortChange}
         actionItems={[
           {
-            label:
-              donationsSubTab === "supporters"
-                ? "Add supporter"
-                : donationsSubTab === "in-kind"
-                  ? "Add in-kind item"
-                  : donationsSubTab === "allocations"
-                    ? "Add allocation"
-                    : "Add donation",
-            onClick: () => {
-              if (donationsSubTab === "supporters") openSupporterForm();
-              else if (donationsSubTab === "donations") openDonationForm();
-              else if (donationsSubTab === "in-kind") openInKindForm();
-              else if (donationsSubTab === "allocations") openAllocationForm();
-            },
-          },
-          {
             label: "Export current view as CSV",
             onClick: () => {
               if (donationsSubTab === "supporters") exportRows("Supporters", filteredSupporters as unknown as Array<Record<string, unknown>>);
@@ -3638,6 +4464,45 @@ export function AdminWorkspace() {
       searchPlaceholder="Search safe houses, regions, status, or city"
       filters={
         <>
+          {safeHousesSubTab === "monthly-metrics" ? (
+            <fieldset className="rounded-2xl border border-border/70 bg-background p-4">
+              <legend className="mb-3 w-full text-left text-sm font-semibold uppercase tracking-[0.14em] text-foreground/80">
+                Metric period
+              </legend>
+              <div className="space-y-3 text-sm font-medium text-foreground">
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="radio"
+                    name="monthly-metrics-period"
+                    checked={monthlyMetricsPeriodFilter === "occurred"}
+                    onChange={() => setMonthlyMetricsPeriodFilter("occurred")}
+                    className="h-4 w-4 border-border text-primary"
+                  />
+                  Occurred
+                </label>
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="radio"
+                    name="monthly-metrics-period"
+                    checked={monthlyMetricsPeriodFilter === "future"}
+                    onChange={() => setMonthlyMetricsPeriodFilter("future")}
+                    className="h-4 w-4 border-border text-primary"
+                  />
+                  Future
+                </label>
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="radio"
+                    name="monthly-metrics-period"
+                    checked={monthlyMetricsPeriodFilter === "all"}
+                    onChange={() => setMonthlyMetricsPeriodFilter("all")}
+                    className="h-4 w-4 border-border text-primary"
+                  />
+                  All
+                </label>
+              </div>
+            </fieldset>
+          ) : null}
           <FilterCheckboxGroup title="Status" options={safehouseStatusOptions} selected={safehouseStatusFilter} onChange={setSafehouseStatusFilter} allLabel="All statuses" />
           <FilterCheckboxGroup title="Region" options={safehouseRegionOptions} selected={safehouseRegionFilter} onChange={setSafehouseRegionFilter} allLabel="All regions" />
         </>
@@ -3646,6 +4511,7 @@ export function AdminWorkspace() {
         setSafehouseSearch("");
         setSafehouseStatusFilter([]);
         setSafehouseRegionFilter([]);
+        setMonthlyMetricsPeriodFilter("occurred");
         setParams({ safehouseId: null });
       }}
       bottomContent={
@@ -3688,7 +4554,6 @@ export function AdminWorkspace() {
       ]}
       onSortChange={setSafehouseSort}
       actionItems={[
-        ...(safeHousesSubTab === "safe-houses" ? [{ label: "Add safe house", onClick: () => openSafehouseForm() }] : []),
         {
           label: "Export current view as CSV",
           onClick: () => {
@@ -3729,15 +4594,50 @@ export function AdminWorkspace() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Resident</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Severity</TableHead>
-                    <TableHead>Status</TableHead>
+                    <SortableTableHead
+                      tableId="dashboard-incidents"
+                      columnKey="resident"
+                      activeSort={tableColumnSort["dashboard-incidents"]}
+                      onToggle={toggleTableColumnSort}
+                    >
+                      Resident
+                    </SortableTableHead>
+                    <SortableTableHead
+                      tableId="dashboard-incidents"
+                      columnKey="incident_date"
+                      activeSort={tableColumnSort["dashboard-incidents"]}
+                      onToggle={toggleTableColumnSort}
+                    >
+                      Date
+                    </SortableTableHead>
+                    <SortableTableHead
+                      tableId="dashboard-incidents"
+                      columnKey="incident_type"
+                      activeSort={tableColumnSort["dashboard-incidents"]}
+                      onToggle={toggleTableColumnSort}
+                    >
+                      Type
+                    </SortableTableHead>
+                    <SortableTableHead
+                      tableId="dashboard-incidents"
+                      columnKey="severity"
+                      activeSort={tableColumnSort["dashboard-incidents"]}
+                      onToggle={toggleTableColumnSort}
+                    >
+                      Severity
+                    </SortableTableHead>
+                    <SortableTableHead
+                      tableId="dashboard-incidents"
+                      columnKey="status"
+                      activeSort={tableColumnSort["dashboard-incidents"]}
+                      onToggle={toggleTableColumnSort}
+                    >
+                      Status
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dashboardRecentIncidents.map((incident) => (
+                  {dashboardIncidentsForTable.map((incident) => (
                     <TableRow key={String(incident.incident_id)}>
                       <TableCell>{residentLabel(residentMap.get(toNumber(incident.resident_id)) ?? ({} as Resident))}</TableCell>
                       <TableCell>{asDisplayDate(incident.incident_date)}</TableCell>
@@ -3794,14 +4694,43 @@ export function AdminWorkspace() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Supporter</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Value</TableHead>
+                    <SortableTableHead
+                      tableId="dashboard-donations"
+                      columnKey="supporter"
+                      activeSort={tableColumnSort["dashboard-donations"]}
+                      onToggle={toggleTableColumnSort}
+                    >
+                      Supporter
+                    </SortableTableHead>
+                    <SortableTableHead
+                      tableId="dashboard-donations"
+                      columnKey="donation_date"
+                      activeSort={tableColumnSort["dashboard-donations"]}
+                      onToggle={toggleTableColumnSort}
+                    >
+                      Date
+                    </SortableTableHead>
+                    <SortableTableHead
+                      tableId="dashboard-donations"
+                      columnKey="donation_type"
+                      activeSort={tableColumnSort["dashboard-donations"]}
+                      onToggle={toggleTableColumnSort}
+                    >
+                      Type
+                    </SortableTableHead>
+                    <SortableTableHead
+                      tableId="dashboard-donations"
+                      columnKey="value"
+                      activeSort={tableColumnSort["dashboard-donations"]}
+                      onToggle={toggleTableColumnSort}
+                      className="text-right"
+                    >
+                      Value
+                    </SortableTableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dashboardRecentDonations.map((donation) => (
+                  {dashboardDonationsForTable.map((donation) => (
                     <TableRow key={donation.donation_id}>
                       <TableCell>{donation.supporter_id ? supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter)) : donation.supporter_name ?? "Anonymous"}</TableCell>
                       <TableCell>{asDisplayDate(donation.donation_date)}</TableCell>
@@ -3855,19 +4784,69 @@ export function AdminWorkspace() {
               <SectionCard
                 title="Residents"
                 description="Row click opens the resident detail modal and applies the resident to the global cross-tab filter."
+                action={<TableAddButton label="Add resident" onClick={() => openResidentForm()} />}
               >
                 {renderResidentToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Select</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Age</TableHead>
-                      <TableHead>Case Status</TableHead>
-                      <TableHead>Safe House</TableHead>
-                      <TableHead>Latest Visitation</TableHead>
-                      <TableHead>Risk Status</TableHead>
-                      <TableHead>Date Added</TableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="name"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Name
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="age"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Age
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="case_status"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Case Status
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="safe_house"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Safe House
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="latest_visitation"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Latest Visitation
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="risk"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Risk Status
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="date_added"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Date Added
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3951,6 +4930,7 @@ export function AdminWorkspace() {
               <SectionCard
                 title="Process records"
                 description={selectedResidents.length ? "Process records are filtered to the selected resident set." : "Showing current and past process records. Future-dated sessions are separated below."}
+                action={<TableAddButton label="Add process record" onClick={() => openProcessForm()} />}
               >
                 {renderResidentToolbar()}
                 {residentProcessSplit.upcoming.length ? (
@@ -3973,12 +4953,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Session Date</TableHead>
-                      <TableHead>Social Worker</TableHead>
-                      <TableHead>Session Type</TableHead>
-                      <TableHead>Concerns Flagged</TableHead>
-                      <TableHead>Follow-up</TableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="resident"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="session_date"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Session Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="social_worker"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Social Worker
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="session_type"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Session Type
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="concerns_flagged"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Concerns Flagged
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="follow_up"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Follow-up
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4031,7 +5053,11 @@ export function AdminWorkspace() {
             </TabsContent>
 
             <TabsContent value="visitations">
-              <SectionCard title="Visitations & conferences" description={selectedResidents.length ? "Visitations are filtered to the selected resident set." : "All visitations are sorted upcoming first and then newest completed visits."}>
+              <SectionCard
+                title="Visitations & conferences"
+                description={selectedResidents.length ? "Visitations are filtered to the selected resident set." : "All visitations are sorted upcoming first and then newest completed visits."}
+                action={<TableAddButton label="Add visitation" onClick={() => openVisitationForm()} />}
+              >
                 {renderResidentToolbar()}
                 {residentUpcomingEvents.length ? (
                   <div className="mb-4">
@@ -4053,12 +5079,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Visit Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Social Worker</TableHead>
-                      <TableHead>Outcome</TableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="resident"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="visit_date"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Visit Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="visit_type"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Type
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="location"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Location
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="social_worker"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Social Worker
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="outcome"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Outcome
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4111,7 +5179,11 @@ export function AdminWorkspace() {
             </TabsContent>
 
             <TabsContent value="education">
-              <SectionCard title="Education records" description={selectedResidents.length ? "Education records are filtered to the selected resident set." : "All education records are sorted upcoming first and then newest first."}>
+              <SectionCard
+                title="Education records"
+                description={selectedResidents.length ? "Education records are filtered to the selected resident set." : "All education records are sorted upcoming first and then newest first."}
+                action={<TableAddButton label="Add education record" onClick={() => openEducationForm()} />}
+              >
                 {renderResidentToolbar()}
                 {residentEducationSplit.upcoming.length ? (
                   <div className="mb-4">
@@ -4133,12 +5205,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Record Date</TableHead>
-                      <TableHead>Level</TableHead>
-                      <TableHead>School</TableHead>
-                      <TableHead>Enrollment</TableHead>
-                      <TableHead>Progress</TableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="resident"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="record_date"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Record Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="level"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Level
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="school"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        School
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="enrollment"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Enrollment
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="progress"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Progress
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4191,7 +5305,11 @@ export function AdminWorkspace() {
             </TabsContent>
 
             <TabsContent value="health">
-              <SectionCard title="Health & well-being" description={selectedResidents.length ? "Health records are filtered to the selected resident set." : "All health records are sorted upcoming first and then newest first."}>
+              <SectionCard
+                title="Health & well-being"
+                description={selectedResidents.length ? "Health records are filtered to the selected resident set." : "All health records are sorted upcoming first and then newest first."}
+                action={<TableAddButton label="Add health record" onClick={() => openHealthForm()} />}
+              >
                 {renderResidentToolbar()}
                 {residentHealthSplit.upcoming.length ? (
                   <div className="mb-4">
@@ -4213,12 +5331,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Record Date</TableHead>
-                      <TableHead>Health Score</TableHead>
-                      <TableHead>Nutrition</TableHead>
-                      <TableHead>Sleep</TableHead>
-                      <TableHead>BMI</TableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="resident"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="record_date"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Record Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="health_score"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Health Score
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="nutrition"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Nutrition
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="sleep"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Sleep
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="bmi"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        BMI
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4271,7 +5431,11 @@ export function AdminWorkspace() {
             </TabsContent>
 
             <TabsContent value="interventions">
-              <SectionCard title="Interventions" description={selectedResidents.length ? "Interventions are filtered to the selected resident set." : "All interventions are sorted by upcoming target first and then newest first."}>
+              <SectionCard
+                title="Interventions"
+                description={selectedResidents.length ? "Interventions are filtered to the selected resident set." : "All interventions are sorted by upcoming target first and then newest first."}
+                action={<TableAddButton label="Add intervention" onClick={() => openInterventionForm()} />}
+              >
                 {renderResidentToolbar()}
                 {residentInterventionSplit.upcoming.length ? (
                   <div className="mb-4">
@@ -4293,12 +5457,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Target Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Conference Date</TableHead>
-                      <TableHead>Services</TableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="resident"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="category"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Category
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="target_date"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Target Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="status"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Status
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="conference_date"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Conference Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="services"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Services
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4351,7 +5557,11 @@ export function AdminWorkspace() {
             </TabsContent>
 
             <TabsContent value="incidents">
-              <SectionCard title="Incidents" description={selectedResidents.length ? "Incidents are filtered to the selected resident set." : "All incident reports are sorted upcoming first and then newest first."}>
+              <SectionCard
+                title="Incidents"
+                description={selectedResidents.length ? "Incidents are filtered to the selected resident set." : "All incident reports are sorted upcoming first and then newest first."}
+                action={<TableAddButton label="Add incident" onClick={() => openIncidentForm()} />}
+              >
                 {renderResidentToolbar()}
                 {residentIncidentSplit.upcoming.length ? (
                   <div className="mb-4">
@@ -4373,12 +5583,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Incident Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Severity</TableHead>
-                      <TableHead>Reported By</TableHead>
-                      <TableHead>Resolved</TableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="resident"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="incident_date"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Incident Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="incident_type"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Type
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="severity"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Severity
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="reported_by"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Reported By
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="resolved"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resolved
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4450,17 +5702,63 @@ export function AdminWorkspace() {
             </TabsList>
 
             <TabsContent value="supporters" className="space-y-6">
-              <SectionCard title="Supporters" description="Click a supporter row to filter all donation subtabs to that supporter.">
+              <SectionCard
+                title="Supporters"
+                description="Click a supporter row to filter all donation subtabs to that supporter."
+                action={<TableAddButton label="Add supporter" onClick={() => openSupporterForm()} />}
+              >
                 {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Region</TableHead>
-                      <TableHead>First Donation</TableHead>
-                      <TableHead>Channel</TableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="name"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Name
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="type"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Type
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="status"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Status
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="region"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Region
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="first_donation"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        First Donation
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="channel"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Channel
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4522,17 +5820,61 @@ export function AdminWorkspace() {
               <SectionCard
                 title="Donations"
                 description="Every monetary and in-kind gift: date, supporter, campaign, channel, and value. Filter with the toolbar above; when a supporter is selected, only their donations appear."
+                action={<TableAddButton label="Add donation" onClick={() => openDonationForm()} />}
               >
                 {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Supporter</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Campaign</TableHead>
-                      <TableHead>Channel</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="supporter"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Supporter
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="donation_date"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="donation_type"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Type
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="campaign"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Campaign
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="channel"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Channel
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="amount"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                        className="text-right"
+                      >
+                        Amount
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4588,17 +5930,60 @@ export function AdminWorkspace() {
               <SectionCard
                 title="In-kind items"
                 description="Line items tied to donation records—what was received, quantity, condition, and estimated value. Scoped to the active supporter filter when one is chosen."
+                action={<TableAddButton label="Add in-kind item" onClick={() => openInKindForm()} />}
               >
                 {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Donation</TableHead>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Intended Use</TableHead>
-                      <TableHead>Condition</TableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="donation"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Donation
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="item"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Item
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="category"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Category
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="quantity"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Quantity
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="intended_use"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Intended Use
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="condition"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Condition
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4654,16 +6039,53 @@ export function AdminWorkspace() {
               <SectionCard
                 title="Allocations"
                 description="How donation funds are assigned to safe houses and program areas, with amounts and dates. Rows respect the supporter filter so you see allocations for that donor’s gifts only."
+                action={<TableAddButton label="Add allocation" onClick={() => openAllocationForm()} />}
               >
                 {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Donation</TableHead>
-                      <TableHead>Safe House</TableHead>
-                      <TableHead>Program Area</TableHead>
-                      <TableHead>Allocation Date</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <SortableTableHead
+                        tableId="allocations"
+                        columnKey="donation"
+                        activeSort={tableColumnSort.allocations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Donation
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocations"
+                        columnKey="safe_house"
+                        activeSort={tableColumnSort.allocations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Safe House
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocations"
+                        columnKey="program_area"
+                        activeSort={tableColumnSort.allocations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Program Area
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocations"
+                        columnKey="allocation_date"
+                        activeSort={tableColumnSort.allocations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Allocation Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocations"
+                        columnKey="amount"
+                        activeSort={tableColumnSort.allocations}
+                        onToggle={toggleTableColumnSort}
+                        className="text-right"
+                      >
+                        Amount
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4734,18 +6156,71 @@ export function AdminWorkspace() {
             </TabsList>
 
             <TabsContent value="safe-houses" className="space-y-6">
-              <SectionCard title="Safe houses" description="Click a safe house row to filter related allocations and monthly metrics.">
+              <SectionCard
+                title="Safe houses"
+                description="Click a safe house row to filter related allocations and monthly metrics."
+                action={<TableAddButton label="Add safe house" onClick={() => openSafehouseForm()} />}
+              >
                 {renderSafehousesToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Region</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Capacity</TableHead>
-                      <TableHead>Occupancy</TableHead>
-                      <TableHead>Residents Assigned</TableHead>
-                      <TableHead>Donation Allocations</TableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="name"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Name
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="region"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Region
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="status"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Status
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="capacity"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Capacity
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="occupancy"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Occupancy
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="residents_assigned"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Residents Assigned
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="donation_allocations"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Donation Allocations
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4816,11 +6291,47 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Safe House</TableHead>
-                      <TableHead>Donation</TableHead>
-                      <TableHead>Program Area</TableHead>
-                      <TableHead>Allocation Date</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <SortableTableHead
+                        tableId="allocation-history"
+                        columnKey="safe_house"
+                        activeSort={tableColumnSort["allocation-history"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Safe House
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocation-history"
+                        columnKey="donation"
+                        activeSort={tableColumnSort["allocation-history"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Donation
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocation-history"
+                        columnKey="program_area"
+                        activeSort={tableColumnSort["allocation-history"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Program Area
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocation-history"
+                        columnKey="allocation_date"
+                        activeSort={tableColumnSort["allocation-history"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Allocation Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocation-history"
+                        columnKey="amount"
+                        activeSort={tableColumnSort["allocation-history"]}
+                        onToggle={toggleTableColumnSort}
+                        className="text-right"
+                      >
+                        Amount
+                      </SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -4854,13 +6365,62 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Safe House</TableHead>
-                      <TableHead>Month</TableHead>
-                      <TableHead>Active Residents</TableHead>
-                      <TableHead>Education Progress</TableHead>
-                      <TableHead>Health Score</TableHead>
-                      <TableHead>Visitations</TableHead>
-                      <TableHead>Incidents</TableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="safe_house"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Safe House
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="month"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Month
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="active_residents"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Active Residents
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="education_progress"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Education Progress
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="health_score"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Health Score
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="visitations"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Visitations
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="incidents"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Incidents
+                      </SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -4980,11 +6540,47 @@ export function AdminWorkspace() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Platform</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Post Type</TableHead>
-                        <TableHead>Impressions</TableHead>
-                        <TableHead className="text-right">Estimated Value</TableHead>
+                        <SortableTableHead
+                          tableId="social-posts"
+                          columnKey="platform"
+                          activeSort={tableColumnSort["social-posts"]}
+                          onToggle={toggleTableColumnSort}
+                        >
+                          Platform
+                        </SortableTableHead>
+                        <SortableTableHead
+                          tableId="social-posts"
+                          columnKey="date"
+                          activeSort={tableColumnSort["social-posts"]}
+                          onToggle={toggleTableColumnSort}
+                        >
+                          Date
+                        </SortableTableHead>
+                        <SortableTableHead
+                          tableId="social-posts"
+                          columnKey="post_type"
+                          activeSort={tableColumnSort["social-posts"]}
+                          onToggle={toggleTableColumnSort}
+                        >
+                          Post Type
+                        </SortableTableHead>
+                        <SortableTableHead
+                          tableId="social-posts"
+                          columnKey="impressions"
+                          activeSort={tableColumnSort["social-posts"]}
+                          onToggle={toggleTableColumnSort}
+                        >
+                          Impressions
+                        </SortableTableHead>
+                        <SortableTableHead
+                          tableId="social-posts"
+                          columnKey="estimated_value"
+                          activeSort={tableColumnSort["social-posts"]}
+                          onToggle={toggleTableColumnSort}
+                          className="text-right"
+                        >
+                          Estimated Value
+                        </SortableTableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -5231,13 +6827,27 @@ export function AdminWorkspace() {
         open={processFormOpen}
         onOpenChange={setProcessFormOpen}
         title={editingProcessId ? "Edit Process Record" : "Add Process Record"}
-        description="Create, update, or document a resident process recording directly from the table workspace."
+        description={
+          editingProcessId
+            ? "Update this process recording. Session date, facilitator, session type, emotional state, narrative, interventions, and follow-up must be complete (or mark interventions / follow-up as None)."
+            : "Each entry must include session date, social worker, session type (Individual or Group), emotional state observed, a narrative summary, interventions applied (or None), and follow-up actions (or None)."
+        }
         fields={processFields}
         state={processForm}
-        onChange={(key, value) => setProcessForm((current) => ({ ...current, [key]: value }))}
+        onChange={(key, value) =>
+          setProcessForm((current) => {
+            const next: ProcessRecordFormState = { ...current, [key]: value };
+            if (key === "interventions_none" && value === "true") next.interventions_applied = "";
+            if (key === "follow_up_none" && value === "true") next.follow_up_actions = "";
+            if (key === "interventions_applied" && value.trim()) next.interventions_none = "false";
+            if (key === "follow_up_actions" && value.trim()) next.follow_up_none = "false";
+            return next;
+          })
+        }
         onSubmit={submitProcessForm}
         submitLabel={editingProcessId ? "Save process record" : "Create process record"}
         pending={createMutation.isPending || updateMutation.isPending}
+        extraValidate={(s) => validateProcessRecordFormState(s, editingProcessId == null)}
       />
 
       <EntityModal
