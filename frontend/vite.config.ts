@@ -16,9 +16,18 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 8080,
       strictPort: false,
-    host: true,
-    open: true,
-  },
+      host: true,
+      open: true,
+      headers: {
+        // Avoid stale index / CSS when iterating on layout (Safari especially).
+        'Cache-Control': 'no-store',
+      },
+    },
+    preview: {
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

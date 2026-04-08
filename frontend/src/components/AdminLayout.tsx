@@ -3,8 +3,9 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, Users, FileText, Home, Heart, BarChart3,
-  Share2, Settings, Bell, LogOut, Menu, Anchor
+  Share2, Settings, Bell, LogOut, Menu
 } from "lucide-react";
+import houseLogo from "@/assets/icons/houseIcon.svg";
 
 const sidebarItems = [
   { label: "Dashboard", to: "/admin", icon: LayoutDashboard },
@@ -50,7 +51,12 @@ export const AdminLayout = ({
         }`}
       >
         <div className="flex items-center gap-2 px-6 py-5 border-b border-sidebar-border">
-          <Anchor className="h-6 w-6 text-accent" />
+          <img
+            src={houseLogo}
+            alt=""
+            aria-hidden="true"
+            className="h-7 w-7 object-contain [filter:brightness(0)_invert(1)]"
+          />
           <span className="font-heading text-lg font-bold">Bella Porto</span>
         </div>
 

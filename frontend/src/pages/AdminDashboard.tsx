@@ -6,6 +6,10 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { useAdminDashboardData } from "@/hooks/useAdminDashboardData";
 import { useNavigate } from "react-router-dom";
 
+const activeReports = mlInsights
+  .map((insight, originalIndex) => ({ insight, originalIndex }))
+  .filter(({ insight }) => /high-risk/i.test(insight.title) || /high risk/i.test(insight.title));
+
 const fadeUp = {
   hidden: { opacity: 0, y: 15 },
   visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.4 } }),
@@ -74,14 +78,16 @@ const AdminDashboard = () => {
             <h3 className="font-heading text-base font-semibold text-primary-foreground">Reports</h3>
           </div>
           <div className="p-4 space-y-3">
-            {mlInsights.map((insight, i) => (
+            {activeReports.map(({ insight, originalIndex }) => (
               <button
-                key={i}
-                onClick={() => navigate(`/admin/reports?item=${i}`)}
+                key={originalIndex}
+                onClick={() => navigate(`/admin/reports?item=${originalIndex}`)}
                 className="w-full text-left p-3 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors"
               >
-                <p className="text-sm font-semibold text-foreground">{insight.title}</p>
-                <p className="text-xs text-muted-foreground mt-1">{insight.description}</p>
+                <p className="text-sm font-semibold text-foreground">High Risk Resident Review</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Prioritize residents most likely to need urgent follow‑up in the next 30 days.
+                </p>
               </button>
             ))}
             <button

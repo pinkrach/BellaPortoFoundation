@@ -28,8 +28,8 @@ const Impact = () => {
           </motion.h1>
           <p className="mt-4 text-primary-foreground/80 text-lg">Track the impact of your generosity in real time.</p>
         </div>
-        <div className="absolute bottom-0 left-0 right-0">
-          <WaveDivider className="text-background" />
+        <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden">
+          <WaveDivider />
         </div>
       </section>
 

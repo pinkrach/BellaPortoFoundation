@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Compass, HeartHandshake, Home, Sparkles, ShieldCheck, SunMedium, Waves, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PublicLayout } from "@/components/PublicLayout";
-import { WaveDivider, WaveDividerTop } from "@/components/WaveDivider";
+import { WaveDivider } from "@/components/WaveDivider";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -122,7 +122,7 @@ const About = () => (
           ))}
         </div>
       </div>
-      <div className="absolute bottom-0 left-0 right-0">
+      <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden">
         <WaveDivider className="text-background" />
       </div>
     </section>
@@ -180,8 +180,8 @@ const About = () => (
     </section>
 
     <section className="relative">
-      <WaveDividerTop className="text-muted" />
-      <div className="-mt-1 bg-muted py-16 md:py-20">
+      <WaveDivider className="text-muted" />
+      <div className="-mt-px bg-muted py-16 md:py-20">
         <div className="container mx-auto px-4">
           <div className="mb-10 max-w-2xl">
             <p className="text-sm font-semibold uppercase tracking-[0.26em] text-primary">What Shapes Our Work</p>
@@ -209,7 +209,7 @@ const About = () => (
           </div>
         </div>
       </div>
-      <WaveDivider className="text-muted -mt-1 rotate-180" />
+      <WaveDivider className="-mt-px text-background" />
     </section>
 
     <section className="py-16 md:py-20">

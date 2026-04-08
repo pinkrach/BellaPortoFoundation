@@ -197,8 +197,8 @@ const PrivacyPolicy = () => (
         </p>
         <p className="mt-3 text-sm text-primary-foreground/75">Last Updated: April 6, 2026</p>
       </div>
-      <div className="absolute bottom-0 left-0 right-0">
-        <WaveDivider className="text-background" />
+      <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden">
+        <WaveDivider />
       </div>
     </section>
 

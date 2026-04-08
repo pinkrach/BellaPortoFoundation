@@ -12,7 +12,14 @@ builder.Services.AddCors(options =>
     options.AddPolicy("frontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:8080", "http://127.0.0.1:8080")
+            // Allow Vite dev server on any port (8080, 8081, 8082, etc.)
+            // so the browser doesn't block API calls with CORS.
+            .SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin)) return false;
+                return origin.StartsWith("http://localhost:", StringComparison.OrdinalIgnoreCase)
+                    || origin.StartsWith("http://127.0.0.1:", StringComparison.OrdinalIgnoreCase);
+            })
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -119,6 +126,117 @@ app.MapPost("/api/ml/social/refresh", async (
     }
 });
 
+app.MapGet("/api/ml/risk/latest", () =>
+{
+    var repoRoot = GetRepoRoot(app.Environment);
+    var summaryPath = Path.Combine(repoRoot, "ml-pipelines", "artifacts", "resident_risk_summary.json");
+
+    if (!File.Exists(summaryPath))
+    {
+        return Results.NotFound(new { message = "No resident risk summary has been generated yet." });
+    }
+
+    var node = JsonNode.Parse(File.ReadAllText(summaryPath));
+    return Results.Json(node);
+});
+
+app.MapPost("/api/ml/risk/refresh", async (
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            throw new InvalidOperationException(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        var client = httpClientFactory.CreateClient();
+
+        logger.LogInformation("Fetching live residents / incident_reports / process_recordings rows from Supabase.");
+        var residents = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "residents");
+        var incidents = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "incident_reports");
+        var recordings = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "process_recordings");
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["residents"] = residents,
+            ["incident_reports"] = incidents,
+            ["process_recordings"] = recordings,
+        };
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "bella-porto-resident-risk");
+        Directory.CreateDirectory(tempDir);
+
+        var inputPath = Path.Combine(tempDir, $"risk-input-{Guid.NewGuid():N}.json");
+        var outputPath = Path.Combine(tempDir, $"risk-output-{Guid.NewGuid():N}.json");
+        var artifactDir = Path.Combine(repoRoot, "ml-pipelines", "artifacts");
+        var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "resident_at_risk_pipeline.py");
+
+        await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(payload));
+
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "python3",
+                WorkingDirectory = repoRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            },
+        };
+
+        process.StartInfo.ArgumentList.Add(scriptPath);
+        process.StartInfo.ArgumentList.Add("--input");
+        process.StartInfo.ArgumentList.Add(inputPath);
+        process.StartInfo.ArgumentList.Add("--output");
+        process.StartInfo.ArgumentList.Add(outputPath);
+        process.StartInfo.ArgumentList.Add("--artifact-dir");
+        process.StartInfo.ArgumentList.Add(artifactDir);
+
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        if (process.ExitCode != 0)
+        {
+            logger.LogError("Resident risk pipeline failed. stdout: {Stdout} stderr: {Stderr}", stdout, stderr);
+            return Results.Problem("The resident risk pipeline failed to run.");
+        }
+
+        if (!File.Exists(outputPath))
+        {
+            logger.LogError("Resident risk pipeline finished without producing an output file. stdout: {Stdout}", stdout);
+            return Results.Problem("The resident risk pipeline did not produce output.");
+        }
+
+        var node = JsonNode.Parse(await File.ReadAllTextAsync(outputPath));
+
+        // Persist latest copy for GET /latest.
+        Directory.CreateDirectory(Path.Combine(repoRoot, "ml-pipelines", "artifacts"));
+        var persistPath = Path.Combine(repoRoot, "ml-pipelines", "artifacts", "resident_risk_summary.json");
+        await File.WriteAllTextAsync(persistPath, node?.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) ?? "{}");
+
+        return Results.Json(node);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to refresh resident risk report.");
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.Run();
 
 static string GetRepoRoot(IWebHostEnvironment environment)
@@ -210,6 +328,44 @@ static async Task<List<Dictionary<string, object?>>> FetchAllSocialPostsAsync(Ht
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"{baseUrl}/rest/v1/social_media_posts?select=*"
+        );
+        request.Headers.TryAddWithoutValidation("apikey", apiKey);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+        request.Headers.TryAddWithoutValidation("Range-Unit", "items");
+        request.Headers.TryAddWithoutValidation("Range", $"{start}-{end}");
+
+        using var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync();
+        var page = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+        results.AddRange(page);
+
+        if (page.Count < pageSize)
+        {
+            break;
+        }
+    }
+
+    return results;
+}
+
+static async Task<List<Dictionary<string, object?>>> FetchAllSupabaseRowsAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    string table)
+{
+    var results = new List<Dictionary<string, object?>>();
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    const int pageSize = 1000;
+
+    for (var start = 0; ; start += pageSize)
+    {
+        var end = start + pageSize - 1;
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"{baseUrl}/rest/v1/{table}?select=*"
         );
         request.Headers.TryAddWithoutValidation("apikey", apiKey);
         request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
