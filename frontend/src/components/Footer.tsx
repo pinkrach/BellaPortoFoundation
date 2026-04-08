@@ -4,15 +4,15 @@ import footerHouses from "@/assets/hero/newHouses.png";
 import { WaveDivider } from "@/components/WaveDivider";
 
 /**
- * Footer: sand-coloured wave transitions from cream page into the muted footer band,
- * then the houses illustration, then text content — all on bg-muted (sand).
+ * Public footer: compact sand band + full-bleed houses art.
+ * Keeps the site’s watercolor ending and avoids heavy “bar” styling.
  */
 export const Footer = () => (
   <footer className="mt-auto w-full">
-    {/* Sand wave — transitions cream testimonials section into the sand footer */}
+    {/* Sand wave — transitions cream content into the sand footer band */}
     <WaveDivider className="text-muted" />
 
-    {/* Houses illustration — full width, prominently sized */}
+    {/* Houses illustration — full width, anchored at page end */}
     <div className="w-full overflow-hidden bg-muted -mt-1">
       <img
         src={footerHouses}
@@ -23,7 +23,7 @@ export const Footer = () => (
       />
     </div>
 
-    {/* Footer content — full-width sand band, dark text for legibility */}
+    {/* Footer content — minimal, calm, consistent */}
     <div className="w-full bg-muted">
       <div className="container mx-auto px-4 py-6 md:py-8">
         <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between">
@@ -32,9 +32,7 @@ export const Footer = () => (
             className="flex items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-muted"
           >
             <img src={houseLogo} alt="" aria-hidden="true" className="h-7 w-7 object-contain" />
-            <span className="font-heading text-base font-semibold text-foreground">
-              Bella Bay Foundation
-            </span>
+            <span className="font-heading text-base font-semibold text-foreground">Bella Bay Foundation</span>
           </Link>
 
           <div className="flex items-center gap-6 text-sm text-foreground/70">
@@ -52,9 +50,7 @@ export const Footer = () => (
             </a>
           </div>
 
-          <p className="text-xs text-foreground/50">
-            © {new Date().getFullYear()} Bella Bay Foundation. All rights reserved.
-          </p>
+          <p className="text-xs text-foreground/50">© {new Date().getFullYear()} Bella Bay Foundation. All rights reserved.</p>
         </div>
       </div>
     </div>

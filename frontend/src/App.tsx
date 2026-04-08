@@ -5,18 +5,31 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { CookieBanner } from "@/components/CookieBanner";
+
 import Index from "./pages/Index";
 import Impact from "./pages/Impact";
 import About from "./pages/About";
 import Login from "./pages/Login";
 import SignUpPage from "./pages/SignUpPage";
+import ForgotPassword from "./pages/ForgotPassword";
+import UpdatePassword from "./pages/UpdatePassword";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import NotFound from "./pages/NotFound";
+
+import DonorDashboard from "./pages/DonorDashboard";
+
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminDonors from "./pages/AdminDonors";
+import AddDonationPage from "./pages/AddDonationPage";
+import AddAllocationPage from "./pages/AddAllocationPage";
+import AddSupporterPage from "./pages/AddSupporterPage";
 import CaseloadInventory from "./pages/CaseloadInventory";
+import ProcessRecordingsPage from "./pages/ProcessRecordingsPage";
+import HomeVisitationsPage from "./pages/HomeVisitationsPage";
 import SocialMediaDashboard from "./pages/SocialMediaDashboard";
 import Reports from "./pages/Reports";
-import NotFound from "./pages/NotFound";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import DonorDashboard from "./pages/DonorDashboard";
+import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient();
 const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -35,7 +48,10 @@ const App = () => (
               <Route path="/impact" element={<Impact />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<SignUpPage />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<UpdatePassword />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
+
               <Route
                 path="/dashboard"
                 element={
@@ -44,11 +60,44 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+
               <Route
                 path="/admin"
                 element={
                   <ProtectedRoute requiredRole="admin">
                     <AdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/donors"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminDonors />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/donors/new-supporter"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AddSupporterPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/donors/new-donation"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AddDonationPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/donors/new-allocation"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AddAllocationPage />
                   </ProtectedRoute>
                 }
               />
@@ -61,10 +110,34 @@ const App = () => (
                 }
               />
               <Route
-                path="/admin/reports"
+                path="/admin/recordings"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <Reports />
+                    <ProcessRecordingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/recordings"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <ProcessRecordingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/visitations"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <HomeVisitationsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/visitations"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <HomeVisitationsPage />
                   </ProtectedRoute>
                 }
               />
@@ -76,8 +149,35 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/media"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <SocialMediaDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/reports"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <Reports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/settings"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+
               <Route path="*" element={<NotFound />} />
             </Routes>
+
+            <CookieBanner />
           </BrowserRouter>
         </div>
       </TooltipProvider>

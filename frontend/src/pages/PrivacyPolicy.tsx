@@ -6,7 +6,7 @@ const sections = [
   {
     title: "1. Who We Are",
     body: [
-      "Bella Porto is a nonprofit support platform designed to help administrators manage resident cases and provide donors with transparent insight into how their contributions support children and families in need.",
+      "Bella Bay is a nonprofit support platform designed to help administrators manage resident cases and provide donors with transparent insight into how their contributions support children and families in need.",
     ],
     bullets: [
       "donor dashboards",
@@ -158,7 +158,7 @@ const sections = [
   {
     title: "12. Protection of Children’s Data",
     body: [
-      "Because the platform contains information relating to minors and vulnerable individuals, Bella Porto applies heightened security and access controls.",
+      "Because the platform contains information relating to minors and vulnerable individuals, Bella Bay applies heightened security and access controls.",
       "Only authorized administrators, employees, and approved case personnel may access resident records.",
       "Sensitive case data is never made available to donors or the public.",
     ],
@@ -191,7 +191,7 @@ const PrivacyPolicy = () => (
         </div>
         <h1 className="font-heading text-3xl md:text-5xl font-bold text-primary-foreground">Privacy Policy</h1>
         <p className="mt-4 max-w-3xl text-primary-foreground/85 text-lg">
-          Bella Porto ("we," "our," or "us") is committed to protecting the privacy and security of all individuals
+          Bella Bay ("we," "our," or "us") is committed to protecting the privacy and security of all individuals
           whose information is processed through our platform, including donors, administrators, employees, residents,
           and other authorized users.
         </p>

@@ -1,0 +1,7 @@
+azure-functions
+joblib
+numpy
+pandas
+requests
+scikit-learn
+xgboost

@@ -109,24 +109,46 @@ type SocialAnalyticsResponse = {
   scoredPosts: ScoredPost[];
 };
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5250";
+const isLocalHost =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (isLocalHost ? "http://localhost:5250" : "");
+const hasLiveApi = Boolean(apiBaseUrl);
+
+async function fetchBundledSocialAnalytics(): Promise<SocialAnalyticsResponse> {
+  const response = await fetch("/social-dashboard-summary.json");
+
+  if (!response.ok) {
+    throw new Error("Unable to load the bundled social analytics snapshot.");
+  }
+
+  return response.json();
+}
 
 async function fetchLatestSocialAnalytics(): Promise<SocialAnalyticsResponse> {
+  if (!hasLiveApi) {
+    return fetchBundledSocialAnalytics();
+  }
+
   const response = await fetch(`${apiBaseUrl}/api/ml/social/latest`);
 
   if (response.status === 404) {
-    throw new Error("No saved analytics yet. Press refresh analytics to generate the first live report.");
+    return fetchBundledSocialAnalytics();
   }
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Unable to load social analytics.");
+    return fetchBundledSocialAnalytics();
   }
 
   return response.json();
 }
 
 async function refreshSocialAnalytics(): Promise<SocialAnalyticsResponse> {
+  if (!hasLiveApi) {
+    throw new Error("Live refresh is only available when the backend API is configured.");
+  }
+
   const response = await fetch(`${apiBaseUrl}/api/ml/social/refresh`, {
     method: "POST",
     headers: {
@@ -218,11 +240,11 @@ const SocialMediaDashboard = () => {
           </div>
           <button
             onClick={() => refreshMutation.mutate()}
-            disabled={isBusy}
+            disabled={isBusy || !hasLiveApi}
             className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <RefreshCw className={`h-4 w-4 ${isBusy ? "animate-spin" : ""}`} />
-            Refresh analytics
+            {hasLiveApi ? "Refresh analytics" : "Bundled analytics"}
           </button>
         </div>
 
@@ -242,7 +264,9 @@ const SocialMediaDashboard = () => {
                   {(error as Error).message}
                 </p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Make sure the backend API is running on `http://localhost:5250`, then press `Refresh analytics`.
+                  {hasLiveApi
+                    ? "Make sure the backend API is running, then press `Refresh analytics`."
+                    : "The page can still use the bundled analytics snapshot on deployed sites."}
                 </p>
               </div>
             </div>

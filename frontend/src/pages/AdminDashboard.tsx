@@ -29,6 +29,38 @@ const AdminDashboard = () => {
   const residentStatusByHouse = data?.residentStatusByHouse ?? [];
   const recentDonations = data?.recentDonations ?? [];
 
+  type RecentDonation = (typeof recentDonations)[number];
+
+  const toNumber = (value: unknown) => {
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
+
+  const formatDonationDate = (value: unknown) => {
+    if (typeof value !== "string" || !value) return "-";
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
+  };
+
+  const formatCurrency = (value: unknown, code = "PHP") =>
+    new Intl.NumberFormat("en-PH", { style: "currency", currency: code, maximumFractionDigits: 2 }).format(toNumber(value));
+
+  const getSupporterName = (donation: RecentDonation) => {
+    const supporters = (donation as any)?.supporters;
+    const display = typeof supporters?.display_name === "string" ? supporters.display_name.trim() : "";
+    if (display) return display;
+    const org = typeof supporters?.organization_name === "string" ? supporters.organization_name.trim() : "";
+    if (org) return org;
+    const first = typeof supporters?.first_name === "string" ? supporters.first_name.trim() : "";
+    const last = typeof supporters?.last_name === "string" ? supporters.last_name.trim() : "";
+    const full = `${first} ${last}`.trim();
+    return full || "Unknown";
+  };
+
   return (
     <AdminLayout>
     {/* KPI Cards */}
@@ -113,16 +145,30 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {recentDonations.map((d, i) => (
-                  <tr key={d.id} className={`border-b border-border/50 ${i % 2 === 0 ? "bg-muted/30" : ""}`}>
-                    <td className="py-2.5">{d.donor}</td>
-                    <td className="py-2.5 font-semibold text-foreground">${d.amount}</td>
-                    <td className="py-2.5 text-muted-foreground">{d.date}</td>
+                {recentDonations.map((d: any, i: number) => (
+                  <tr key={d.donation_id ?? i} className={`border-b border-border/50 ${i % 2 === 0 ? "bg-muted/30" : ""}`}>
+                    <td className="py-2.5">{getSupporterName(d)}</td>
+                    <td className="py-2.5 font-semibold text-foreground">
+                      {d.donation_type === "Monetary"
+                        ? formatCurrency(d.amount, d.currency_code ?? "PHP")
+                        : formatCurrency(d.estimated_value, d.currency_code ?? "PHP")}
+                    </td>
+                    <td className="py-2.5 text-muted-foreground">{formatDonationDate(d.donation_date)}</td>
                     <td className="py-2.5">
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary font-medium">{d.type}</span>
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary font-medium">
+                        {d.donation_type ?? "Unknown"}
+                      </span>
                     </td>
                   </tr>
                 ))}
+
+                {recentDonations.length === 0 ? (
+                  <tr>
+                    <td className="py-2.5 text-muted-foreground" colSpan={4}>
+                      No donations found.
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
