@@ -1,7 +1,11 @@
 using System.Diagnostics;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -58,11 +62,55 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Maximally restrictive API: validate Supabase-issued JWTs when Supabase:JwtSecret (or SUPABASE_JWT_SECRET) is set.
+var jwtSecret =
+    builder.Configuration["Supabase:JwtSecret"]
+    ?? Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+var supabaseUrlForJwt =
+    builder.Configuration["Supabase:Url"]
+    ?? Environment.GetEnvironmentVariable("SUPABASE_URL");
+var jwtAuthEnabled =
+    !string.IsNullOrWhiteSpace(jwtSecret) && !string.IsNullOrWhiteSpace(supabaseUrlForJwt);
+
+if (jwtAuthEnabled)
+{
+    var jwtSecretValue = jwtSecret!;
+    var supabaseJwtUrl = supabaseUrlForJwt!;
+    var issuer = $"{supabaseJwtUrl.TrimEnd('/')}/auth/v1";
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretValue)),
+                ValidIssuer = issuer,
+                ValidAudience = "authenticated",
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(2),
+            };
+        });
+    builder.Services.AddAuthorization(options =>
+    {
+        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser()
+            .Build();
+    });
+}
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    var openApiEndpoint = app.MapOpenApi();
+    if (jwtAuthEnabled)
+    {
+        openApiEndpoint.AllowAnonymous();
+    }
 }
 
 app.UseCors("frontend");
@@ -73,7 +121,17 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
+if (jwtAuthEnabled)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
+
+var healthEndpoint = app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
+if (jwtAuthEnabled)
+{
+    healthEndpoint.AllowAnonymous();
+}
 
 app.MapGet("/api/profiles", async (
     HttpRequest request,
@@ -127,6 +185,22 @@ app.MapGet("/api/profiles/me", async (
             token,
             knownAdminEmails,
             settings.UsingServiceRoleKey);
+        if (jwtAuthEnabled)
+        {
+            var subject =
+                request.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? request.HttpContext.User.FindFirstValue("sub");
+            if (string.IsNullOrWhiteSpace(subject))
+            {
+                return Results.Unauthorized();
+            }
+            if (profile is not null
+                && profile.TryGetValue("id", out var profileId)
+                && !string.Equals(profileId?.ToString(), subject, StringComparison.Ordinal))
+            {
+                return Results.Unauthorized();
+            }
+        }
         return profile is null
             ? Results.NotFound(new { message = "The signed-in user's profile was not found." })
             : Results.Ok(profile);
@@ -751,9 +825,8 @@ app.MapGet("/api/residents/{residentId:int}/profile-bundle", async (
     }
 });
 
-app.MapGet("/api/public-impact", async (
+var publicImpactEndpoint = app.MapGet("/api/public-impact", async (
     bool? publishedOnly,
-    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -764,11 +837,6 @@ app.MapGet("/api/public-impact", async (
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
         var client = httpClientFactory.CreateClient();
-        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
-        if (guard is not null)
-        {
-            return guard;
-        }
 
         var rows = await FetchPagedTableAsync(
             client,
@@ -785,6 +853,10 @@ app.MapGet("/api/public-impact", async (
         return Results.Problem(ex.Message);
     }
 });
+if (jwtAuthEnabled)
+{
+    publicImpactEndpoint.AllowAnonymous();
+}
 
 app.MapGet("/api/monthly-metrics", async (
     HttpRequest request,
