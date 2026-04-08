@@ -32,7 +32,27 @@ builder.Services.AddCors(options =>
     options.AddPolicy("frontend", policy =>
     {
         policy
-            .WithOrigins(allowedCorsOrigins)
+            .SetIsOriginAllowed(origin =>
+            {
+                if (allowedCorsOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    var isLocalHost =
+                        uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                        || uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase);
+
+                    if (isLocalHost)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            })
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -49,6 +69,146 @@ app.UseCors("frontend");
 app.UseHttpsRedirection();
 
 app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
+
+app.MapGet("/api/profiles", async (
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseServiceRoleConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var profiles = await FetchProfilesAsync(client, settings.Url!, settings.Key!);
+        return Results.Ok(profiles);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/profiles/me", async (
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var token = ExtractBearerToken(request);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return Results.Unauthorized();
+        }
+
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var knownAdminEmails = ResolveKnownAdminEmails(configuration);
+        var profile = await FetchCurrentUserProfileAsync(
+            httpClientFactory.CreateClient(),
+            settings.Url!,
+            settings.Key!,
+            token,
+            knownAdminEmails,
+            settings.UsingServiceRoleKey);
+        return profile is null
+            ? Results.NotFound(new { message = "The signed-in user's profile was not found." })
+            : Results.Ok(profile);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/profiles/{userId}", async (
+    string userId,
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseServiceRoleConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var profile = await FetchProfileByUserIdAsync(client, settings.Url!, settings.Key!, userId);
+        return profile is null
+            ? Results.NotFound(new { message = $"Profile {userId} was not found." })
+            : Results.Ok(profile);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapPut("/api/profiles/{userId}/role", async (
+    string userId,
+    ProfileRoleUpdateRequest requestBody,
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(requestBody.Role))
+        {
+            return Results.BadRequest(new { message = "A role is required." });
+        }
+
+        var normalizedRole = requestBody.Role.Trim().ToLowerInvariant();
+        if (normalizedRole is not ("admin" or "donor"))
+        {
+            return Results.BadRequest(new { message = "Role must be either admin or donor." });
+        }
+
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseServiceRoleConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var updated = await UpdateProfileRoleAsync(
+            client,
+            settings.Url!,
+            settings.Key!,
+            userId,
+            normalizedRole);
+
+        return updated is null
+            ? Results.NotFound(new { message = $"Profile {userId} was not found." })
+            : Results.Ok(updated);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
 
 app.MapGet("/api/supporters", async (
     IHttpClientFactory httpClientFactory,
@@ -620,6 +780,64 @@ static void EnsureSupabaseConfigured(SupabaseSettings settings)
     }
 }
 
+static void EnsureSupabaseServiceRoleConfigured(SupabaseSettings settings)
+{
+    EnsureSupabaseConfigured(settings);
+    if (!settings.UsingServiceRoleKey)
+    {
+        throw new InvalidOperationException(
+            "This endpoint requires SUPABASE_SERVICE_ROLE_KEY in the backend environment so admin profile access can be managed securely."
+        );
+    }
+}
+
+static string? ExtractBearerToken(HttpRequest request)
+{
+    var header = request.Headers.Authorization.ToString();
+    if (string.IsNullOrWhiteSpace(header)) return null;
+    const string prefix = "Bearer ";
+    return header.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+        ? header[prefix.Length..].Trim()
+        : null;
+}
+
+static async Task<IResult?> EnsureAdminRequestAsync(
+    HttpRequest request,
+    HttpClient client,
+    SupabaseSettings settings,
+    HashSet<string> knownAdminEmails)
+{
+    var token = ExtractBearerToken(request);
+    if (string.IsNullOrWhiteSpace(token))
+    {
+        return Results.Unauthorized();
+    }
+
+    var profile = await FetchCurrentUserProfileAsync(
+        client,
+        settings.Url!,
+        settings.Key!,
+        token,
+        knownAdminEmails,
+        settings.UsingServiceRoleKey);
+
+    var normalizedRole =
+        profile is not null
+        && profile.TryGetValue("role", out var roleValue)
+        && roleValue is not null
+            ? roleValue.ToString()?.Trim().ToLowerInvariant()
+            : null;
+
+    if (normalizedRole != "admin")
+    {
+        return Results.Json(
+            new { message = "Admin access is required for this endpoint." },
+            statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    return null;
+}
+
 static async Task<List<Dictionary<string, object?>>> ResolveSocialPostsAsync(
     SocialAnalyticsRefreshRequest? request,
     IConfiguration configuration,
@@ -646,14 +864,18 @@ static async Task<List<Dictionary<string, object?>>> ResolveSocialPostsAsync(
 
 static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, string repoRoot)
 {
+    var serviceRoleKey =
+        configuration["Supabase:ServiceRoleKey"]
+        ?? Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
+    var anonKey =
+        configuration["Supabase:AnonKey"]
+        ?? Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY");
+
     var settings = new SupabaseSettings
     {
         Url = configuration["Supabase:Url"] ?? Environment.GetEnvironmentVariable("SUPABASE_URL"),
-        Key =
-            configuration["Supabase:ServiceRoleKey"]
-            ?? Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY")
-            ?? configuration["Supabase:AnonKey"]
-            ?? Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY"),
+        Key = serviceRoleKey ?? anonKey,
+        UsingServiceRoleKey = !string.IsNullOrWhiteSpace(serviceRoleKey),
     };
 
     if (!string.IsNullOrWhiteSpace(settings.Url) && !string.IsNullOrWhiteSpace(settings.Key))
@@ -686,10 +908,25 @@ static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, st
         else if (string.IsNullOrWhiteSpace(settings.Key) && key == "VITE_SUPABASE_ANON_KEY")
         {
             settings.Key = value;
+            settings.UsingServiceRoleKey = false;
         }
     }
 
     return settings;
+}
+
+static HashSet<string> ResolveKnownAdminEmails(IConfiguration configuration)
+{
+    var configured =
+        configuration["Auth:KnownAdminEmails"]
+        ?? Environment.GetEnvironmentVariable("KNOWN_ADMIN_EMAILS")
+        ?? "admin@bellaporto.org";
+
+    return configured
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(value => value.Trim().ToLowerInvariant())
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
 }
 
 static async Task<List<Dictionary<string, object?>>> FetchAllSocialPostsAsync(HttpClient client, string supabaseUrl, string apiKey)
@@ -750,6 +987,147 @@ static async Task<List<Dictionary<string, object?>>> FetchResidentsAsync(HttpCli
         row.Remove("safehouses");
         return row;
     }).ToList();
+}
+
+static async Task<List<Dictionary<string, object?>>> FetchProfilesAsync(HttpClient client, string supabaseUrl, string apiKey)
+{
+    return await FetchPagedTableAsync(
+        client,
+        supabaseUrl,
+        apiKey,
+        "profiles",
+        select: "id,email,first_name,last_name,role",
+        orderBy: "first_name.asc");
+}
+
+static async Task<Dictionary<string, object?>?> FetchProfileByUserIdAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    string userId)
+{
+    var rows = await FetchPagedTableAsync(
+        client,
+        supabaseUrl,
+        apiKey,
+        "profiles",
+        select: "id,email,first_name,last_name,role",
+        filters: [$"id=eq.{Uri.EscapeDataString(userId)}"]);
+
+    return rows.FirstOrDefault();
+}
+
+static async Task<Dictionary<string, object?>?> FetchCurrentUserProfileAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    string accessToken,
+    HashSet<string> knownAdminEmails,
+    bool useBackendKeyForProfileRead)
+{
+    var user = await FetchSupabaseAuthUserAsync(client, supabaseUrl, apiKey, accessToken);
+    if (string.IsNullOrWhiteSpace(user?.Id))
+    {
+        return null;
+    }
+
+    Dictionary<string, object?>? profile;
+    if (useBackendKeyForProfileRead)
+    {
+        profile = await FetchProfileByUserIdAsync(client, supabaseUrl, apiKey, user.Id);
+    }
+    else
+    {
+        var rows = await FetchPagedTableWithAuthorizationAsync(
+            client,
+            supabaseUrl,
+            apiKey,
+            accessToken,
+            "profiles",
+            select: "id,email,first_name,last_name,role",
+            filters: [$"id=eq.{Uri.EscapeDataString(user.Id)}"]);
+        profile = rows.FirstOrDefault();
+    }
+
+    var email = user.Email?.Trim();
+    var normalizedEmail = email?.ToLowerInvariant();
+
+    if (profile is not null)
+    {
+        if (!profile.TryGetValue("email", out var existingEmail) || existingEmail is null)
+        {
+            profile["email"] = email;
+        }
+
+        if ((!profile.TryGetValue("role", out var existingRole) || existingRole is null || string.IsNullOrWhiteSpace(existingRole.ToString()))
+            && normalizedEmail is not null
+            && knownAdminEmails.Contains(normalizedEmail))
+        {
+            profile["role"] = "admin";
+        }
+
+        return profile;
+    }
+
+    if (normalizedEmail is not null && knownAdminEmails.Contains(normalizedEmail))
+    {
+        return new Dictionary<string, object?>
+        {
+            ["id"] = user.Id,
+            ["email"] = email,
+            ["first_name"] = null,
+            ["last_name"] = null,
+            ["role"] = "admin",
+        };
+    }
+
+    return null;
+}
+
+static async Task<SupabaseAuthUser?> FetchSupabaseAuthUserAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    string accessToken)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+
+    using var userRequest = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/auth/v1/user");
+    userRequest.Headers.TryAddWithoutValidation("apikey", apiKey);
+    userRequest.Headers.TryAddWithoutValidation("Authorization", $"Bearer {accessToken}");
+
+    using var userResponse = await client.SendAsync(userRequest);
+    userResponse.EnsureSuccessStatusCode();
+
+    var userBody = await userResponse.Content.ReadAsStringAsync();
+    return JsonSerializer.Deserialize<SupabaseAuthUser>(userBody, JsonOptions());
+}
+
+static async Task<Dictionary<string, object?>?> UpdateProfileRoleAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    string userId,
+    string role)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Patch,
+        $"{baseUrl}/rest/v1/profiles?id=eq.{Uri.EscapeDataString(userId)}&select=id,email,first_name,last_name,role");
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+    request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
+    request.Content = new StringContent(
+        JsonSerializer.Serialize(new Dictionary<string, object?> { ["role"] = role }),
+        Encoding.UTF8,
+        "application/json");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
+
+    var body = await response.Content.ReadAsStringAsync();
+    var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+    return rows.FirstOrDefault();
 }
 
 static async Task<Dictionary<string, object?>?> FetchResidentProfileBundleAsync(
@@ -837,6 +1215,60 @@ static async Task<List<Dictionary<string, object?>>> FetchPagedTableAsync(
             $"{baseUrl}/rest/v1/{table}?{query}");
         request.Headers.TryAddWithoutValidation("apikey", apiKey);
         request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+        request.Headers.TryAddWithoutValidation("Range-Unit", "items");
+        request.Headers.TryAddWithoutValidation("Range", $"{start}-{end}");
+
+        using var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync();
+        var page = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+        results.AddRange(page);
+
+        if (page.Count < pageSize)
+        {
+            break;
+        }
+    }
+
+    return results;
+}
+
+static async Task<List<Dictionary<string, object?>>> FetchPagedTableWithAuthorizationAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    string authorizationToken,
+    string table,
+    string select = "*",
+    IEnumerable<string>? filters = null,
+    string? orderBy = null)
+{
+    var results = new List<Dictionary<string, object?>>();
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    const int pageSize = 1000;
+    var queryParts = new List<string> { $"select={Uri.EscapeDataString(select)}" };
+
+    if (!string.IsNullOrWhiteSpace(orderBy))
+    {
+        queryParts.Add($"order={Uri.EscapeDataString(orderBy)}");
+    }
+
+    if (filters is not null)
+    {
+        queryParts.AddRange(filters);
+    }
+
+    var query = string.Join("&", queryParts);
+
+    for (var start = 0; ; start += pageSize)
+    {
+        var end = start + pageSize - 1;
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"{baseUrl}/rest/v1/{table}?{query}");
+        request.Headers.TryAddWithoutValidation("apikey", apiKey);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {authorizationToken}");
         request.Headers.TryAddWithoutValidation("Range-Unit", "items");
         request.Headers.TryAddWithoutValidation("Range", $"{start}-{end}");
 
@@ -1143,6 +1575,7 @@ sealed class SupabaseSettings
 {
     public string? Url { get; set; }
     public string? Key { get; set; }
+    public bool UsingServiceRoleKey { get; set; }
 }
 
 sealed class TableConfig
@@ -1155,4 +1588,15 @@ sealed class TableConfig
 sealed class SocialAnalyticsRefreshRequest
 {
     public List<Dictionary<string, object?>> Posts { get; set; } = [];
+}
+
+sealed class ProfileRoleUpdateRequest
+{
+    public string Role { get; set; } = string.Empty;
+}
+
+sealed class SupabaseAuthUser
+{
+    public string? Id { get; set; }
+    public string? Email { get; set; }
 }
