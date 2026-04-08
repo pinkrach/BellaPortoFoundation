@@ -66,7 +66,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("frontend");
-app.UseHttpsRedirection();
+// Local dev often runs on plain HTTP (or an untrusted dev cert). Redirecting here can break
+// frontend calls to `http://localhost:*` (e.g. role/profile lookups after Supabase auth).
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
 
