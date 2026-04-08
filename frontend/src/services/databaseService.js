@@ -4,6 +4,8 @@
  * Data flow: frontend -> backend API -> Supabase
  */
 
+import { supabase } from '@/lib/supabaseClient'
+
 export class DatabaseServiceError extends Error {
   /**
    * @param {string} message
@@ -81,9 +83,11 @@ async function parseResponse(response, context) {
 async function apiRequest(path, context, init = {}) {
   try {
     const url = /^https?:\/\//.test(path) ? path : buildApiUrl(path)
+    const token = (await supabase?.auth.getSession())?.data.session?.access_token ?? null
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(init.headers || {}),
       },
       ...init,

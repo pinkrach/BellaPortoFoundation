@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/AdminLayout";
-
-const isLocalHost =
-  typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (isLocalHost ? "http://localhost:5250" : "");
+import { fetchWithAuth } from "@/lib/api";
 
 const AddDonationPage = () => {
   const navigate = useNavigate();
@@ -47,8 +43,7 @@ const AddDonationPage = () => {
     };
 
     try {
-      const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/donations` : "/api/donations";
-      const response = await fetch(endpoint, {
+      const response = await fetchWithAuth("/api/donations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
