@@ -1,21 +1,10 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { adminSidebarItems } from "@/lib/navigation";
 import {
-  LayoutDashboard, Users, FileText, Home, Heart, BarChart3,
-  Share2, Settings, Bell, LogOut, Menu, Anchor, PanelLeftClose, PanelLeftOpen
+  Bell, LogOut, Menu, Anchor, PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
-
-const sidebarItems = [
-  { label: "Dashboard", to: "/admin", icon: LayoutDashboard },
-  { label: "Caseload Inventory", to: "/admin/caseload", icon: Users },
-  { label: "Process Recordings", to: "/admin/recordings", icon: FileText },
-  { label: "Visitations & Conferences", to: "/admin/visitations", icon: Home },
-  { label: "Donors & Contributions", to: "/admin/donors", icon: Heart },
-  { label: "Reports & Analytics", to: "/admin/reports", icon: BarChart3 },
-  { label: "Social Media", to: "/admin/social", icon: Share2 },
-  { label: "Settings", to: "/admin/settings", icon: Settings },
-];
 
 export const AdminLayout = ({
   children,
@@ -29,7 +18,7 @@ export const AdminLayout = ({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const location = useLocation();
-  const { logout } = useAuth();
+  const { displayName, initials, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,8 +26,8 @@ export const AdminLayout = ({
     setSidebarCollapsed(savedState === "true");
   }, []);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 
@@ -94,8 +83,9 @@ export const AdminLayout = ({
         </div>
 
         <nav className={`flex-1 overflow-y-auto py-4 ${sidebarCollapsed ? "space-y-2 px-2" : "space-y-1 px-3"}`}>
-          {sidebarItems.map((item) => {
+          {adminSidebarItems.map((item) => {
             const active = location.pathname === item.to;
+            const Icon = item.icon;
             return (
               <Link
                 key={item.to}
@@ -111,7 +101,7 @@ export const AdminLayout = ({
                 aria-label={item.label}
                 title={sidebarCollapsed ? item.label : undefined}
               >
-                <item.icon className="h-5 w-5" />
+                {Icon ? <Icon className="h-5 w-5" /> : null}
                 <span className={sidebarCollapsed ? "hidden" : "truncate"}>{item.label}</span>
               </Link>
             );
@@ -149,8 +139,11 @@ export const AdminLayout = ({
               <Bell className="h-5 w-5" />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-secondary rounded-full" />
             </button>
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
-              A
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground"
+              title={displayName ?? "Signed-in user"}
+            >
+              {initials}
             </div>
           </div>
         </header>

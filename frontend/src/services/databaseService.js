@@ -1,14 +1,8 @@
 /**
- * Database service aligned with `supabase/migrations/20260406233029_remote_schema.sql`.
+ * Backend-backed database service.
  *
- * Tables (17): donation_allocations, donations, education_records,
- * health_wellbeing_records, home_visitations, in_kind_donation_items,
- * incident_reports, intervention_plans, partner_assignments, partners,
- * process_recordings, public_impact_snapshots, residents,
- * safehouse_monthly_metrics, safehouses, social_media_posts, supporters.
+ * Data flow: frontend -> backend API -> Supabase
  */
-
-import { supabase } from '../lib/supabaseClient'
 
 export class DatabaseServiceError extends Error {
   /**
@@ -43,46 +37,83 @@ export const TABLE_PRIMARY_KEYS = {
   supporters: 'supporter_id',
 }
 
-/**
- * @param {{ message?: string } | null} error
- * @returns {never}
- */
-function throwIfSupabaseError(error) {
-  if (error) {
-    throw new DatabaseServiceError(error.message || 'Supabase request failed', error)
+const isLocalHost =
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (isLocalHost ? 'http://localhost:5250' : '')
+
+function buildApiUrl(path, params) {
+  const basePath = apiBaseUrl ? `${apiBaseUrl}${path}` : path
+  if (!params) return basePath
+
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null) continue
+    search.set(key, String(value))
   }
+
+  const query = search.toString()
+  return query ? `${basePath}?${query}` : basePath
 }
 
-function requireSupabase(context) {
-  if (!supabase) {
-    throw new DatabaseServiceError(
-      `${context}: Supabase is not configured (missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).`,
-    )
-  }
-  return supabase
-}
-
 /**
- * @param {unknown} err
+ * @param {Response} response
  * @param {string} context
- * @returns {never}
  */
-function wrapUnexpected(err, context) {
-  if (err instanceof DatabaseServiceError) throw err
-  const message =
-    err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
-      ? err.message
-      : String(err)
-  throw new DatabaseServiceError(`${context}: ${message}`, err)
+async function parseResponse(response, context) {
+  if (response.ok) {
+    if (response.status === 204) return null
+    return response.json()
+  }
+
+  const text = await response.text()
+  throw new DatabaseServiceError(
+    `${context}: ${text || response.statusText || 'Request failed'}`,
+  )
 }
 
-/** @param {{ data: unknown; error: { message?: string } | null }} result */
-function assertSingle(result, context) {
-  throwIfSupabaseError(result.error)
-  if (result.data == null) {
-    throw new DatabaseServiceError(`${context}: no row returned`)
+/**
+ * @param {string} path
+ * @param {string} context
+ * @param {RequestInit} [init]
+ */
+async function apiRequest(path, context, init = {}) {
+  try {
+    const url = /^https?:\/\//.test(path) ? path : buildApiUrl(path)
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init.headers || {}),
+      },
+      ...init,
+    })
+
+    return await parseResponse(response, context)
+  } catch (error) {
+    if (error instanceof DatabaseServiceError) throw error
+    const message =
+      error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+        ? error.message
+        : String(error)
+    throw new DatabaseServiceError(`${context}: ${message}`, error)
   }
-  return result.data
+}
+
+/** @param {unknown} value */
+function assertArray(value, context) {
+  if (!Array.isArray(value)) {
+    throw new DatabaseServiceError(`${context}: expected an array response`)
+  }
+  return value
+}
+
+/** @param {unknown} value */
+function assertObject(value, context) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new DatabaseServiceError(`${context}: expected an object response`)
+  }
+  return value
 }
 
 /** @param {Record<string, unknown> | null | undefined} supporter */
@@ -98,751 +129,246 @@ function resolveSupporterName(supporter) {
   return full || null
 }
 
-/**
- * All residents with `safehouse_name` from `safehouses.name`.
- */
+function assertKnownTable(table, context) {
+  if (!TABLE_PRIMARY_KEYS[table]) {
+    throw new DatabaseServiceError(`${context}: unknown table "${table}"`)
+  }
+}
+
+async function getTable(table) {
+  assertKnownTable(table, 'getTable')
+  return assertArray(await apiRequest(`/api/db/${table}`, `getTable(${table})`), `getTable(${table})`)
+}
+
+async function getTableById(table, id) {
+  assertKnownTable(table, 'getTableById')
+  return assertObject(
+    await apiRequest(`/api/db/${table}/${id}`, `getTableById(${table})`),
+    `getTableById(${table})`,
+  )
+}
+
+async function getTableByResidentId(table, residentId) {
+  assertKnownTable(table, 'getTableByResidentId')
+  return assertArray(
+    await apiRequest(`/api/db/${table}/resident/${residentId}`, `getTableByResidentId(${table})`),
+    `getTableByResidentId(${table})`,
+  )
+}
+
 export async function getResidents() {
-  try {
-    const sb = requireSupabase('getResidents')
-    const { data, error } = await sb
-      .from('residents')
-      .select('*, safehouses(safehouse_id, name)')
-      .order('resident_id', { ascending: true })
-
-    throwIfSupabaseError(error)
-
-    return (data ?? []).map((row) => {
-      const { safehouses: sh, ...resident } = row
-      const name = sh && typeof sh === 'object' && 'name' in sh ? sh.name : null
-      return {
-        ...resident,
-        safehouse_name: name ?? null,
-      }
-    })
-  } catch (e) {
-    wrapUnexpected(e, 'getResidents')
-  }
+  return assertArray(await apiRequest('/api/residents', 'getResidents'), 'getResidents')
 }
 
-/**
- * Recent donations with nested `supporters` row (exact columns) and `supporter_name`.
- * @param {{ limit?: number }} [options]
- */
 export async function getDonations(options = {}) {
+  const all = assertArray(
+    await apiRequest('/api/donations', 'getDonations'),
+    'getDonations',
+  ).map((row) => {
+    const supporters = row.supporters && typeof row.supporters === 'object' ? row.supporters : null
+    return {
+      ...row,
+      supporter_name: resolveSupporterName(supporters),
+      supporters,
+    }
+  })
+
   const limit = options.limit ?? 50
-  try {
-    const sb = requireSupabase('getDonations')
-    const { data, error } = await sb
-      .from('donations')
-      .select(
-        `
-        donation_id,
-        supporter_id,
-        donation_type,
-        donation_date,
-        is_recurring,
-        campaign_name,
-        channel_source,
-        currency_code,
-        amount,
-        estimated_value,
-        impact_unit,
-        notes,
-        referral_post_id,
-        supporters (
-          supporter_id,
-          supporter_type,
-          display_name,
-          organization_name,
-          first_name,
-          last_name,
-          relationship_type,
-          region,
-          country,
-          email,
-          phone,
-          status,
-          created_at,
-          first_donation_date,
-          acquisition_channel
-        )
-      `,
-      )
-      .order('donation_date', { ascending: false, nullsFirst: false })
-      .limit(limit)
-
-    throwIfSupabaseError(error)
-
-    return (data ?? []).map((row) => {
-      const { supporters: sup, ...donation } = row
-      return {
-        ...donation,
-        supporter_name: resolveSupporterName(sup),
-        supporters: sup ?? null,
-      }
-    })
-  } catch (e) {
-    wrapUnexpected(e, 'getDonations')
-  }
+  return all.slice(0, limit)
 }
 
-/**
- * Rows from `public_impact_snapshots` (snapshot_id, snapshot_date, headline, summary_text,
- * metric_payload_json, is_published, published_at).
- * @param {{ publishedOnly?: boolean }} [options]
- */
 export async function getPublicImpact(options = {}) {
   const publishedOnly = options.publishedOnly ?? false
-  try {
-    const sb = requireSupabase('getPublicImpact')
-    let q = sb
-      .from('public_impact_snapshots')
-      .select(
-        'snapshot_id, snapshot_date, headline, summary_text, metric_payload_json, is_published, published_at',
-      )
-      .order('snapshot_date', { ascending: false, nullsFirst: false })
-
-    if (publishedOnly) {
-      q = q.eq('is_published', true)
-    }
-
-    const { data, error } = await q
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getPublicImpact')
-  }
+  return assertArray(
+    await apiRequest(buildApiUrl('/api/public-impact', { publishedOnly }), 'getPublicImpact'),
+    'getPublicImpact',
+  )
 }
 
-/**
- * Rows from `safehouse_monthly_metrics`.
- */
 export async function getMonthlyMetrics() {
-  try {
-    const sb = requireSupabase('getMonthlyMetrics')
-    const { data, error } = await sb
-      .from('safehouse_monthly_metrics')
-      .select(
-        `
-        metric_id,
-        safehouse_id,
-        month_start,
-        month_end,
-        active_residents,
-        avg_education_progress,
-        avg_health_score,
-        process_recording_count,
-        home_visitation_count,
-        incident_count,
-        notes
-      `,
-      )
-      .order('month_start', { ascending: false, nullsFirst: false })
-
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getMonthlyMetrics')
-  }
+  return assertArray(await apiRequest('/api/monthly-metrics', 'getMonthlyMetrics'), 'getMonthlyMetrics')
 }
-
-// --- donation_allocations (allocation_id, donation_id, safehouse_id, program_area, amount_allocated, allocation_date, allocation_notes)
 
 export async function getDonationAllocations() {
-  try {
-    const sb = requireSupabase('getDonationAllocations')
-    const { data, error } = await sb.from('donation_allocations').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getDonationAllocations')
-  }
+  return getTable('donation_allocations')
 }
 
-/** @param {number | string} allocationId */
 export async function getDonationAllocationById(allocationId) {
-  try {
-    const sb = requireSupabase('getDonationAllocationById')
-    const result = await sb
-      .from('donation_allocations')
-      .select('*')
-      .eq('allocation_id', allocationId)
-      .maybeSingle()
-    return assertSingle(result, 'getDonationAllocationById')
-  } catch (e) {
-    wrapUnexpected(e, 'getDonationAllocationById')
-  }
+  return getTableById('donation_allocations', allocationId)
 }
-
-// --- donations
 
 export async function getAllDonations() {
-  try {
-    const sb = requireSupabase('getAllDonations')
-    const { data, error } = await sb.from('donations').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getAllDonations')
-  }
+  return assertArray(await apiRequest('/api/donations', 'getAllDonations'), 'getAllDonations')
 }
 
-/** @param {number | string} donationId */
 export async function getDonationById(donationId) {
-  try {
-    const sb = requireSupabase('getDonationById')
-    const result = await sb.from('donations').select('*').eq('donation_id', donationId).maybeSingle()
-    return assertSingle(result, 'getDonationById')
-  } catch (e) {
-    wrapUnexpected(e, 'getDonationById')
-  }
+  return getTableById('donations', donationId)
 }
-
-// --- education_records
 
 export async function getEducationRecords() {
-  try {
-    const sb = requireSupabase('getEducationRecords')
-    const { data, error } = await sb.from('education_records').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getEducationRecords')
-  }
+  return getTable('education_records')
 }
 
-/** @param {number | string} educationRecordId */
 export async function getEducationRecordById(educationRecordId) {
-  try {
-    const sb = requireSupabase('getEducationRecordById')
-    const result = await sb
-      .from('education_records')
-      .select('*')
-      .eq('education_record_id', educationRecordId)
-      .maybeSingle()
-    return assertSingle(result, 'getEducationRecordById')
-  } catch (e) {
-    wrapUnexpected(e, 'getEducationRecordById')
-  }
+  return getTableById('education_records', educationRecordId)
 }
-
-// --- health_wellbeing_records
 
 export async function getHealthWellbeingRecords() {
-  try {
-    const sb = requireSupabase('getHealthWellbeingRecords')
-    const { data, error } = await sb.from('health_wellbeing_records').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getHealthWellbeingRecords')
-  }
+  return getTable('health_wellbeing_records')
 }
 
-/** @param {number | string} healthRecordId */
 export async function getHealthWellbeingRecordById(healthRecordId) {
-  try {
-    const sb = requireSupabase('getHealthWellbeingRecordById')
-    const result = await sb
-      .from('health_wellbeing_records')
-      .select('*')
-      .eq('health_record_id', healthRecordId)
-      .maybeSingle()
-    return assertSingle(result, 'getHealthWellbeingRecordById')
-  } catch (e) {
-    wrapUnexpected(e, 'getHealthWellbeingRecordById')
-  }
+  return getTableById('health_wellbeing_records', healthRecordId)
 }
-
-// --- home_visitations
 
 export async function getHomeVisitations() {
-  try {
-    const sb = requireSupabase('getHomeVisitations')
-    const { data, error } = await sb.from('home_visitations').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getHomeVisitations')
-  }
+  return getTable('home_visitations')
 }
 
-/** @param {number | string} visitationId */
 export async function getHomeVisitationById(visitationId) {
-  try {
-    const sb = requireSupabase('getHomeVisitationById')
-    const result = await sb
-      .from('home_visitations')
-      .select('*')
-      .eq('visitation_id', visitationId)
-      .maybeSingle()
-    return assertSingle(result, 'getHomeVisitationById')
-  } catch (e) {
-    wrapUnexpected(e, 'getHomeVisitationById')
-  }
+  return getTableById('home_visitations', visitationId)
 }
-
-// --- in_kind_donation_items
 
 export async function getInKindDonationItems() {
-  try {
-    const sb = requireSupabase('getInKindDonationItems')
-    const { data, error } = await sb.from('in_kind_donation_items').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getInKindDonationItems')
-  }
+  return getTable('in_kind_donation_items')
 }
 
-/** @param {number | string} itemId */
 export async function getInKindDonationItemById(itemId) {
-  try {
-    const sb = requireSupabase('getInKindDonationItemById')
-    const result = await sb
-      .from('in_kind_donation_items')
-      .select('*')
-      .eq('item_id', itemId)
-      .maybeSingle()
-    return assertSingle(result, 'getInKindDonationItemById')
-  } catch (e) {
-    wrapUnexpected(e, 'getInKindDonationItemById')
-  }
+  return getTableById('in_kind_donation_items', itemId)
 }
-
-// --- incident_reports
 
 export async function getIncidentReports() {
-  try {
-    const sb = requireSupabase('getIncidentReports')
-    const { data, error } = await sb.from('incident_reports').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getIncidentReports')
-  }
+  return getTable('incident_reports')
 }
 
-/** @param {number | string} incidentId */
 export async function getIncidentReportById(incidentId) {
-  try {
-    const sb = requireSupabase('getIncidentReportById')
-    const result = await sb
-      .from('incident_reports')
-      .select('*')
-      .eq('incident_id', incidentId)
-      .maybeSingle()
-    return assertSingle(result, 'getIncidentReportById')
-  } catch (e) {
-    wrapUnexpected(e, 'getIncidentReportById')
-  }
+  return getTableById('incident_reports', incidentId)
 }
-
-// --- intervention_plans
 
 export async function getInterventionPlans() {
-  try {
-    const sb = requireSupabase('getInterventionPlans')
-    const { data, error } = await sb.from('intervention_plans').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getInterventionPlans')
-  }
+  return getTable('intervention_plans')
 }
 
-/** @param {number | string} planId */
 export async function getInterventionPlanById(planId) {
-  try {
-    const sb = requireSupabase('getInterventionPlanById')
-    const result = await sb
-      .from('intervention_plans')
-      .select('*')
-      .eq('plan_id', planId)
-      .maybeSingle()
-    return assertSingle(result, 'getInterventionPlanById')
-  } catch (e) {
-    wrapUnexpected(e, 'getInterventionPlanById')
-  }
+  return getTableById('intervention_plans', planId)
 }
-
-// --- partner_assignments
 
 export async function getPartnerAssignments() {
-  try {
-    const sb = requireSupabase('getPartnerAssignments')
-    const { data, error } = await sb.from('partner_assignments').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getPartnerAssignments')
-  }
+  return getTable('partner_assignments')
 }
 
-/** @param {number | string} assignmentId */
 export async function getPartnerAssignmentById(assignmentId) {
-  try {
-    const sb = requireSupabase('getPartnerAssignmentById')
-    const result = await sb
-      .from('partner_assignments')
-      .select('*')
-      .eq('assignment_id', assignmentId)
-      .maybeSingle()
-    return assertSingle(result, 'getPartnerAssignmentById')
-  } catch (e) {
-    wrapUnexpected(e, 'getPartnerAssignmentById')
-  }
+  return getTableById('partner_assignments', assignmentId)
 }
-
-// --- partners
 
 export async function getPartners() {
-  try {
-    const sb = requireSupabase('getPartners')
-    const { data, error } = await sb.from('partners').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getPartners')
-  }
+  return getTable('partners')
 }
 
-/** @param {number | string} partnerId */
 export async function getPartnerById(partnerId) {
-  try {
-    const sb = requireSupabase('getPartnerById')
-    const result = await sb.from('partners').select('*').eq('partner_id', partnerId).maybeSingle()
-    return assertSingle(result, 'getPartnerById')
-  } catch (e) {
-    wrapUnexpected(e, 'getPartnerById')
-  }
+  return getTableById('partners', partnerId)
 }
-
-// --- process_recordings
 
 export async function getProcessRecordings() {
-  try {
-    const sb = requireSupabase('getProcessRecordings')
-    const { data, error } = await sb.from('process_recordings').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getProcessRecordings')
-  }
+  return getTable('process_recordings')
 }
 
-/** @param {number | string} recordingId */
 export async function getProcessRecordingById(recordingId) {
-  try {
-    const sb = requireSupabase('getProcessRecordingById')
-    const result = await sb
-      .from('process_recordings')
-      .select('*')
-      .eq('recording_id', recordingId)
-      .maybeSingle()
-    return assertSingle(result, 'getProcessRecordingById')
-  } catch (e) {
-    wrapUnexpected(e, 'getProcessRecordingById')
-  }
+  return getTableById('process_recordings', recordingId)
 }
-
-// --- public_impact_snapshots
 
 export async function getPublicImpactSnapshots() {
   return getPublicImpact({ publishedOnly: false })
 }
 
-/** @param {number | string} snapshotId */
 export async function getPublicImpactSnapshotById(snapshotId) {
-  try {
-    const sb = requireSupabase('getPublicImpactSnapshotById')
-    const result = await sb
-      .from('public_impact_snapshots')
-      .select('*')
-      .eq('snapshot_id', snapshotId)
-      .maybeSingle()
-    return assertSingle(result, 'getPublicImpactSnapshotById')
-  } catch (e) {
-    wrapUnexpected(e, 'getPublicImpactSnapshotById')
-  }
+  return getTableById('public_impact_snapshots', snapshotId)
 }
-
-// --- residents (see also getResidents)
 
 export async function getResidentsRaw() {
-  try {
-    const sb = requireSupabase('getResidentsRaw')
-    const { data, error } = await sb.from('residents').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getResidentsRaw')
-  }
+  return getTable('residents')
 }
 
-/** @param {number | string} residentId */
 export async function getResidentById(residentId) {
-  try {
-    const sb = requireSupabase('getResidentById')
-    const result = await sb.from('residents').select('*').eq('resident_id', residentId).maybeSingle()
-    return assertSingle(result, 'getResidentById')
-  } catch (e) {
-    wrapUnexpected(e, 'getResidentById')
-  }
+  return getTableById('residents', residentId)
 }
 
-/** @param {number | string} residentId */
 export async function getEducationRecordsByResidentId(residentId) {
-  try {
-    const sb = requireSupabase('getEducationRecordsByResidentId')
-    const { data, error } = await sb
-      .from('education_records')
-      .select('*')
-      .eq('resident_id', residentId)
-      .order('record_date', { ascending: false, nullsFirst: false })
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getEducationRecordsByResidentId')
-  }
+  return getTableByResidentId('education_records', residentId)
 }
 
-/** @param {number | string} residentId */
 export async function getHealthWellbeingRecordsByResidentId(residentId) {
-  try {
-    const sb = requireSupabase('getHealthWellbeingRecordsByResidentId')
-    const { data, error } = await sb
-      .from('health_wellbeing_records')
-      .select('*')
-      .eq('resident_id', residentId)
-      .order('record_date', { ascending: false, nullsFirst: false })
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getHealthWellbeingRecordsByResidentId')
-  }
+  return getTableByResidentId('health_wellbeing_records', residentId)
 }
 
-/** @param {number | string} residentId */
 export async function getHomeVisitationsByResidentId(residentId) {
-  try {
-    const sb = requireSupabase('getHomeVisitationsByResidentId')
-    const { data, error } = await sb
-      .from('home_visitations')
-      .select('*')
-      .eq('resident_id', residentId)
-      .order('visit_date', { ascending: false, nullsFirst: false })
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getHomeVisitationsByResidentId')
-  }
+  return getTableByResidentId('home_visitations', residentId)
 }
 
-/** @param {number | string} residentId */
 export async function getIncidentReportsByResidentId(residentId) {
-  try {
-    const sb = requireSupabase('getIncidentReportsByResidentId')
-    const { data, error } = await sb
-      .from('incident_reports')
-      .select('*')
-      .eq('resident_id', residentId)
-      .order('incident_date', { ascending: false, nullsFirst: false })
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getIncidentReportsByResidentId')
-  }
+  return getTableByResidentId('incident_reports', residentId)
 }
 
-/** @param {number | string} residentId */
 export async function getInterventionPlansByResidentId(residentId) {
-  try {
-    const sb = requireSupabase('getInterventionPlansByResidentId')
-    const { data, error } = await sb
-      .from('intervention_plans')
-      .select('*')
-      .eq('resident_id', residentId)
-      .order('created_at', { ascending: false, nullsFirst: false })
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getInterventionPlansByResidentId')
-  }
+  return getTableByResidentId('intervention_plans', residentId)
 }
 
-/** @param {number | string} residentId */
 export async function getProcessRecordingsByResidentId(residentId) {
-  try {
-    const sb = requireSupabase('getProcessRecordingsByResidentId')
-    const { data, error } = await sb
-      .from('process_recordings')
-      .select('*')
-      .eq('resident_id', residentId)
-      .order('recording_id', { ascending: false, nullsFirst: false })
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getProcessRecordingsByResidentId')
-  }
+  return getTableByResidentId('process_recordings', residentId)
 }
 
-/** @param {number | string} residentId */
 export async function getResidentProfileBundle(residentId) {
-  try {
-    const resident = await getResidentById(residentId)
-    const [
-      educationRecords,
-      healthRecords,
-      homeVisitations,
-      incidentReports,
-      interventionPlans,
-      processRecordings,
-    ] = await Promise.all([
-      getEducationRecordsByResidentId(residentId),
-      getHealthWellbeingRecordsByResidentId(residentId),
-      getHomeVisitationsByResidentId(residentId),
-      getIncidentReportsByResidentId(residentId),
-      getInterventionPlansByResidentId(residentId),
-      getProcessRecordingsByResidentId(residentId),
-    ])
-
-    return {
-      resident,
-      educationRecords,
-      healthRecords,
-      homeVisitations,
-      incidentReports,
-      interventionPlans,
-      processRecordings,
-    }
-  } catch (e) {
-    wrapUnexpected(e, 'getResidentProfileBundle')
-  }
+  return assertObject(
+    await apiRequest(`/api/residents/${residentId}/profile-bundle`, 'getResidentProfileBundle'),
+    'getResidentProfileBundle',
+  )
 }
-
-// --- safehouse_monthly_metrics (see also getMonthlyMetrics)
 
 export async function getSafehouseMonthlyMetricsAll() {
   return getMonthlyMetrics()
 }
 
-/** @param {number | string} metricId */
 export async function getSafehouseMonthlyMetricById(metricId) {
-  try {
-    const sb = requireSupabase('getSafehouseMonthlyMetricById')
-    const result = await sb
-      .from('safehouse_monthly_metrics')
-      .select('*')
-      .eq('metric_id', metricId)
-      .maybeSingle()
-    return assertSingle(result, 'getSafehouseMonthlyMetricById')
-  } catch (e) {
-    wrapUnexpected(e, 'getSafehouseMonthlyMetricById')
-  }
+  return getTableById('safehouse_monthly_metrics', metricId)
 }
-
-// --- safehouses
 
 export async function getSafehouses() {
-  try {
-    const sb = requireSupabase('getSafehouses')
-    const { data, error } = await sb.from('safehouses').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getSafehouses')
-  }
+  return getTable('safehouses')
 }
 
-/** @param {number | string} safehouseId */
 export async function getSafehouseById(safehouseId) {
-  try {
-    const sb = requireSupabase('getSafehouseById')
-    const result = await sb
-      .from('safehouses')
-      .select('*')
-      .eq('safehouse_id', safehouseId)
-      .maybeSingle()
-    return assertSingle(result, 'getSafehouseById')
-  } catch (e) {
-    wrapUnexpected(e, 'getSafehouseById')
-  }
+  return getTableById('safehouses', safehouseId)
 }
-
-// --- social_media_posts
 
 export async function getSocialMediaPosts() {
-  try {
-    const sb = requireSupabase('getSocialMediaPosts')
-    const { data, error } = await sb.from('social_media_posts').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getSocialMediaPosts')
-  }
+  return getTable('social_media_posts')
 }
 
-/** @param {number | string} postId */
 export async function getSocialMediaPostById(postId) {
-  try {
-    const sb = requireSupabase('getSocialMediaPostById')
-    const result = await sb
-      .from('social_media_posts')
-      .select('*')
-      .eq('post_id', postId)
-      .maybeSingle()
-    return assertSingle(result, 'getSocialMediaPostById')
-  } catch (e) {
-    wrapUnexpected(e, 'getSocialMediaPostById')
-  }
+  return getTableById('social_media_posts', postId)
 }
-
-// --- supporters
 
 export async function getSupporters() {
-  try {
-    const sb = requireSupabase('getSupporters')
-    const { data, error } = await sb.from('supporters').select('*')
-    throwIfSupabaseError(error)
-    return data ?? []
-  } catch (e) {
-    wrapUnexpected(e, 'getSupporters')
-  }
+  return assertArray(await apiRequest('/api/supporters', 'getSupporters'), 'getSupporters')
 }
 
-/** @param {number | string} supporterId */
 export async function getSupporterById(supporterId) {
-  try {
-    const sb = requireSupabase('getSupporterById')
-    const result = await sb
-      .from('supporters')
-      .select('*')
-      .eq('supporter_id', supporterId)
-      .maybeSingle()
-    return assertSingle(result, 'getSupporterById')
-  } catch (e) {
-    wrapUnexpected(e, 'getSupporterById')
-  }
+  return getTableById('supporters', supporterId)
 }
 
 /**
- * Insert a row into a known table. Uses exact PostgREST table names.
  * @param {keyof typeof TABLE_PRIMARY_KEYS} table
  * @param {Record<string, unknown>} row
  */
 export async function insertRecord(table, row) {
-  if (!TABLE_PRIMARY_KEYS[table]) {
-    throw new DatabaseServiceError(`insertRecord: unknown table "${table}"`)
-  }
-  try {
-    const sb = requireSupabase(`insertRecord(${table})`)
-    const { data, error } = await sb.from(table).insert(row).select()
-    throwIfSupabaseError(error)
-    return data
-  } catch (e) {
-    wrapUnexpected(e, `insertRecord(${table})`)
-  }
+  assertKnownTable(table, 'insertRecord')
+  return assertArray(
+    await apiRequest(`/api/db/${table}`, `insertRecord(${table})`, {
+      method: 'POST',
+      body: JSON.stringify(row),
+    }),
+    `insertRecord(${table})`,
+  )
 }
 
 /**
@@ -851,18 +377,14 @@ export async function insertRecord(table, row) {
  * @param {Record<string, unknown>} patch
  */
 export async function updateRecord(table, id, patch) {
-  const pk = TABLE_PRIMARY_KEYS[table]
-  if (!pk) {
-    throw new DatabaseServiceError(`updateRecord: unknown table "${table}"`)
-  }
-  try {
-    const sb = requireSupabase(`updateRecord(${table})`)
-    const { data, error } = await sb.from(table).update(patch).eq(pk, id).select()
-    throwIfSupabaseError(error)
-    return data
-  } catch (e) {
-    wrapUnexpected(e, `updateRecord(${table})`)
-  }
+  assertKnownTable(table, 'updateRecord')
+  return assertObject(
+    await apiRequest(`/api/db/${table}/${id}`, `updateRecord(${table})`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+    `updateRecord(${table})`,
+  )
 }
 
 /**
@@ -870,21 +392,12 @@ export async function updateRecord(table, id, patch) {
  * @param {number | string} id
  */
 export async function deleteRecord(table, id) {
-  const pk = TABLE_PRIMARY_KEYS[table]
-  if (!pk) {
-    throw new DatabaseServiceError(`deleteRecord: unknown table "${table}"`)
-  }
-  try {
-    const sb = requireSupabase(`deleteRecord(${table})`)
-    const { data, error } = await sb.from(table).delete().eq(pk, id).select()
-    throwIfSupabaseError(error)
-    return data
-  } catch (e) {
-    wrapUnexpected(e, `deleteRecord(${table})`)
-  }
+  assertKnownTable(table, 'deleteRecord')
+  return apiRequest(`/api/db/${table}/${id}`, `deleteRecord(${table})`, {
+    method: 'DELETE',
+  })
 }
 
-/** Default export bundles common entry points for convenience. */
 const databaseService = {
   TABLE_PRIMARY_KEYS,
   getResidents,
