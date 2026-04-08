@@ -1,9 +1,11 @@
 import { AdminLayout } from "@/components/AdminLayout";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   CalendarDays,
+  ChevronDown,
+  ChevronRight,
   ClipboardPen,
   HeartHandshake,
   Search,
@@ -54,6 +56,8 @@ const fadeUp = {
 };
 
 const fallback = "Not recorded";
+const residentsPerPage = 8;
+const historyPerPage = 5;
 
 function residentLabel(resident: ResidentRecord) {
   return resident.case_control_no || resident.internal_code || `Resident #${resident.resident_id}`;
@@ -74,6 +78,9 @@ const ProcessRecordingsPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedResidentId, setSelectedResidentId] = useState<number | null>(null);
+  const [residentPage, setResidentPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [form, setForm] = useState({
     resident_id: "",
     session_date: "",
@@ -120,6 +127,22 @@ const ProcessRecordingsPage = () => {
     });
   }, [residents, search]);
 
+  useEffect(() => {
+    setResidentPage(1);
+  }, [search]);
+
+  const residentPageCount = Math.max(1, Math.ceil(filteredResidents.length / residentsPerPage));
+  const paginatedResidents = useMemo(() => {
+    const start = (residentPage - 1) * residentsPerPage;
+    return filteredResidents.slice(start, start + residentsPerPage);
+  }, [filteredResidents, residentPage]);
+
+  useEffect(() => {
+    if (residentPage > residentPageCount) {
+      setResidentPage(residentPageCount);
+    }
+  }, [residentPage, residentPageCount]);
+
   const selectedResident =
     filteredResidents.find((resident) => resident.resident_id === selectedResidentId) ??
     residents.find((resident) => resident.resident_id === selectedResidentId) ??
@@ -135,9 +158,25 @@ const ProcessRecordingsPage = () => {
       .sort((a, b) => {
         const aDate = new Date(a.session_date || "").getTime();
         const bDate = new Date(b.session_date || "").getTime();
-        return aDate - bDate;
+        return bDate - aDate;
       });
   }, [recordings, residentIdForHistory]);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [residentIdForHistory]);
+
+  const historyPageCount = Math.max(1, Math.ceil(residentHistory.length / historyPerPage));
+  const paginatedHistory = useMemo(() => {
+    const start = (historyPage - 1) * historyPerPage;
+    return residentHistory.slice(start, start + historyPerPage);
+  }, [historyPage, residentHistory]);
+
+  useEffect(() => {
+    if (historyPage > historyPageCount) {
+      setHistoryPage(historyPageCount);
+    }
+  }, [historyPage, historyPageCount]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -192,6 +231,7 @@ const ProcessRecordingsPage = () => {
 
   const handleResidentOpen = (resident: ResidentRecord) => {
     setSelectedResidentId(resident.resident_id);
+    setIsFormOpen(false);
     setForm((current) => ({
       ...current,
       resident_id: String(resident.resident_id),
@@ -252,7 +292,7 @@ const ProcessRecordingsPage = () => {
             </div>
 
             <div className="mt-5 space-y-3">
-              {filteredResidents.map((resident, index) => (
+              {paginatedResidents.map((resident, index) => (
                 <motion.button
                   key={resident.resident_id}
                   custom={index}
@@ -290,24 +330,50 @@ const ProcessRecordingsPage = () => {
                   </div>
                 </motion.button>
               ))}
+
+              {!residentsQuery.isLoading && filteredResidents.length > 0 ? (
+                <PaginationControls
+                  page={residentPage}
+                  pageCount={residentPageCount}
+                  onPageChange={setResidentPage}
+                  label="Resident pages"
+                />
+              ) : null}
             </div>
           </div>
 
           <div className="space-y-6">
             <div className="rounded-2xl bg-card p-5 shadow-warm">
-              <h2 className="font-heading text-2xl font-bold text-foreground">Add process recording</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Document dated counseling sessions, interventions, and follow-up actions for the selected resident.
-              </p>
-
-              <form
-                className="mt-5 space-y-4"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  submitMutation.mutate();
-                }}
+              <button
+                type="button"
+                onClick={() => setIsFormOpen((current) => !current)}
+                className="flex w-full items-start justify-between gap-4 text-left"
               >
-                <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <h2 className="font-heading text-xl font-bold text-foreground">Add process recording</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Keep the form tucked away until you need to log a new session for the selected resident.
+                  </p>
+                  {selectedResident ? (
+                    <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-primary">
+                      Ready for {residentLabel(selectedResident)}
+                    </p>
+                  ) : null}
+                </div>
+                <span className="mt-1 rounded-full bg-muted p-2 text-muted-foreground">
+                  {isFormOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </span>
+              </button>
+
+              {isFormOpen ? (
+                <form
+                  className="mt-5 space-y-4 border-t border-border/60 pt-5"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    submitMutation.mutate();
+                  }}
+                >
+                  <div className="grid gap-4 md:grid-cols-2">
                   <FormField label="Resident">
                     <select
                       value={form.resident_id}
@@ -397,9 +463,9 @@ const ProcessRecordingsPage = () => {
                       ))}
                     </select>
                   </FormField>
-                </div>
+                  </div>
 
-                <FormField label="Narrative summary">
+                  <FormField label="Narrative summary">
                   <textarea
                     value={form.session_narrative}
                     onChange={(event) => setForm((current) => ({ ...current, session_narrative: event.target.value }))}
@@ -408,9 +474,9 @@ const ProcessRecordingsPage = () => {
                     placeholder="Describe the session, themes discussed, and key observations."
                     required
                   />
-                </FormField>
+                  </FormField>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                   <FormField label="Interventions applied">
                     <textarea
                       value={form.interventions_applied}
@@ -430,9 +496,9 @@ const ProcessRecordingsPage = () => {
                       placeholder="Outline next steps, assignments, referrals, or future sessions."
                     />
                   </FormField>
-                </div>
+                  </div>
 
-                <FormField label="Restricted notes">
+                  <FormField label="Restricted notes">
                   <textarea
                     value={form.notes_restricted}
                     onChange={(event) => setForm((current) => ({ ...current, notes_restricted: event.target.value }))}
@@ -440,9 +506,9 @@ const ProcessRecordingsPage = () => {
                     className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/25"
                     placeholder="Add confidential notes if needed."
                   />
-                </FormField>
+                  </FormField>
 
-                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-3">
                   <CheckboxRow
                     label="Progress noted"
                     checked={form.progress_noted}
@@ -458,18 +524,19 @@ const ProcessRecordingsPage = () => {
                     checked={form.referral_made}
                     onChange={(checked) => setForm((current) => ({ ...current, referral_made: checked }))}
                   />
-                </div>
+                  </div>
 
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={submitMutation.isPending || !form.resident_id}
-                    className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {submitMutation.isPending ? "Saving..." : "Save process recording"}
-                  </button>
-                </div>
-              </form>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={submitMutation.isPending || !form.resident_id}
+                      className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {submitMutation.isPending ? "Saving..." : "Save process recording"}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
             </div>
 
             <div className="rounded-2xl bg-card p-5 shadow-warm">
@@ -477,7 +544,7 @@ const ProcessRecordingsPage = () => {
                 <div>
                   <h2 className="font-heading text-2xl font-bold text-foreground">Resident history</h2>
                   <p className="text-sm text-muted-foreground">
-                    Full counseling history for {selectedResident ? residentLabel(selectedResident) : "the selected resident"}, shown chronologically.
+                    Full counseling history for {selectedResident ? residentLabel(selectedResident) : "the selected resident"}, with the most recent sessions first.
                   </p>
                 </div>
                 {selectedResident ? (
@@ -493,7 +560,7 @@ const ProcessRecordingsPage = () => {
                     No process recordings have been logged for this resident yet.
                   </div>
                 ) : (
-                  residentHistory.map((recording, index) => (
+                  paginatedHistory.map((recording, index) => (
                     <motion.div
                       key={recording.recording_id}
                       custom={index}
@@ -551,6 +618,17 @@ const ProcessRecordingsPage = () => {
                   ))
                 )}
               </div>
+
+              {residentHistory.length > 0 ? (
+                <div className="mt-5">
+                  <PaginationControls
+                    page={historyPage}
+                    pageCount={historyPageCount}
+                    onPageChange={setHistoryPage}
+                    label="History pages"
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
         </section>
@@ -585,6 +663,42 @@ const ContentBlock = ({ title, children }: { title: string; children: React.Reac
   <div className="rounded-xl bg-muted/25 p-4">
     <p className="text-xs uppercase tracking-[0.16em] text-primary">{title}</p>
     <div className="mt-2 space-y-2 text-sm leading-6 text-foreground/90">{children}</div>
+  </div>
+);
+
+const PaginationControls = ({
+  page,
+  pageCount,
+  onPageChange,
+  label,
+}: {
+  page: number;
+  pageCount: number;
+  onPageChange: (page: number) => void;
+  label: string;
+}) => (
+  <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <p className="text-sm text-muted-foreground">
+      {label}: page {page} of {pageCount}
+    </p>
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page <= 1}
+        className="rounded-full border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Previous
+      </button>
+      <button
+        type="button"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page >= pageCount}
+        className="rounded-full border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Next
+      </button>
+    </div>
   </div>
 );
 

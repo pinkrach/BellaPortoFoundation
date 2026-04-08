@@ -11,12 +11,18 @@ interface AuthContextType {
   isLoading: boolean;
   userEmail: string | null;
   userId: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  displayName: string | null;
+  initials: string;
   role: UserRole;
   login: (email: string, password: string) => Promise<AuthOkResult | AuthErrResult>;
   setAuthFromProfile: (input: {
     userId: string;
     email: string | null;
     role: Exclude<UserRole, null>;
+    firstName?: string | null;
+    lastName?: string | null;
   }) => void;
   signUp: (input: {
     first_name: string;
@@ -34,19 +40,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [lastName, setLastName] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole>(null);
 
-  const loadRole = async (profileUserId: string) => {
+  const loadProfile = async (profileUserId: string) => {
     if (!supabase) return null;
     const { data, error } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, first_name, last_name")
       .eq("id", profileUserId)
       .maybeSingle();
     if (error) return null;
-    const r = data?.role;
-    if (r === "admin" || r === "donor") return r;
-    return null;
+    return {
+      role: data?.role === "admin" || data?.role === "donor" ? data.role : null,
+      firstName: data?.first_name ?? null,
+      lastName: data?.last_name ?? null,
+    };
   };
 
   const setAuthFromProfile: AuthContextType["setAuthFromProfile"] = (input) => {
@@ -54,6 +64,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUserId(input.userId);
     setUserEmail(input.email);
     setRole(input.role);
+    setFirstName(input.firstName ?? null);
+    setLastName(input.lastName ?? null);
     setIsLoading(false);
   };
 
@@ -70,6 +82,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setIsAuthenticated(false);
           setUserEmail(null);
           setUserId(null);
+          setFirstName(null);
+          setLastName(null);
           setRole(null);
           setIsLoading(false);
           return;
@@ -83,6 +97,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setIsAuthenticated(false);
           setUserEmail(null);
           setUserId(null);
+          setFirstName(null);
+          setLastName(null);
           setRole(null);
           setIsLoading(false);
           return;
@@ -95,11 +111,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUserEmail(email);
         setUserId(id);
         if (id) {
-          const r = await loadRole(id);
+          const profile = await loadProfile(id);
           if (!mounted) return;
-          setRole(r);
+          setRole(profile?.role ?? null);
+          setFirstName(profile?.firstName ?? null);
+          setLastName(profile?.lastName ?? null);
         } else {
           setRole(null);
+          setFirstName(null);
+          setLastName(null);
         }
         setIsLoading(false);
       } catch {
@@ -107,6 +127,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthenticated(false);
         setUserEmail(null);
         setUserId(null);
+        setFirstName(null);
+        setLastName(null);
         setRole(null);
         setIsLoading(false);
       }
@@ -129,18 +151,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUserId(id);
       if (!id) {
         setRole(null);
+        setFirstName(null);
+        setLastName(null);
         setIsLoading(false);
         return;
       }
-      loadRole(id)
-        .then((r) => {
+      loadProfile(id)
+        .then((profile) => {
           if (!mounted) return;
-          setRole(r);
+          setRole(profile?.role ?? null);
+          setFirstName(profile?.firstName ?? null);
+          setLastName(profile?.lastName ?? null);
           setIsLoading(false);
         })
         .catch(() => {
           if (!mounted) return;
           setRole(null);
+          setFirstName(null);
+          setLastName(null);
           setIsLoading(false);
         });
     });
@@ -167,10 +195,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const id = data.user?.id ?? null;
     if (id) {
       setIsLoading(true);
-      const r = await loadRole(id);
-      setRole(r);
+      const profile = await loadProfile(id);
+      setRole(profile?.role ?? null);
+      setFirstName(profile?.firstName ?? null);
+      setLastName(profile?.lastName ?? null);
       setIsLoading(false);
-      return { ok: true, role: r };
+      return { ok: true, role: profile?.role ?? null };
     }
 
     return { ok: true, role: null };
@@ -211,6 +241,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setRole("donor");
+    setFirstName(input.first_name);
+    setLastName(input.last_name);
     return { ok: true, role: "donor" };
   };
 
@@ -219,7 +251,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await supabase.auth.signOut();
     setRole(null);
     setUserId(null);
+    setUserEmail(null);
+    setFirstName(null);
+    setLastName(null);
   };
+
+  const displayName = [firstName, lastName].filter(Boolean).join(" ").trim() || userEmail || null;
+  const initialsSource = [firstName, lastName].filter(Boolean).join(" ").trim() || userEmail || "U";
+  const initials = initialsSource
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "U";
 
   const value = useMemo(
     () => ({
@@ -227,13 +271,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isLoading,
       userEmail,
       userId,
+      firstName,
+      lastName,
+      displayName,
+      initials,
       role,
       login,
       setAuthFromProfile,
       signUp,
       logout,
     }),
-    [isAuthenticated, isLoading, userEmail, userId, role],
+    [isAuthenticated, isLoading, userEmail, userId, firstName, lastName, displayName, initials, role],
   );
 
   return (

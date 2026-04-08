@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -112,6 +112,8 @@ const fadeUp = {
   }),
 };
 
+const residentsPerPage = 8;
+
 function formatDate(value: string | null | undefined) {
   if (!value) return fallback;
   const date = new Date(value);
@@ -170,6 +172,7 @@ const CaseloadInventory = () => {
   const [filterLocation, setFilterLocation] = useState<string | null>(null);
   const [filterRisk, setFilterRisk] = useState<string | null>(null);
   const [selectedResidentId, setSelectedResidentId] = useState<number | null>(null);
+  const [residentPage, setResidentPage] = useState(1);
 
   const residentsQuery = useQuery({
     queryKey: ["residents"],
@@ -204,6 +207,22 @@ const CaseloadInventory = () => {
       return true;
     });
   }, [filterLocation, filterRisk, residents, search]);
+
+  useEffect(() => {
+    setResidentPage(1);
+  }, [filterLocation, filterRisk, search]);
+
+  const residentPageCount = Math.max(1, Math.ceil(filteredResidents.length / residentsPerPage));
+  const paginatedResidents = useMemo(() => {
+    const start = (residentPage - 1) * residentsPerPage;
+    return filteredResidents.slice(start, start + residentsPerPage);
+  }, [filteredResidents, residentPage]);
+
+  useEffect(() => {
+    if (residentPage > residentPageCount) {
+      setResidentPage(residentPageCount);
+    }
+  }, [residentPage, residentPageCount]);
 
   const selectedResident =
     filteredResidents.find((resident) => resident.resident_id === selectedResidentId) ??
@@ -332,11 +351,11 @@ const CaseloadInventory = () => {
               <p className="text-sm text-muted-foreground">
                 {residentsQuery.isLoading
                   ? "Loading the resident dataset..."
-                  : `Showing ${filteredResidents.length} of ${residents.length} residents`}
+                  : `Showing ${paginatedResidents.length} of ${filteredResidents.length} matching residents`}
               </p>
             </div>
 
-            <div className="relative w-full lg:w-80">
+            <div className="relative w-full lg:w-96">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={search}
@@ -347,67 +366,7 @@ const CaseloadInventory = () => {
             </div>
           </div>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-[0.9fr_1.1fr]">
-            <div className="rounded-2xl bg-muted/25 p-4">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold text-foreground">Filters</h3>
-              </div>
-
-              <div className="mt-4 space-y-4">
-                <div>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Location</p>
-                  <div className="flex flex-wrap gap-2">
-                    {locations.map((location) => (
-                      <button
-                        key={location}
-                        onClick={() => setFilterLocation(filterLocation === location ? null : location)}
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                          filterLocation === location
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-background text-muted-foreground hover:bg-primary/10"
-                        }`}
-                      >
-                        {location}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Risk level</p>
-                  <div className="flex flex-wrap gap-2">
-                    {riskOptions.map((risk) => (
-                      <button
-                        key={risk}
-                        onClick={() => setFilterRisk(filterRisk === risk ? null : risk)}
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                          filterRisk === risk
-                            ? risk === "High"
-                              ? "bg-destructive text-destructive-foreground"
-                              : "bg-secondary text-secondary-foreground"
-                            : "bg-background text-muted-foreground hover:bg-primary/10"
-                        }`}
-                      >
-                        {risk}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setFilterLocation(null);
-                    setFilterRisk(null);
-                    setSearch("");
-                  }}
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  Clear all filters
-                </button>
-              </div>
-            </div>
-
+          <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-3">
               {residentsQuery.isError ? (
                 <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-5 text-sm text-destructive">
@@ -415,7 +374,7 @@ const CaseloadInventory = () => {
                 </div>
               ) : null}
 
-              {filteredResidents.map((resident, index) => {
+              {paginatedResidents.map((resident, index) => {
                 const risk = normalizeRisk(resident.current_risk_level);
                 const location = resident.safehouse_name || "Unassigned";
                 const caseCode = resident.case_control_no || resident.internal_code || `Resident #${resident.resident_id}`;
@@ -482,6 +441,85 @@ const CaseloadInventory = () => {
               {!residentsQuery.isLoading && !residentsQuery.isError && filteredResidents.length === 0 ? (
                 <div className="rounded-2xl bg-background p-5 text-sm text-muted-foreground">No residents matched the current filters.</div>
               ) : null}
+
+              {!residentsQuery.isLoading && filteredResidents.length > 0 ? (
+                <PaginationControls
+                  page={residentPage}
+                  pageCount={residentPageCount}
+                  onPageChange={setResidentPage}
+                  label="Resident pages"
+                />
+              ) : null}
+            </div>
+
+            <div className="rounded-2xl bg-muted/25 p-4 xl:order-last">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">Filters</h3>
+              </div>
+
+              <div className="mt-4 space-y-5">
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Location</p>
+                  <div className="flex flex-wrap gap-2">
+                    {locations.map((location) => (
+                      <button
+                        key={location}
+                        onClick={() => setFilterLocation(filterLocation === location ? null : location)}
+                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                          filterLocation === location
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background text-muted-foreground hover:bg-primary/10"
+                        }`}
+                      >
+                        {location}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Risk level</p>
+                  <div className="flex flex-wrap gap-2">
+                    {riskOptions.map((risk) => (
+                      <button
+                        key={risk}
+                        onClick={() => setFilterRisk(filterRisk === risk ? null : risk)}
+                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                          filterRisk === risk
+                            ? risk === "High"
+                              ? "bg-destructive text-destructive-foreground"
+                              : "bg-secondary text-secondary-foreground"
+                            : "bg-background text-muted-foreground hover:bg-primary/10"
+                        }`}
+                      >
+                        {risk}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-background p-3">
+                  <p className="text-xs text-muted-foreground">Current view</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    Page {residentPage} of {residentPageCount}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {filteredResidents.length} residents match your search and filters.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setFilterLocation(null);
+                    setFilterRisk(null);
+                    setSearch("");
+                  }}
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Clear all filters
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -720,3 +758,39 @@ const MiniList = ({
 );
 
 export default CaseloadInventory;
+
+const PaginationControls = ({
+  page,
+  pageCount,
+  onPageChange,
+  label,
+}: {
+  page: number;
+  pageCount: number;
+  onPageChange: (page: number) => void;
+  label: string;
+}) => (
+  <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <p className="text-sm text-muted-foreground">
+      {label}: page {page} of {pageCount}
+    </p>
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page <= 1}
+        className="rounded-full border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Previous
+      </button>
+      <button
+        type="button"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page >= pageCount}
+        className="rounded-full border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+);
