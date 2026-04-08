@@ -98,6 +98,8 @@ const SignUpPage = () => {
         userId,
         email: trimmedEmail,
         role: "donor",
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
       });
 
       // Redirect: email confirmation is off, so we should land instantly.
@@ -248,4 +250,3 @@ const SignUpPage = () => {
 };
 
 export default SignUpPage;
-

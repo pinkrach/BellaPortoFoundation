@@ -1,10 +1,12 @@
 import { AdminLayout } from "@/components/AdminLayout";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
   CalendarClock,
+  ChevronDown,
+  ChevronRight,
   ClipboardCheck,
   Home,
   Search,
@@ -80,6 +82,9 @@ const fadeUp = {
 };
 
 const fallback = "Not recorded";
+const residentsPerPage = 8;
+const historyPerPage = 5;
+const conferencePerPage = 4;
 
 function residentLabel(resident: ResidentRecord) {
   return resident.case_control_no || resident.internal_code || `Resident #${resident.resident_id}`;
@@ -100,6 +105,12 @@ const HomeVisitationsPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedResidentId, setSelectedResidentId] = useState<number | null>(null);
+  const [residentPage, setResidentPage] = useState(1);
+  const [visitHistoryPage, setVisitHistoryPage] = useState(1);
+  const [conferenceHistoryPage, setConferenceHistoryPage] = useState(1);
+  const [upcomingConferencePage, setUpcomingConferencePage] = useState(1);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isConferencesOpen, setIsConferencesOpen] = useState(false);
   const [form, setForm] = useState({
     resident_id: "",
     visit_date: "",
@@ -150,6 +161,22 @@ const HomeVisitationsPage = () => {
     });
   }, [residents, search]);
 
+  useEffect(() => {
+    setResidentPage(1);
+  }, [search]);
+
+  const residentPageCount = Math.max(1, Math.ceil(filteredResidents.length / residentsPerPage));
+  const paginatedResidents = useMemo(() => {
+    const start = (residentPage - 1) * residentsPerPage;
+    return filteredResidents.slice(start, start + residentsPerPage);
+  }, [filteredResidents, residentPage]);
+
+  useEffect(() => {
+    if (residentPage > residentPageCount) {
+      setResidentPage(residentPageCount);
+    }
+  }, [residentPage, residentPageCount]);
+
   const selectedResident =
     filteredResidents.find((resident) => resident.resident_id === selectedResidentId) ??
     residents.find((resident) => resident.resident_id === selectedResidentId) ??
@@ -178,6 +205,42 @@ const HomeVisitationsPage = () => {
   const conferenceHistory = residentConferences.filter(
     (plan) => new Date(plan.case_conference_date || "").getTime() < now,
   );
+
+  useEffect(() => {
+    setVisitHistoryPage(1);
+    setConferenceHistoryPage(1);
+    setUpcomingConferencePage(1);
+  }, [residentId]);
+
+  const visitHistoryPageCount = Math.max(1, Math.ceil(residentVisitations.length / historyPerPage));
+  const paginatedVisitHistory = useMemo(() => {
+    const start = (visitHistoryPage - 1) * historyPerPage;
+    return residentVisitations.slice(start, start + historyPerPage);
+  }, [residentVisitations, visitHistoryPage]);
+
+  const conferenceHistoryPageCount = Math.max(1, Math.ceil(conferenceHistory.length / conferencePerPage));
+  const paginatedConferenceHistory = useMemo(() => {
+    const start = (conferenceHistoryPage - 1) * conferencePerPage;
+    return conferenceHistory.slice(start, start + conferencePerPage);
+  }, [conferenceHistory, conferenceHistoryPage]);
+
+  const upcomingConferencePageCount = Math.max(1, Math.ceil(upcomingConferences.length / conferencePerPage));
+  const paginatedUpcomingConferences = useMemo(() => {
+    const start = (upcomingConferencePage - 1) * conferencePerPage;
+    return upcomingConferences.slice(start, start + conferencePerPage);
+  }, [upcomingConferencePage, upcomingConferences]);
+
+  useEffect(() => {
+    if (visitHistoryPage > visitHistoryPageCount) setVisitHistoryPage(visitHistoryPageCount);
+  }, [visitHistoryPage, visitHistoryPageCount]);
+
+  useEffect(() => {
+    if (conferenceHistoryPage > conferenceHistoryPageCount) setConferenceHistoryPage(conferenceHistoryPageCount);
+  }, [conferenceHistoryPage, conferenceHistoryPageCount]);
+
+  useEffect(() => {
+    if (upcomingConferencePage > upcomingConferencePageCount) setUpcomingConferencePage(upcomingConferencePageCount);
+  }, [upcomingConferencePage, upcomingConferencePageCount]);
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -227,6 +290,7 @@ const HomeVisitationsPage = () => {
 
   const handleResidentOpen = (resident: ResidentRecord) => {
     setSelectedResidentId(resident.resident_id);
+    setIsFormOpen(false);
     setForm((current) => ({
       ...current,
       resident_id: String(resident.resident_id),
@@ -287,7 +351,7 @@ const HomeVisitationsPage = () => {
             </div>
 
             <div className="mt-5 space-y-3">
-              {filteredResidents.map((resident, index) => (
+              {paginatedResidents.map((resident, index) => (
                 <motion.button
                   key={resident.resident_id}
                   custom={index}
@@ -325,24 +389,50 @@ const HomeVisitationsPage = () => {
                   </div>
                 </motion.button>
               ))}
+
+              {!residentsQuery.isLoading && filteredResidents.length > 0 ? (
+                <PaginationControls
+                  page={residentPage}
+                  pageCount={residentPageCount}
+                  onPageChange={setResidentPage}
+                  label="Resident pages"
+                />
+              ) : null}
             </div>
           </div>
 
           <div className="space-y-6">
             <div className="rounded-2xl bg-card p-5 shadow-warm">
-              <h2 className="font-heading text-2xl font-bold text-foreground">Log home or field visit</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Record home conditions, cooperation level, safety concerns, and follow-up actions for the selected resident.
-              </p>
-
-              <form
-                className="mt-5 space-y-4"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  submitMutation.mutate();
-                }}
+              <button
+                type="button"
+                onClick={() => setIsFormOpen((current) => !current)}
+                className="flex w-full items-start justify-between gap-4 text-left"
               >
-                <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <h2 className="font-heading text-xl font-bold text-foreground">Log home or field visit</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Keep visit history visible, then expand this section only when you need to log a new visit.
+                  </p>
+                  {selectedResident ? (
+                    <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-primary">
+                      Ready for {residentLabel(selectedResident)}
+                    </p>
+                  ) : null}
+                </div>
+                <span className="mt-1 rounded-full bg-muted p-2 text-muted-foreground">
+                  {isFormOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </span>
+              </button>
+
+              {isFormOpen ? (
+                <form
+                  className="mt-5 space-y-4 border-t border-border/60 pt-5"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    submitMutation.mutate();
+                  }}
+                >
+                  <div className="grid gap-4 md:grid-cols-2">
                   <FormField label="Resident">
                     <select
                       value={form.resident_id}
@@ -414,9 +504,9 @@ const HomeVisitationsPage = () => {
                       ))}
                     </select>
                   </FormField>
-                </div>
+                  </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                   <FormField label="Family members present">
                     <textarea
                       rows={3}
@@ -436,9 +526,9 @@ const HomeVisitationsPage = () => {
                       placeholder="Why was the visit conducted?"
                     />
                   </FormField>
-                </div>
+                  </div>
 
-                <FormField label="Observations about the home environment">
+                  <FormField label="Observations about the home environment">
                   <textarea
                     rows={4}
                     value={form.observations}
@@ -447,9 +537,9 @@ const HomeVisitationsPage = () => {
                     placeholder="Describe home conditions, risks, support systems, and any notable field observations."
                     required
                   />
-                </FormField>
+                  </FormField>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                   <FormField label="Follow-up actions">
                     <textarea
                       rows={4}
@@ -469,9 +559,9 @@ const HomeVisitationsPage = () => {
                       placeholder="Summarize the overall visit outcome."
                     />
                   </FormField>
-                </div>
+                  </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                   <CheckboxRow
                     label="Safety concerns noted"
                     checked={form.safety_concerns_noted}
@@ -482,21 +572,96 @@ const HomeVisitationsPage = () => {
                     checked={form.follow_up_needed}
                     onChange={(checked) => setForm((current) => ({ ...current, follow_up_needed: checked }))}
                   />
-                </div>
+                  </div>
 
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={submitMutation.isPending || !form.resident_id}
-                    className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {submitMutation.isPending ? "Saving..." : "Save visitation"}
-                  </button>
-                </div>
-              </form>
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={submitMutation.isPending || !form.resident_id}
+                      className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {submitMutation.isPending ? "Saving..." : "Save visitation"}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+            <div className="space-y-6">
+              <div className="rounded-2xl bg-card p-5 shadow-warm">
+                <button
+                  type="button"
+                  onClick={() => setIsConferencesOpen((current) => !current)}
+                  className="flex w-full items-center justify-between gap-4 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <CalendarClock className="h-5 w-5 text-primary" />
+                    <div>
+                      <h2 className="font-heading text-xl font-bold text-foreground">Case conferences</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {upcomingConferences.length} upcoming and {conferenceHistory.length} past conference
+                        {upcomingConferences.length + conferenceHistory.length === 1 ? "" : "s"} for the selected resident
+                      </p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-muted p-2 text-muted-foreground">
+                    {isConferencesOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </span>
+                </button>
+
+                {isConferencesOpen ? (
+                  <div className="mt-5 space-y-6 border-t border-border/60 pt-5">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <CalendarClock className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Upcoming conferences</h3>
+                      </div>
+                      {upcomingConferences.length === 0 ? (
+                        <div className="rounded-2xl bg-muted/25 p-4 text-sm text-muted-foreground">
+                          No upcoming case conferences are recorded for this resident.
+                        </div>
+                      ) : (
+                        paginatedUpcomingConferences.map((plan, index) => (
+                          <ConferenceCard key={plan.plan_id} plan={plan} index={index} />
+                        ))
+                      )}
+                      {upcomingConferences.length > 0 ? (
+                        <PaginationControls
+                          page={upcomingConferencePage}
+                          pageCount={upcomingConferencePageCount}
+                          onPageChange={setUpcomingConferencePage}
+                          label="Upcoming conference pages"
+                        />
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <ClipboardCheck className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Conference history</h3>
+                      </div>
+                      {conferenceHistory.length === 0 ? (
+                        <div className="rounded-2xl bg-muted/25 p-4 text-sm text-muted-foreground">
+                          No past case conferences are recorded for this resident.
+                        </div>
+                      ) : (
+                        paginatedConferenceHistory.map((plan, index) => (
+                          <ConferenceCard key={plan.plan_id} plan={plan} index={index} />
+                        ))
+                      )}
+                      {conferenceHistory.length > 0 ? (
+                        <PaginationControls
+                          page={conferenceHistoryPage}
+                          pageCount={conferenceHistoryPageCount}
+                          onPageChange={setConferenceHistoryPage}
+                          label="Conference history pages"
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
               <div className="rounded-2xl bg-card p-5 shadow-warm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -516,7 +681,7 @@ const HomeVisitationsPage = () => {
                       No visitations have been logged for this resident yet.
                     </div>
                   ) : (
-                    residentVisitations.map((visit, index) => (
+                    paginatedVisitHistory.map((visit, index) => (
                       <motion.div
                         key={visit.visitation_id}
                         custom={index}
@@ -563,44 +728,17 @@ const HomeVisitationsPage = () => {
                     ))
                   )}
                 </div>
-              </div>
 
-              <div className="space-y-6">
-                <div className="rounded-2xl bg-card p-5 shadow-warm">
-                  <div className="flex items-center gap-2">
-                    <CalendarClock className="h-5 w-5 text-primary" />
-                    <h2 className="font-heading text-2xl font-bold text-foreground">Upcoming case conferences</h2>
+                {residentVisitations.length > 0 ? (
+                  <div className="mt-5">
+                    <PaginationControls
+                      page={visitHistoryPage}
+                      pageCount={visitHistoryPageCount}
+                      onPageChange={setVisitHistoryPage}
+                      label="Visit history pages"
+                    />
                   </div>
-                  <div className="mt-5 space-y-3">
-                    {upcomingConferences.length === 0 ? (
-                      <div className="rounded-2xl bg-muted/25 p-4 text-sm text-muted-foreground">
-                        No upcoming case conferences are recorded for this resident.
-                      </div>
-                    ) : (
-                      upcomingConferences.map((plan, index) => (
-                        <ConferenceCard key={plan.plan_id} plan={plan} index={index} />
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-card p-5 shadow-warm">
-                  <div className="flex items-center gap-2">
-                    <ClipboardCheck className="h-5 w-5 text-primary" />
-                    <h2 className="font-heading text-2xl font-bold text-foreground">Conference history</h2>
-                  </div>
-                  <div className="mt-5 space-y-3">
-                    {conferenceHistory.length === 0 ? (
-                      <div className="rounded-2xl bg-muted/25 p-4 text-sm text-muted-foreground">
-                        No past case conferences are recorded for this resident.
-                      </div>
-                    ) : (
-                      conferenceHistory.map((plan, index) => (
-                        <ConferenceCard key={plan.plan_id} plan={plan} index={index} />
-                      ))
-                    )}
-                  </div>
-                </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -664,6 +802,42 @@ const ConferenceCard = ({ plan, index }: { plan: InterventionPlan; index: number
       {plan.services_provided ? <p className="text-muted-foreground">Services: {plan.services_provided}</p> : null}
     </div>
   </motion.div>
+);
+
+const PaginationControls = ({
+  page,
+  pageCount,
+  onPageChange,
+  label,
+}: {
+  page: number;
+  pageCount: number;
+  onPageChange: (page: number) => void;
+  label: string;
+}) => (
+  <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <p className="text-sm text-muted-foreground">
+      {label}: page {page} of {pageCount}
+    </p>
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page <= 1}
+        className="rounded-full border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Previous
+      </button>
+      <button
+        type="button"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page >= pageCount}
+        className="rounded-full border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Next
+      </button>
+    </div>
+  </div>
 );
 
 export default HomeVisitationsPage;

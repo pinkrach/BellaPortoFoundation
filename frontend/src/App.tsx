@@ -112,6 +112,14 @@ const App = () => (
                 }
               />
               <Route
+                path="/recordings"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <ProcessRecordingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/admin/visitations"
                 element={
                   <ProtectedRoute requiredRole="admin">
@@ -120,7 +128,23 @@ const App = () => (
                 }
               />
               <Route
+                path="/visitations"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <HomeVisitationsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/admin/social"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <SocialMediaDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/media"
                 element={
                   <ProtectedRoute requiredRole="admin">
                     <SocialMediaDashboard />
