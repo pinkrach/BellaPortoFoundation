@@ -183,85 +183,90 @@ const sections = [
 
 const PrivacyPolicy = () => (
   <PublicLayout>
-    <section className="relative bg-gradient-to-r from-primary to-lavender py-16 md:py-24 overflow-hidden">
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary-foreground/10 px-4 py-2 text-sm text-primary-foreground/90 mb-5">
-          <ShieldCheck className="h-4 w-4" />
+    {/* Calm page header (matches About/Impact tone; no loud gradients/cards). */}
+    <WaveDivider className="text-muted" />
+    <section className="bg-muted -mt-1 pt-14 pb-10 md:pt-16 md:pb-12">
+      <div className="container mx-auto px-4">
+        <div className="inline-flex items-center gap-2 rounded-full bg-muted/50 px-4 py-2 text-xs font-medium tracking-wide text-[hsl(200_18%_30%)]">
+          <ShieldCheck className="h-4 w-4 text-[hsl(200_18%_34%)]" />
           Privacy & Data Protection
         </div>
-        <h1 className="font-heading text-3xl md:text-5xl font-bold text-primary-foreground">Privacy Policy</h1>
-        <p className="mt-4 max-w-3xl text-primary-foreground/85 text-lg">
+        <h1 className="mt-5 font-heading text-3xl font-bold tracking-tight text-[hsl(200_24%_18%)] md:text-5xl">
+          Privacy Policy
+        </h1>
+        <p className="mt-4 max-w-3xl text-lg leading-relaxed text-[hsl(200_14%_38%)]">
           Bella Bay ("we," "our," or "us") is committed to protecting the privacy and security of all individuals
           whose information is processed through our platform, including donors, administrators, employees, residents,
           and other authorized users.
         </p>
-        <p className="mt-3 text-sm text-primary-foreground/75">Last Updated: April 6, 2026</p>
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden">
-        <WaveDivider />
+        <p className="mt-3 text-sm text-[hsl(200_12%_46%)]">Last Updated: April 6, 2026</p>
       </div>
     </section>
 
-    <section className="py-12 md:py-16">
+    <WaveDivider className="text-muted rotate-180" />
+
+    <section className="bg-background py-12 md:py-16">
       <div className="container mx-auto px-4">
-        <div className="bg-card rounded-2xl p-6 md:p-8 shadow-warm mb-8">
-          <p className="text-muted-foreground leading-relaxed">
+        <div className="mx-auto max-w-4xl">
+          <div className="rounded-2xl bg-muted/40 p-6 md:p-8">
+            <p className="leading-relaxed text-[hsl(200_14%_38%)]">
             This Privacy Notice explains how we collect, use, store, and protect personal information when you access
             our website, donor dashboard, administrative portal, and case inventory system.
-          </p>
-          <p className="mt-4 text-muted-foreground">
-            For privacy-related questions, contact{" "}
-            <a className="text-primary font-medium hover:underline" href="mailto:privacy@bellaporto.org">
-              privacy@bellaporto.org
-            </a>
-            .
-          </p>
-        </div>
+            </p>
+            <p className="mt-4 text-[hsl(200_14%_38%)]">
+              For privacy-related questions, contact{" "}
+              <a className="font-medium text-[hsl(200_24%_26%)] underline-offset-4 hover:underline" href="mailto:privacy@bellaporto.org">
+                privacy@bellaporto.org
+              </a>
+              .
+            </p>
+          </div>
 
-        <div className="space-y-6">
-          {sections.map((section) => (
-            <article key={section.title} className="bg-card rounded-2xl p-6 md:p-8 shadow-warm">
-              <h2 className="font-heading text-2xl font-bold text-foreground">{section.title}</h2>
-              {section.subtitle ? (
-                <h3 className="mt-2 text-sm font-semibold tracking-wide uppercase text-muted-foreground">
-                  {section.subtitle}
-                </h3>
-              ) : null}
+          <div className="mt-8 space-y-8">
+            {sections.map((section) => (
+              <article key={section.title} className="scroll-mt-28">
+                <h2 className="font-heading text-2xl font-semibold text-[hsl(200_24%_18%)]">{section.title}</h2>
+                {section.subtitle ? (
+                  <h3 className="mt-2 text-xs font-semibold tracking-[0.14em] uppercase text-[hsl(200_12%_46%)]">
+                    {section.subtitle}
+                  </h3>
+                ) : null}
 
-              {section.body?.map((paragraph) => (
-                <p key={paragraph} className="mt-4 text-muted-foreground leading-relaxed">
-                  {paragraph}
+                {section.body?.map((paragraph) => (
+                  <p key={paragraph} className="mt-4 leading-relaxed text-[hsl(200_14%_38%)]">
+                    {paragraph}
+                  </p>
+                ))}
+
+                {section.bullets?.length ? (
+                  <ul className="mt-4 grid gap-2 md:grid-cols-2">
+                    {section.bullets.map((bullet) => (
+                      <li
+                        key={bullet}
+                        className="rounded-xl bg-muted/40 px-3.5 py-2.5 text-sm text-[hsl(200_18%_22%)]"
+                      >
+                        {bullet}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-10 rounded-2xl bg-muted/40 p-6 md:p-8">
+            <div className="flex items-start gap-3">
+              <Mail className="mt-0.5 h-5 w-5 text-[hsl(200_18%_34%)]" />
+              <div>
+                <h3 className="font-heading text-xl font-semibold text-[hsl(200_24%_18%)]">Privacy Requests</h3>
+                <p className="mt-2 text-[hsl(200_14%_38%)]">
+                  To submit an access, correction, deletion, or consent-withdrawal request, email{" "}
+                  <a className="font-medium text-[hsl(200_24%_26%)] underline-offset-4 hover:underline" href="mailto:privacy@bellaporto.org">
+                    privacy@bellaporto.org
+                  </a>
+                  .
                 </p>
-              ))}
-
-              {section.bullets?.length ? (
-                <ul className="mt-4 grid gap-2 md:grid-cols-2">
-                  {section.bullets.map((bullet) => (
-                    <li
-                      key={bullet}
-                      className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2 text-sm text-foreground"
-                    >
-                      {bullet}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </article>
-          ))}
-        </div>
-
-        <div className="mt-8 bg-gradient-to-r from-coral/10 to-lavender/20 rounded-2xl p-6 md:p-8">
-          <div className="flex items-start gap-3">
-            <Mail className="h-5 w-5 text-primary mt-0.5" />
-            <div>
-              <h3 className="font-heading text-xl font-semibold text-foreground">Privacy Requests</h3>
-              <p className="mt-2 text-muted-foreground">
-                To submit an access, correction, deletion, or consent-withdrawal request, email{" "}
-                <a className="text-primary font-medium hover:underline" href="mailto:privacy@bellaporto.org">
-                  privacy@bellaporto.org
-                </a>
-                .
-              </p>
+              </div>
             </div>
           </div>
         </div>

@@ -23,7 +23,11 @@ export const Navbar = () => {
   const [homeScrolled, setHomeScrolled] = useState(false);
   const location = useLocation();
   const isHome = location.pathname === "/";
-  const isCreamNavRoute = location.pathname === "/about" || location.pathname === "/impact" || location.pathname === "/login";
+  const isCreamNavRoute =
+    location.pathname === "/about" ||
+    location.pathname === "/impact" ||
+    location.pathname === "/privacy" ||
+    location.pathname === "/login";
   const isCreamNav = !isHome && isCreamNavRoute;
 
   const brandName = isHome ? "Bella Bay Foundation" : isCreamNav ? "Bella Bay Foundation" : "Bella Porto Foundation";

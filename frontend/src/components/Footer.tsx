@@ -5,7 +5,10 @@ import { WaveDivider } from "@/components/WaveDivider";
 
 export const Footer = () => {
   const location = useLocation();
-  const hideIllustration = location.pathname === "/about" || location.pathname === "/impact";
+  const hideIllustration =
+    location.pathname === "/about" ||
+    location.pathname === "/impact" ||
+    location.pathname === "/privacy";
 
   return (
     <footer className="mt-auto w-full">

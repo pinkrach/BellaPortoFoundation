@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import { buildApiUrl } from "@/lib/api";
-import { Leaf } from "lucide-react";
+import { Sailboat } from "lucide-react";
 import { motion } from "framer-motion";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import { PublicLayout } from "@/components/PublicLayout";
@@ -94,10 +94,10 @@ const Login = () => {
       <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
         {/* Decorative background */}
         <div className="absolute top-10 right-10 text-accent/20">
-          <Leaf className="h-32 w-32 rotate-45" />
+          <Sailboat className="h-32 w-32 rotate-12" />
         </div>
         <div className="absolute bottom-10 left-10 text-lavender/20">
-          <Leaf className="h-24 w-24 -rotate-12" />
+          <Sailboat className="h-24 w-24 -rotate-6" />
         </div>
 
         <motion.div
@@ -159,6 +159,7 @@ const Login = () => {
                 <Link to="/signup" className="text-secondary hover:underline">
                   Sign Up
                 </Link>
+                <span className="text-muted-foreground"> in order to donate.</span>
               </div>
             </div>
           </form>

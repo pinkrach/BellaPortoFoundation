@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Leaf } from "lucide-react";
+import { Sailboat } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
@@ -128,10 +128,10 @@ const SignUpPage = () => {
 
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
         <div className="pointer-events-none absolute top-10 right-10 text-accent/20">
-          <Leaf className="h-32 w-32 rotate-45" />
+          <Sailboat className="h-32 w-32 rotate-12" />
         </div>
         <div className="pointer-events-none absolute bottom-10 left-10 text-lavender/20">
-          <Leaf className="h-24 w-24 -rotate-12" />
+          <Sailboat className="h-24 w-24 -rotate-6" />
         </div>
 
         <motion.div
