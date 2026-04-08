@@ -1,15 +1,16 @@
-import { Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ChevronDown, LogOut, Menu, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { getRoleMenuItems } from "@/lib/navigation";
 
 const navLinks = [
   { label: "Home", to: "/" },
   { label: "About", to: "/about" },
   { label: "Impact", to: "/impact" },
-  { label: "Login", to: "/login" },
 ];
 
 /** Shared base — colour tokens swapped per hero-mode vs scrolled vs other pages */
@@ -21,7 +22,12 @@ const HOME_SCROLL_SOLID_THRESHOLD = 56;
 export const Navbar = () => {
   const [open, setOpen] = useState(false);
   const [homeScrolled, setHomeScrolled] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { displayName, initials, isAuthenticated, isLoading, logout, role } = useAuth();
+  const profileMenuItems = getRoleMenuItems(role);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const isHome = location.pathname === "/";
   const isCreamNavRoute = location.pathname === "/about" || location.pathname === "/impact" || location.pathname === "/login";
   const isCreamNav = !isHome && isCreamNavRoute;
@@ -58,6 +64,50 @@ export const Navbar = () => {
     "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white focus-visible:ring-offset-transparent";
 
   const activeUnderlineClass = isHeroMode ? "after:bg-white/80" : "after:bg-[#1E2933]";
+  const roleLabel = role === "admin" ? "Administrator" : role === "donor" ? "Donor" : "Access pending";
+  const profileButtonClass = useMemo(
+    () =>
+      cn(
+        navFocusRing,
+        "inline-flex items-center gap-3 rounded-full border px-3 py-2 text-sm shadow-sm transition-colors",
+        isHeroMode
+          ? "border-white/30 bg-white/10 text-white hover:bg-white/15"
+          : "border-[#1E2933]/10 bg-white/80 text-[#1E2933] hover:bg-white",
+      ),
+    [isHeroMode],
+  );
+
+  useEffect(() => {
+    setProfileOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProfileOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [profileOpen]);
+
+  const handleLogout = async () => {
+    await logout();
+    setProfileOpen(false);
+    setOpen(false);
+    navigate("/");
+  };
 
   return (
     <nav
@@ -139,6 +189,90 @@ export const Navbar = () => {
               </li>
             );
           })}
+          <li>
+            {isLoading ? (
+              <span className={cn(navLinkClass, "text-sm opacity-70")}>Loading...</span>
+            ) : isAuthenticated ? (
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen((current) => !current)}
+                  className={profileButtonClass}
+                  aria-expanded={profileOpen}
+                  aria-haspopup="menu"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                    {initials}
+                  </span>
+                  <span className="min-w-0 text-left">
+                    <span className="block max-w-[10rem] truncate font-semibold">{displayName ?? "Signed in"}</span>
+                    <span className={cn("block text-xs", isHeroMode ? "text-white/75" : "text-[#1E2933]/70")}>
+                      {roleLabel}
+                    </span>
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", profileOpen && "rotate-180")} />
+                </button>
+
+                <AnimatePresence>
+                  {profileOpen ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-80 overflow-hidden rounded-[28px] border border-[#1E2933]/10 bg-[#F5EFE6] shadow-[0_18px_40px_rgba(0,0,0,0.16)]"
+                    >
+                      <div className="flex items-center gap-4 border-b border-[#1E2933]/10 px-5 py-5">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#1f7a9a] text-2xl font-bold text-white">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-xl font-semibold text-[#1E2933]">{displayName ?? "Signed in"}</p>
+                          <p className="truncate text-sm text-[#1E2933]/70">{roleLabel}</p>
+                        </div>
+                      </div>
+
+                      <div className="max-h-[22rem] overflow-y-auto px-3 py-3">
+                        {profileMenuItems.map((item) => (
+                          <Link
+                            key={item.to}
+                            to={item.to}
+                            className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-[#1E2933] transition-colors hover:bg-white/70"
+                          >
+                            {item.icon ? <item.icon className="h-4 w-4 text-[#1f7a9a]" /> : null}
+                            <span>{item.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+
+                      <div className="border-t border-[#1E2933]/10 px-3 py-3">
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="flex w-full items-center gap-3 rounded-2xl bg-[#87c9cd] px-4 py-3 text-left text-sm font-semibold text-[#ff4a4a] transition-colors hover:bg-[#7cc0c5]"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span>Sign out</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className={cn(
+                  navFocusRing,
+                  "relative inline-block py-1 text-sm after:absolute after:-bottom-[2px] after:left-0 after:h-[2px] after:w-full after:bg-transparent",
+                  navLinkClass,
+                  location.pathname === "/login" && "font-semibold",
+                  location.pathname === "/login" && activeUnderlineClass,
+                )}
+              >
+                Login
+              </Link>
+            )}
+          </li>
         </ul>
 
         <button
@@ -197,6 +331,68 @@ export const Navbar = () => {
                   </li>
                 );
               })}
+              <li className="pt-2">
+                {isLoading ? (
+                  <span className={cn(navLinkClass, "text-base opacity-70")}>Loading...</span>
+                ) : isAuthenticated ? (
+                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                        {initials}
+                      </div>
+                      <div className="min-w-0">
+                        <p className={cn("truncate font-semibold", navTextClass)}>{displayName ?? "Signed in"}</p>
+                        <p className={cn("text-sm", isHeroMode ? "text-white/75" : "text-[#1E2933]/70")}>{roleLabel}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      {profileMenuItems.map((item) => (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          onClick={() => setOpen(false)}
+                          className={cn(
+                            "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium",
+                            isHeroMode
+                              ? "text-white hover:bg-white/10"
+                              : "text-[#1E2933] hover:bg-[#1E2933]/5",
+                          )}
+                        >
+                          {item.icon ? <item.icon className="h-4 w-4" /> : null}
+                          <span>{item.label}</span>
+                        </Link>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className={cn(
+                          "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold",
+                          isHeroMode
+                            ? "text-white hover:bg-white/10"
+                            : "text-[#b03a3a] hover:bg-[#b03a3a]/10",
+                        )}
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>Sign out</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <Link
+                    to="/login"
+                    onClick={() => setOpen(false)}
+                    className={cn(
+                      navFocusRing,
+                      "relative inline-block text-lg tracking-wide after:absolute after:-bottom-[2px] after:left-0 after:h-[2px] after:w-full after:bg-transparent",
+                      navLinkClass,
+                      location.pathname === "/login" && "font-semibold",
+                      location.pathname === "/login" && activeUnderlineClass,
+                    )}
+                  >
+                    Login
+                  </Link>
+                )}
+              </li>
             </ul>
           </motion.div>
         )}

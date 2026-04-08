@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { FileText, RefreshCw, ShieldAlert } from 'lucide-react'
 import { useAdminDashboardData } from '@/hooks/useAdminDashboardData'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiBaseUrl, buildApiUrl } from '@/lib/api'
 
 function clampIndex(value: string | null, max: number) {
   const n = value == null ? NaN : Number(value)
@@ -55,8 +56,6 @@ export default function Reports() {
     }
   }, [selected?.title, selected?.description, data?.source])
 
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5250'
-
   type ResidentRiskResponse = {
     generatedAt: string
     asOf: string
@@ -82,7 +81,7 @@ export default function Reports() {
   }
 
   async function fetchLatestRisk(): Promise<ResidentRiskResponse> {
-    const response = await fetch(`${apiBaseUrl}/api/ml/risk/latest`)
+    const response = await fetch(buildApiUrl('/api/ml/risk/latest'))
 
     if (response.status === 404) {
       throw new Error('No saved risk report yet. Click “Refresh report” to generate it.')
@@ -97,7 +96,7 @@ export default function Reports() {
   }
 
   async function refreshRisk(): Promise<ResidentRiskResponse> {
-    const response = await fetch(`${apiBaseUrl}/api/ml/risk/refresh`, {
+    const response = await fetch(buildApiUrl('/api/ml/risk/refresh'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -129,6 +128,7 @@ export default function Reports() {
   const riskError = (refreshMutation.error ?? riskQuery.error) as Error | null
   const isBusy = riskQuery.isLoading || refreshMutation.isPending
   const showAll = params.get('showAll') === '1'
+  const apiStatusLabel = apiBaseUrl || 'this site'
 
   return (
     <AdminLayout title="Reports & Analytics" subtitle="Click a report to generate details for Giulia">
@@ -257,7 +257,7 @@ export default function Reports() {
                     <p className="text-sm text-foreground font-semibold">Backend report unavailable</p>
                     <p className="text-xs text-muted-foreground mt-1">{riskError.message}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Make sure the .NET API is running on <code>http://localhost:5250</code> and press “Refresh report”.
+                      Make sure the report API is reachable at <code>{apiStatusLabel}</code> and press “Refresh report”.
                     </p>
                   </div>
                 ) : null}
@@ -372,4 +372,3 @@ export default function Reports() {
     </AdminLayout>
   )
 }
-
