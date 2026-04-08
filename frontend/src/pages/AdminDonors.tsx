@@ -3,6 +3,7 @@ import { AlertCircle, ChevronLeft, ChevronRight, HandCoins, Pencil, Trash2, User
 import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/components/AdminLayout";
+import { fetchWithAuth } from "@/lib/api";
 import {
   Bar,
   BarChart,
@@ -97,12 +98,6 @@ type DonationAllocation = {
 
 type ViewMode = "summary" | "supporters" | "donations" | "allocations";
 
-const isLocalHost =
-  typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (isLocalHost ? "http://localhost:5250" : "");
-
 function getSupporterName(supporter: Supporter) {
   const display = supporter.display_name?.trim();
   if (display) return display;
@@ -115,8 +110,7 @@ function getSupporterName(supporter: Supporter) {
 }
 
 async function fetchSupporters(): Promise<Supporter[]> {
-  const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/supporters` : "/api/supporters";
-  const response = await fetch(endpoint);
+  const response = await fetchWithAuth("/api/supporters");
 
   if (!response.ok) {
     const body = await response.text();
@@ -127,8 +121,7 @@ async function fetchSupporters(): Promise<Supporter[]> {
 }
 
 async function fetchDonations(): Promise<Donation[]> {
-  const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/donations` : "/api/donations";
-  const response = await fetch(endpoint);
+  const response = await fetchWithAuth("/api/donations");
 
   if (!response.ok) {
     const body = await response.text();
@@ -139,10 +132,7 @@ async function fetchDonations(): Promise<Donation[]> {
 }
 
 async function fetchSupporterDonations(supporterId: number): Promise<Donation[]> {
-  const endpoint = apiBaseUrl
-    ? `${apiBaseUrl}/api/donations?supporterId=${supporterId}`
-    : `/api/donations?supporterId=${supporterId}`;
-  const response = await fetch(endpoint);
+  const response = await fetchWithAuth(`/api/donations?supporterId=${supporterId}`);
 
   if (!response.ok) {
     const body = await response.text();
@@ -153,10 +143,7 @@ async function fetchSupporterDonations(supporterId: number): Promise<Donation[]>
 }
 
 async function fetchDonationAllocations(donationId?: number): Promise<DonationAllocation[]> {
-  const endpoint = apiBaseUrl
-    ? `${apiBaseUrl}/api/donation-allocations${donationId != null ? `?donationId=${donationId}` : ""}`
-    : `/api/donation-allocations${donationId != null ? `?donationId=${donationId}` : ""}`;
-  const response = await fetch(endpoint);
+  const response = await fetchWithAuth(`/api/donation-allocations${donationId != null ? `?donationId=${donationId}` : ""}`);
 
   if (!response.ok) {
     const body = await response.text();
@@ -167,8 +154,7 @@ async function fetchDonationAllocations(donationId?: number): Promise<DonationAl
 }
 
 async function refreshSupporterRiskScores(): Promise<{ status?: string; upserted_rows?: number }> {
-  const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/ml/supporter-risk/refresh` : "/api/ml/supporter-risk/refresh";
-  const response = await fetch(endpoint, {
+  const response = await fetchWithAuth("/api/ml/supporter-risk/refresh", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -188,8 +174,7 @@ async function updateSupporter(
   supporterId: number,
   updates: Record<string, string | null>,
 ): Promise<Supporter> {
-  const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/supporters/${supporterId}` : `/api/supporters/${supporterId}`;
-  const response = await fetch(endpoint, {
+  const response = await fetchWithAuth(`/api/supporters/${supporterId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -206,8 +191,7 @@ async function updateSupporter(
 }
 
 async function deleteSupporter(supporterId: number): Promise<void> {
-  const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/supporters/${supporterId}` : `/api/supporters/${supporterId}`;
-  const response = await fetch(endpoint, { method: "DELETE" });
+  const response = await fetchWithAuth(`/api/supporters/${supporterId}`, { method: "DELETE" });
 
   if (!response.ok) {
     const body = await response.text();
@@ -219,8 +203,7 @@ async function updateDonation(
   donationId: number,
   updates: Record<string, string | number | boolean | null>,
 ): Promise<Donation> {
-  const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/donations/${donationId}` : `/api/donations/${donationId}`;
-  const response = await fetch(endpoint, {
+  const response = await fetchWithAuth(`/api/donations/${donationId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -237,8 +220,7 @@ async function updateDonation(
 }
 
 async function deleteDonation(donationId: number): Promise<void> {
-  const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/donations/${donationId}` : `/api/donations/${donationId}`;
-  const response = await fetch(endpoint, { method: "DELETE" });
+  const response = await fetchWithAuth(`/api/donations/${donationId}`, { method: "DELETE" });
 
   if (!response.ok) {
     const body = await response.text();
@@ -250,10 +232,7 @@ async function updateDonationAllocation(
   allocationId: number,
   updates: Record<string, string | number | null>,
 ): Promise<DonationAllocation> {
-  const endpoint = apiBaseUrl
-    ? `${apiBaseUrl}/api/donation-allocations/${allocationId}`
-    : `/api/donation-allocations/${allocationId}`;
-  const response = await fetch(endpoint, {
+  const response = await fetchWithAuth(`/api/donation-allocations/${allocationId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -270,10 +249,7 @@ async function updateDonationAllocation(
 }
 
 async function deleteDonationAllocation(allocationId: number): Promise<void> {
-  const endpoint = apiBaseUrl
-    ? `${apiBaseUrl}/api/donation-allocations/${allocationId}`
-    : `/api/donation-allocations/${allocationId}`;
-  const response = await fetch(endpoint, { method: "DELETE" });
+  const response = await fetchWithAuth(`/api/donation-allocations/${allocationId}`, { method: "DELETE" });
 
   if (!response.ok) {
     const body = await response.text();
@@ -3047,4 +3023,3 @@ const AdminDonors = () => {
 };
 
 export default AdminDonors;
-

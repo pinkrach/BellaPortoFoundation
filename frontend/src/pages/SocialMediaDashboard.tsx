@@ -22,6 +22,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { fetchWithAuth } from "@/lib/api";
 
 type Kpi = {
   label: string;
@@ -131,7 +132,7 @@ async function fetchLatestSocialAnalytics(): Promise<SocialAnalyticsResponse> {
     return fetchBundledSocialAnalytics();
   }
 
-  const response = await fetch(`${apiBaseUrl}/api/ml/social/latest`);
+  const response = await fetchWithAuth("/api/ml/social/latest");
 
   if (response.status === 404) {
     return fetchBundledSocialAnalytics();
@@ -149,7 +150,7 @@ async function refreshSocialAnalytics(): Promise<SocialAnalyticsResponse> {
     throw new Error("Live refresh is only available when the backend API is configured.");
   }
 
-  const response = await fetch(`${apiBaseUrl}/api/ml/social/refresh`, {
+  const response = await fetchWithAuth("/api/ml/social/refresh", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

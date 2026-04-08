@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { FileText, RefreshCw, ShieldAlert } from 'lucide-react'
 import { useAdminDashboardData } from '@/hooks/useAdminDashboardData'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiBaseUrl, buildApiUrl } from '@/lib/api'
+import { apiBaseUrl, buildApiUrl, fetchWithAuth } from '@/lib/api'
 
 function clampIndex(value: string | null, max: number) {
   const n = value == null ? NaN : Number(value)
@@ -81,7 +81,7 @@ export default function Reports() {
   }
 
   async function fetchLatestRisk(): Promise<ResidentRiskResponse> {
-    const response = await fetch(buildApiUrl('/api/ml/risk/latest'))
+    const response = await fetchWithAuth('/api/ml/risk/latest')
 
     if (response.status === 404) {
       throw new Error('No saved risk report yet. Click “Refresh report” to generate it.')
@@ -96,7 +96,7 @@ export default function Reports() {
   }
 
   async function refreshRisk(): Promise<ResidentRiskResponse> {
-    const response = await fetch(buildApiUrl('/api/ml/risk/refresh'), {
+    const response = await fetchWithAuth('/api/ml/risk/refresh', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),

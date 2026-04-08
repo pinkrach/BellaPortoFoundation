@@ -216,6 +216,7 @@ app.MapPut("/api/profiles/{userId}/role", async (
 });
 
 app.MapGet("/api/supporters", async (
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -231,9 +232,16 @@ app.MapGet("/api/supporters", async (
             );
         }
 
-        var supporters = await FetchAllSupportersAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
-        var donations = await FetchAllDonationsAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
-        var riskScores = await FetchAllSupporterRiskScoresAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var supporters = await FetchAllSupportersAsync(client, settings.Url!, settings.Key!);
+        var donations = await FetchAllDonationsAsync(client, settings.Url!, settings.Key!);
+        var riskScores = await FetchAllSupporterRiskScoresAsync(client, settings.Url!, settings.Key!);
         ApplySupporterRiskData(supporters, donations, riskScores);
         return Results.Ok(supporters);
     }
@@ -245,6 +253,7 @@ app.MapGet("/api/supporters", async (
 
 app.MapPost("/api/supporters", async (
     Dictionary<string, object?> payload,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -254,6 +263,12 @@ app.MapPost("/api/supporters", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
 
         payload.Remove("supporter_id");
         if (payload.Count == 0)
@@ -261,7 +276,7 @@ app.MapPost("/api/supporters", async (
             return Results.BadRequest(new { message = "No supporter fields were provided." });
         }
 
-        var created = await CreateSupporterAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, payload);
+        var created = await CreateSupporterAsync(client, settings.Url!, settings.Key!, payload);
         return created is null
             ? Results.Problem("Unable to create supporter.")
             : Results.Created($"/api/supporters/{created.GetValueOrDefault("supporter_id")}", created);
@@ -275,6 +290,7 @@ app.MapPost("/api/supporters", async (
 app.MapPut("/api/supporters/{supporterId:int}", async (
     int supporterId,
     Dictionary<string, object?> updates,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -290,6 +306,13 @@ app.MapPut("/api/supporters/{supporterId:int}", async (
             );
         }
 
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         // supporter_id is route-owned and cannot be changed.
         updates.Remove("supporter_id");
         if (updates.Count == 0)
@@ -298,7 +321,7 @@ app.MapPut("/api/supporters/{supporterId:int}", async (
         }
 
         var updated = await UpdateSupporterAsync(
-            httpClientFactory.CreateClient(),
+            client,
             settings.Url!,
             settings.Key!,
             supporterId,
@@ -315,6 +338,7 @@ app.MapPut("/api/supporters/{supporterId:int}", async (
 
 app.MapDelete("/api/supporters/{supporterId:int}", async (
     int supporterId,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -330,7 +354,14 @@ app.MapDelete("/api/supporters/{supporterId:int}", async (
             );
         }
 
-        await DeleteSupporterAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, supporterId);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        await DeleteSupporterAsync(client, settings.Url!, settings.Key!, supporterId);
         return Results.NoContent();
     }
     catch (Exception ex)
@@ -341,6 +372,7 @@ app.MapDelete("/api/supporters/{supporterId:int}", async (
 
 app.MapGet("/api/donations", async (
     int? supporterId,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -356,7 +388,14 @@ app.MapGet("/api/donations", async (
             );
         }
 
-        var donations = await FetchAllDonationsAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, supporterId);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var donations = await FetchAllDonationsAsync(client, settings.Url!, settings.Key!, supporterId);
         return Results.Ok(donations);
     }
     catch (Exception ex)
@@ -367,6 +406,7 @@ app.MapGet("/api/donations", async (
 
 app.MapPost("/api/donations", async (
     Dictionary<string, object?> payload,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -376,6 +416,12 @@ app.MapPost("/api/donations", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
 
         payload.Remove("donation_id");
         payload.Remove("supporters");
@@ -384,7 +430,7 @@ app.MapPost("/api/donations", async (
             return Results.BadRequest(new { message = "No donation fields were provided." });
         }
 
-        var created = await CreateDonationAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, payload);
+        var created = await CreateDonationAsync(client, settings.Url!, settings.Key!, payload);
         return created is null
             ? Results.Problem("Unable to create donation.")
             : Results.Created($"/api/donations/{created.GetValueOrDefault("donation_id")}", created);
@@ -398,6 +444,7 @@ app.MapPost("/api/donations", async (
 app.MapPut("/api/donations/{donationId:int}", async (
     int donationId,
     Dictionary<string, object?> updates,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -413,6 +460,13 @@ app.MapPut("/api/donations/{donationId:int}", async (
             );
         }
 
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         // donation_id is route-owned and cannot be changed.
         updates.Remove("donation_id");
         updates.Remove("supporters");
@@ -422,7 +476,7 @@ app.MapPut("/api/donations/{donationId:int}", async (
         }
 
         var updated = await UpdateDonationAsync(
-            httpClientFactory.CreateClient(),
+            client,
             settings.Url!,
             settings.Key!,
             donationId,
@@ -441,6 +495,7 @@ app.MapPut("/api/donations/{donationId:int}", async (
 
 app.MapDelete("/api/donations/{donationId:int}", async (
     int donationId,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -456,7 +511,14 @@ app.MapDelete("/api/donations/{donationId:int}", async (
             );
         }
 
-        await DeleteDonationAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, donationId);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        await DeleteDonationAsync(client, settings.Url!, settings.Key!, donationId);
         return Results.NoContent();
     }
     catch (Exception ex)
@@ -467,6 +529,7 @@ app.MapDelete("/api/donations/{donationId:int}", async (
 
 app.MapGet("/api/donation-allocations", async (
     int? donationId,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -476,7 +539,14 @@ app.MapGet("/api/donation-allocations", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
-        var allocations = await FetchAllDonationAllocationsAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, donationId);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var allocations = await FetchAllDonationAllocationsAsync(client, settings.Url!, settings.Key!, donationId);
         return Results.Ok(allocations);
     }
     catch (Exception ex)
@@ -487,6 +557,7 @@ app.MapGet("/api/donation-allocations", async (
 
 app.MapPost("/api/donation-allocations", async (
     Dictionary<string, object?> payload,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -496,6 +567,12 @@ app.MapPost("/api/donation-allocations", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
 
         payload.Remove("allocation_id");
         payload.Remove("donations");
@@ -505,7 +582,7 @@ app.MapPost("/api/donation-allocations", async (
             return Results.BadRequest(new { message = "No donation allocation fields were provided." });
         }
 
-        var created = await CreateDonationAllocationAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, payload);
+        var created = await CreateDonationAllocationAsync(client, settings.Url!, settings.Key!, payload);
         return created is null
             ? Results.Problem("Unable to create donation allocation.")
             : Results.Created($"/api/donation-allocations/{created.GetValueOrDefault("allocation_id")}", created);
@@ -519,6 +596,7 @@ app.MapPost("/api/donation-allocations", async (
 app.MapPut("/api/donation-allocations/{allocationId:int}", async (
     int allocationId,
     Dictionary<string, object?> updates,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -528,6 +606,12 @@ app.MapPut("/api/donation-allocations/{allocationId:int}", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
 
         updates.Remove("allocation_id");
         updates.Remove("donations");
@@ -538,7 +622,7 @@ app.MapPut("/api/donation-allocations/{allocationId:int}", async (
         }
 
         var updated = await UpdateDonationAllocationAsync(
-            httpClientFactory.CreateClient(),
+            client,
             settings.Url!,
             settings.Key!,
             allocationId,
@@ -557,6 +641,7 @@ app.MapPut("/api/donation-allocations/{allocationId:int}", async (
 
 app.MapDelete("/api/donation-allocations/{allocationId:int}", async (
     int allocationId,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -566,7 +651,14 @@ app.MapDelete("/api/donation-allocations/{allocationId:int}", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
-        await DeleteDonationAllocationAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, allocationId);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        await DeleteDonationAllocationAsync(client, settings.Url!, settings.Key!, allocationId);
         return Results.NoContent();
     }
     catch (Exception ex)
@@ -576,6 +668,7 @@ app.MapDelete("/api/donation-allocations/{allocationId:int}", async (
 });
 
 app.MapGet("/api/safehouses", async (
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -585,7 +678,14 @@ app.MapGet("/api/safehouses", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
-        var safehouses = await FetchAllSafehousesAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var safehouses = await FetchAllSafehousesAsync(client, settings.Url!, settings.Key!);
         return Results.Ok(safehouses);
     }
     catch (Exception ex)
@@ -595,6 +695,7 @@ app.MapGet("/api/safehouses", async (
 });
 
 app.MapGet("/api/residents", async (
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -604,7 +705,14 @@ app.MapGet("/api/residents", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
-        var residents = await FetchResidentsAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var residents = await FetchResidentsAsync(client, settings.Url!, settings.Key!);
         return Results.Ok(residents);
     }
     catch (Exception ex)
@@ -615,6 +723,7 @@ app.MapGet("/api/residents", async (
 
 app.MapGet("/api/residents/{residentId:int}/profile-bundle", async (
     int residentId,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -624,7 +733,14 @@ app.MapGet("/api/residents/{residentId:int}/profile-bundle", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
-        var bundle = await FetchResidentProfileBundleAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, residentId);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var bundle = await FetchResidentProfileBundleAsync(client, settings.Url!, settings.Key!, residentId);
         return bundle is null
             ? Results.NotFound(new { message = $"Resident #{residentId} was not found." })
             : Results.Ok(bundle);
@@ -637,6 +753,7 @@ app.MapGet("/api/residents/{residentId:int}/profile-bundle", async (
 
 app.MapGet("/api/public-impact", async (
     bool? publishedOnly,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -646,8 +763,15 @@ app.MapGet("/api/public-impact", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         var rows = await FetchPagedTableAsync(
-            httpClientFactory.CreateClient(),
+            client,
             settings.Url!,
             settings.Key!,
             "public_impact_snapshots",
@@ -663,6 +787,7 @@ app.MapGet("/api/public-impact", async (
 });
 
 app.MapGet("/api/monthly-metrics", async (
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -672,8 +797,15 @@ app.MapGet("/api/monthly-metrics", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         var rows = await FetchPagedTableAsync(
-            httpClientFactory.CreateClient(),
+            client,
             settings.Url!,
             settings.Key!,
             "safehouse_monthly_metrics",
@@ -689,6 +821,7 @@ app.MapGet("/api/monthly-metrics", async (
 
 app.MapGet("/api/db/{table}", async (
     string table,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -698,9 +831,16 @@ app.MapGet("/api/db/{table}", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         var config = GetTableConfig(table);
         var rows = await FetchPagedTableAsync(
-            httpClientFactory.CreateClient(),
+            client,
             settings.Url!,
             settings.Key!,
             table,
@@ -717,6 +857,7 @@ app.MapGet("/api/db/{table}", async (
 app.MapGet("/api/db/{table}/resident/{residentId:int}", async (
     string table,
     int residentId,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -726,9 +867,16 @@ app.MapGet("/api/db/{table}/resident/{residentId:int}", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         var config = GetTableConfig(table);
         var rows = await FetchPagedTableAsync(
-            httpClientFactory.CreateClient(),
+            client,
             settings.Url!,
             settings.Key!,
             table,
@@ -746,6 +894,7 @@ app.MapGet("/api/db/{table}/resident/{residentId:int}", async (
 app.MapGet("/api/db/{table}/{id:int}", async (
     string table,
     int id,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -755,9 +904,16 @@ app.MapGet("/api/db/{table}/{id:int}", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         var config = GetTableConfig(table);
         var row = await FetchSingleByIdAsync(
-            httpClientFactory.CreateClient(),
+            client,
             settings.Url!,
             settings.Key!,
             table,
@@ -777,6 +933,7 @@ app.MapGet("/api/db/{table}/{id:int}", async (
 app.MapPost("/api/db/{table}", async (
     string table,
     Dictionary<string, object?> row,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -786,9 +943,16 @@ app.MapPost("/api/db/{table}", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         var config = GetTableConfig(table);
         var inserted = await InsertTableRowAsync(
-            httpClientFactory.CreateClient(),
+            client,
             settings.Url!,
             settings.Key!,
             table,
@@ -806,6 +970,7 @@ app.MapPatch("/api/db/{table}/{id:int}", async (
     string table,
     int id,
     Dictionary<string, object?> updates,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -815,6 +980,13 @@ app.MapPatch("/api/db/{table}/{id:int}", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         var config = GetTableConfig(table);
         updates.Remove(config.PrimaryKey);
         if (updates.Count == 0)
@@ -823,7 +995,7 @@ app.MapPatch("/api/db/{table}/{id:int}", async (
         }
 
         var updated = await UpdateTableRowAsync(
-            httpClientFactory.CreateClient(),
+            client,
             settings.Url!,
             settings.Key!,
             table,
@@ -845,6 +1017,7 @@ app.MapPatch("/api/db/{table}/{id:int}", async (
 app.MapDelete("/api/db/{table}/{id:int}", async (
     string table,
     int id,
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -854,9 +1027,16 @@ app.MapDelete("/api/db/{table}/{id:int}", async (
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         var config = GetTableConfig(table);
         await DeleteTableRowAsync(
-            httpClientFactory.CreateClient(),
+            client,
             settings.Url!,
             settings.Key!,
             table,
@@ -870,8 +1050,22 @@ app.MapDelete("/api/db/{table}/{id:int}", async (
     }
 });
 
-app.MapGet("/api/ml/social/latest", () =>
+app.MapGet("/api/ml/social/latest", async (
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
 {
+    var repoRootForAuth = GetRepoRoot(environment);
+    var settings = ResolveSupabaseSettings(configuration, repoRootForAuth);
+    EnsureSupabaseConfigured(settings);
+    var client = httpClientFactory.CreateClient();
+    var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+    if (guard is not null)
+    {
+        return guard;
+    }
+
     var repoRoot = GetRepoRoot(app.Environment);
     var summaryPath = Path.Combine(repoRoot, "ml-pipelines", "artifacts", "social_dashboard_summary.json");
 
@@ -886,6 +1080,7 @@ app.MapGet("/api/ml/social/latest", () =>
 
 app.MapPost("/api/ml/social/refresh", async (
     SocialAnalyticsRefreshRequest? request,
+    HttpRequest httpRequest,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment,
@@ -894,6 +1089,15 @@ app.MapPost("/api/ml/social/refresh", async (
     try
     {
         var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(httpRequest, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         var rows = await ResolveSocialPostsAsync(request, configuration, httpClientFactory, repoRoot, logger);
         if (rows.Count == 0)
         {
@@ -959,8 +1163,22 @@ app.MapPost("/api/ml/social/refresh", async (
     }
 });
 
-app.MapGet("/api/ml/risk/latest", () =>
+app.MapGet("/api/ml/risk/latest", async (
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
 {
+    var repoRootForAuth = GetRepoRoot(environment);
+    var settings = ResolveSupabaseSettings(configuration, repoRootForAuth);
+    EnsureSupabaseConfigured(settings);
+    var client = httpClientFactory.CreateClient();
+    var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+    if (guard is not null)
+    {
+        return guard;
+    }
+
     var repoRoot = GetRepoRoot(app.Environment);
     var summaryPath = Path.Combine(repoRoot, "ml-pipelines", "artifacts", "resident_risk_summary.json");
 
@@ -974,6 +1192,7 @@ app.MapGet("/api/ml/risk/latest", () =>
 });
 
 app.MapPost("/api/ml/risk/refresh", async (
+    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment,
@@ -991,6 +1210,11 @@ app.MapPost("/api/ml/risk/refresh", async (
         }
 
         var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
 
         logger.LogInformation("Fetching live residents / incident_reports / process_recordings rows from Supabase.");
         var residents = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "residents");
@@ -1072,12 +1296,24 @@ app.MapPost("/api/ml/risk/refresh", async (
 
 app.MapPost("/api/ml/supporter-risk/refresh", async (
     SupporterRiskRefreshRequest? request,
+    HttpRequest httpRequest,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
     IWebHostEnvironment environment,
     ILogger<Program> logger) =>
 {
     try
     {
         var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(httpRequest, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
         var result = await RunSupporterRiskScoringAsync(repoRoot, request, logger);
         return Results.Json(result);
     }

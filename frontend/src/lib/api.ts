@@ -43,3 +43,22 @@ export async function fetchJsonWithAuth<T>(path: string, init?: RequestInit): Pr
     headers,
   });
 }
+
+export async function buildAuthHeaders(initHeaders?: HeadersInit): Promise<Headers> {
+  const token = (await supabase?.auth.getSession())?.data.session?.access_token ?? null;
+  if (!token) {
+    throw new Error("Your session expired. Please sign in again.");
+  }
+
+  const headers = new Headers(initHeaders);
+  headers.set("Authorization", `Bearer ${token}`);
+  return headers;
+}
+
+export async function fetchWithAuth(path: string, init?: RequestInit): Promise<Response> {
+  const headers = await buildAuthHeaders(init?.headers);
+  return fetch(buildApiUrl(path), {
+    ...init,
+    headers,
+  });
+}

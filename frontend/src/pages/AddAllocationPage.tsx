@@ -2,11 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/components/AdminLayout";
-
-const isLocalHost =
-  typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (isLocalHost ? "http://localhost:5250" : "");
+import { fetchWithAuth } from "@/lib/api";
 const programAreaOptions = [
   "Safehouse Operations",
   "Education",
@@ -34,8 +30,7 @@ type DonationLookup = {
 };
 
 async function fetchSafehouses(): Promise<SafehouseOption[]> {
-  const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/safehouses` : "/api/safehouses";
-  const response = await fetch(endpoint);
+  const response = await fetchWithAuth("/api/safehouses");
   if (!response.ok) {
     const body = await response.text();
     throw new Error(body || "Unable to load safehouses.");
@@ -44,8 +39,7 @@ async function fetchSafehouses(): Promise<SafehouseOption[]> {
 }
 
 async function fetchDonationsForLookup(): Promise<DonationLookup[]> {
-  const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/donations` : "/api/donations";
-  const response = await fetch(endpoint);
+  const response = await fetchWithAuth("/api/donations");
   if (!response.ok) {
     const body = await response.text();
     throw new Error(body || "Unable to load donations.");
@@ -100,8 +94,7 @@ const AddAllocationPage = () => {
     };
 
     try {
-      const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/donation-allocations` : "/api/donation-allocations";
-      const response = await fetch(endpoint, {
+      const response = await fetchWithAuth("/api/donation-allocations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
