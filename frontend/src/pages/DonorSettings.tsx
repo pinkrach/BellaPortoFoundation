@@ -1,19 +1,37 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "@/components/ui/sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CreditCard, Loader2, Pencil, Plus, Save } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function DonorSettings() {
+  const { isLoading: authLoading, userId, userEmail, firstName, lastName, displayName, initials } = useAuth();
+
   const [newsletter, setNewsletter] = useState(true);
   const [impactAlerts, setImpactAlerts] = useState(true);
 
-  const [profileDraft, setProfileDraft] = useState({
-    name: "Sara Escobar",
-    email: "sara-escobar@pldt.net.ph",
-  });
-  const [profileSaved, setProfileSaved] = useState(profileDraft);
+  const sessionName = useMemo(() => {
+    const combined = [firstName, lastName].filter(Boolean).join(" ").trim();
+    if (combined) return combined;
+    return displayName?.trim() ?? "";
+  }, [firstName, lastName, displayName]);
+
+  const sessionEmail = userEmail?.trim() ?? "";
+
+  const [profileDraft, setProfileDraft] = useState({ name: "", email: "" });
+  const [profileSaved, setProfileSaved] = useState({ name: "", email: "" });
   const [profileIsEditing, setProfileIsEditing] = useState(false);
   const [profileIsSaving, setProfileIsSaving] = useState(false);
+
+  /** Hydrate from auth when the session is known; do not clobber drafts while editing. */
+  useEffect(() => {
+    if (authLoading || !sessionEmail) return;
+    const next = { name: sessionName, email: sessionEmail };
+    if (!profileIsEditing) {
+      setProfileSaved(next);
+      setProfileDraft(next);
+    }
+  }, [authLoading, userId, sessionEmail, sessionName, profileIsEditing]);
 
   const [billingAddress, setBillingAddress] = useState<string>("");
   const [billingDraft, setBillingDraft] = useState({
@@ -45,6 +63,9 @@ export default function DonorSettings() {
   }, [profileDraft.email]);
 
   const canSaveProfile = profileIsEditing && !profileIsSaving && !profileNameError && !profileEmailError;
+
+  const showProfileSkeleton = authLoading;
+  const identityMissing = !authLoading && !sessionEmail;
 
   const inputClassName =
     "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground " +
@@ -112,19 +133,54 @@ export default function DonorSettings() {
     <div className="space-y-6 max-w-4xl">
       <div className="bg-card rounded-2xl p-6 shadow-warm">
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0 flex-1">
             <h3 className="font-heading text-base font-semibold text-foreground mb-1">Personal Info</h3>
             <p className="text-sm text-muted-foreground">Basic account information used for your donor profile.</p>
+
+            {showProfileSkeleton ? (
+              <div className="mt-5 flex items-center gap-4">
+                <div className="h-14 w-14 shrink-0 rounded-full bg-muted animate-pulse" aria-hidden />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-4 w-40 max-w-full rounded bg-muted animate-pulse" />
+                  <div className="h-3 w-56 max-w-full rounded bg-muted animate-pulse" />
+                </div>
+              </div>
+            ) : identityMissing ? (
+              <div className="mt-5 flex items-center gap-4">
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-border bg-muted/30 text-sm font-semibold text-muted-foreground"
+                  aria-hidden
+                >
+                  —
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-muted-foreground">Profile details aren&apos;t available yet.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-5 flex items-center gap-4">
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground shadow-warm"
+                  aria-hidden
+                >
+                  {initials}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{sessionName || "—"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{sessionEmail}</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {!profileIsEditing ? (
+          {!showProfileSkeleton && !identityMissing && !profileIsEditing ? (
             <button
               type="button"
               onClick={() => {
-                setProfileDraft(profileSaved);
+                setProfileDraft({ ...profileSaved });
                 setProfileIsEditing(true);
               }}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted/40 transition-colors"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted/40 transition-colors shrink-0"
             >
               <Pencil className="h-4 w-4" />
               Edit
@@ -135,7 +191,11 @@ export default function DonorSettings() {
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-border/70 bg-background p-4">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Name</p>
-            {profileIsEditing ? (
+            {showProfileSkeleton ? (
+              <div className="mt-3 h-5 w-3/4 max-w-[12rem] rounded bg-muted animate-pulse" />
+            ) : identityMissing ? (
+              <p className="mt-1 text-sm text-muted-foreground">—</p>
+            ) : profileIsEditing ? (
               <div className="mt-2">
                 <input
                   value={profileDraft.name}
@@ -147,12 +207,16 @@ export default function DonorSettings() {
                 {profileNameError ? <p className="mt-2 text-xs text-destructive">{profileNameError}</p> : null}
               </div>
             ) : (
-              <p className="mt-1 text-sm font-semibold text-foreground">{profileSaved.name}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{profileSaved.name || "—"}</p>
             )}
           </div>
           <div className="rounded-xl border border-border/70 bg-background p-4">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Email</p>
-            {profileIsEditing ? (
+            {showProfileSkeleton ? (
+              <div className="mt-3 h-5 w-full max-w-[14rem] rounded bg-muted animate-pulse" />
+            ) : identityMissing ? (
+              <p className="mt-1 text-sm text-muted-foreground">—</p>
+            ) : profileIsEditing ? (
               <div className="mt-2">
                 <input
                   value={profileDraft.email}
@@ -164,12 +228,12 @@ export default function DonorSettings() {
                 {profileEmailError ? <p className="mt-2 text-xs text-destructive">{profileEmailError}</p> : null}
               </div>
             ) : (
-              <p className="mt-1 text-sm font-semibold text-foreground">{profileSaved.email}</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">{profileSaved.email || "—"}</p>
             )}
           </div>
         </div>
 
-        {profileIsEditing ? (
+        {!showProfileSkeleton && !identityMissing && profileIsEditing ? (
           <div className="mt-6 flex flex-wrap justify-end gap-2">
             <button
               type="button"
