@@ -47,9 +47,14 @@ export const AdminLayout = ({
   return (
     <div className="min-h-screen flex bg-background">
       {/* Sidebar overlay mobile */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-foreground/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
+      {sidebarOpen ? (
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          className="fixed inset-0 z-40 cursor-pointer border-0 bg-foreground/40 p-0 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      ) : null}
 
       {/* Sidebar */}
       <aside
@@ -103,8 +108,8 @@ export const AdminLayout = ({
                   sidebarCollapsed ? "justify-center px-2 py-3" : "gap-3 px-3 py-2.5"
                 } ${
                   active
-                    ? "bg-sidebar-accent text-accent"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    ? "bg-sidebar-accent text-sidebar-foreground"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                 }`}
                 aria-label={item.label}
                 title={sidebarCollapsed ? item.label : undefined}
@@ -135,21 +140,32 @@ export const AdminLayout = ({
       <div className="flex-1 flex flex-col min-w-0">
         <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-sm border-b border-border px-4 lg:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-              <Menu className="h-6 w-6 text-foreground" />
+            <button
+              type="button"
+              className="lg:hidden rounded-md p-1 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open navigation menu"
+            >
+              <Menu className="h-6 w-6" aria-hidden />
             </button>
             <div>
               <h1 className="font-heading text-2xl font-semibold text-foreground lg:text-3xl">{title}</h1>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="relative text-muted-foreground hover:text-foreground transition-colors">
-              <Bell className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-secondary rounded-full" />
+            <button
+              type="button"
+              className="relative rounded-md p-1 text-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5" aria-hidden />
+              <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-secondary" aria-hidden />
             </button>
             <div
               className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground"
               title={displayName ?? "Signed-in user"}
+              role="img"
+              aria-label={displayName ? `Signed in as ${displayName}` : "Signed-in user"}
             >
               {initials}
             </div>
