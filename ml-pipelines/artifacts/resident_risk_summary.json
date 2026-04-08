@@ -1,0 +1,418 @@
+{
+  "generatedAt": "2026-04-07T21:25:50.679243\u002B00:00",
+  "asOf": "2026-04-07T21:25:50.679243\u002B00:00",
+  "dataset": {
+    "residents": 60,
+    "incidents": 100,
+    "recordings": 2819
+  },
+  "model": {
+    "isTrained": false,
+    "threshold": 0.6,
+    "rocAuc": null,
+    "averagePrecision": null,
+    "artifactPath": null
+  },
+  "highRiskResidents": [
+    {
+      "residentId": 1,
+      "internalCode": "LS-0001",
+      "safehouseId": 4,
+      "caseStatus": "Active",
+      "riskProbability": 1.0,
+      "riskLevel": "High",
+      "signals": {
+        "incidents90d": 1,
+        "highIncidents90d": 1,
+        "followups90d": 1,
+        "sessions90d": 6,
+        "concerns90d": 2,
+        "referrals90d": 2
+      }
+    },
+    {
+      "residentId": 36,
+      "internalCode": "LS-0036",
+      "safehouseId": 1,
+      "caseStatus": "Active",
+      "riskProbability": 0.6,
+      "riskLevel": "High",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 4,
+        "concerns90d": 3,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 32,
+      "internalCode": "LS-0032",
+      "safehouseId": 6,
+      "caseStatus": "Active",
+      "riskProbability": 0.52,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 1,
+        "highIncidents90d": 0,
+        "followups90d": 1,
+        "sessions90d": 4,
+        "concerns90d": 1,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 4,
+      "internalCode": "LS-0004",
+      "safehouseId": 2,
+      "caseStatus": "Active",
+      "riskProbability": 0.4,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 8,
+        "concerns90d": 2,
+        "referrals90d": 2
+      }
+    },
+    {
+      "residentId": 12,
+      "internalCode": "LS-0012",
+      "safehouseId": 3,
+      "caseStatus": "Active",
+      "riskProbability": 0.4,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 3,
+        "concerns90d": 2,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 20,
+      "internalCode": "LS-0020",
+      "safehouseId": 1,
+      "caseStatus": "Closed",
+      "riskProbability": 0.4,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 5,
+        "concerns90d": 2,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 59,
+      "internalCode": "LS-0059",
+      "safehouseId": 3,
+      "caseStatus": "Active",
+      "riskProbability": 0.4,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 4,
+        "concerns90d": 2,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 40,
+      "internalCode": "LS-0040",
+      "safehouseId": 1,
+      "caseStatus": "Active",
+      "riskProbability": 0.4,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 6,
+        "concerns90d": 2,
+        "referrals90d": 1
+      }
+    },
+    {
+      "residentId": 9,
+      "internalCode": "LS-0009",
+      "safehouseId": 7,
+      "caseStatus": "Active",
+      "riskProbability": 0.4,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 4,
+        "concerns90d": 2,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 14,
+      "internalCode": "LS-0014",
+      "safehouseId": 7,
+      "caseStatus": "Active",
+      "riskProbability": 0.4,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 6,
+        "concerns90d": 2,
+        "referrals90d": 1
+      }
+    },
+    {
+      "residentId": 53,
+      "internalCode": "LS-0053",
+      "safehouseId": 6,
+      "caseStatus": "Active",
+      "riskProbability": 0.32,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 1,
+        "highIncidents90d": 0,
+        "followups90d": 1,
+        "sessions90d": 4,
+        "concerns90d": 0,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 55,
+      "internalCode": "LS-0055",
+      "safehouseId": 2,
+      "caseStatus": "Active",
+      "riskProbability": 0.2,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 3,
+        "concerns90d": 1,
+        "referrals90d": 2
+      }
+    },
+    {
+      "residentId": 10,
+      "internalCode": "LS-0010",
+      "safehouseId": 1,
+      "caseStatus": "Active",
+      "riskProbability": 0.2,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 5,
+        "concerns90d": 1,
+        "referrals90d": 1
+      }
+    },
+    {
+      "residentId": 41,
+      "internalCode": "LS-0041",
+      "safehouseId": 9,
+      "caseStatus": "Active",
+      "riskProbability": 0.2,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 5,
+        "concerns90d": 1,
+        "referrals90d": 2
+      }
+    },
+    {
+      "residentId": 7,
+      "internalCode": "LS-0007",
+      "safehouseId": 6,
+      "caseStatus": "Active",
+      "riskProbability": 0.2,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 5,
+        "concerns90d": 1,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 19,
+      "internalCode": "LS-0019",
+      "safehouseId": 4,
+      "caseStatus": "Active",
+      "riskProbability": 0.2,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 6,
+        "concerns90d": 1,
+        "referrals90d": 1
+      }
+    },
+    {
+      "residentId": 57,
+      "internalCode": "LS-0057",
+      "safehouseId": 7,
+      "caseStatus": "Active",
+      "riskProbability": 0.2,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 3,
+        "concerns90d": 1,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 48,
+      "internalCode": "LS-0048",
+      "safehouseId": 5,
+      "caseStatus": "Active",
+      "riskProbability": 0.2,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 2,
+        "concerns90d": 1,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 24,
+      "internalCode": "LS-0024",
+      "safehouseId": 4,
+      "caseStatus": "Active",
+      "riskProbability": 0.2,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 7,
+        "concerns90d": 1,
+        "referrals90d": 3
+      }
+    },
+    {
+      "residentId": 46,
+      "internalCode": "LS-0046",
+      "safehouseId": 7,
+      "caseStatus": "Active",
+      "riskProbability": 0.2,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 4,
+        "concerns90d": 1,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 44,
+      "internalCode": "LS-0044",
+      "safehouseId": 9,
+      "caseStatus": "Closed",
+      "riskProbability": 0.0,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 0,
+        "concerns90d": 0,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 38,
+      "internalCode": "LS-0038",
+      "safehouseId": 2,
+      "caseStatus": "Active",
+      "riskProbability": 0.0,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 3,
+        "concerns90d": 0,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 39,
+      "internalCode": "LS-0039",
+      "safehouseId": 8,
+      "caseStatus": "Closed",
+      "riskProbability": 0.0,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 0,
+        "concerns90d": 0,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 42,
+      "internalCode": "LS-0042",
+      "safehouseId": 6,
+      "caseStatus": "Active",
+      "riskProbability": 0.0,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 1,
+        "concerns90d": 0,
+        "referrals90d": 0
+      }
+    },
+    {
+      "residentId": 43,
+      "internalCode": "LS-0043",
+      "safehouseId": 2,
+      "caseStatus": "Closed",
+      "riskProbability": 0.0,
+      "riskLevel": "Normal",
+      "signals": {
+        "incidents90d": 0,
+        "highIncidents90d": 0,
+        "followups90d": 0,
+        "sessions90d": 0,
+        "concerns90d": 0,
+        "referrals90d": 0
+      }
+    }
+  ]
+}

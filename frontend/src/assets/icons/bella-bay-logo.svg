@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <!-- Large counterclockwise arc from left-mid to right-mid passes over the TOP -->
+    <path id="topArc" d="M 14 100 A 86 86 0 1 0 186 100"/>
+  </defs>
+
+  <!-- Outer ring -->
+  <circle cx="100" cy="100" r="92" stroke="#1B3252" stroke-width="2.2"/>
+
+  <!-- BELLA BAY — top arc, centred -->
+  <text
+    font-family="'Playfair Display', Georgia, serif"
+    font-size="13.5"
+    fill="#1B3252"
+    font-weight="700"
+    letter-spacing="4"
+  >
+    <textPath href="#topArc" startOffset="50%" text-anchor="middle">BELLA BAY</textPath>
+  </text>
+
+  <!-- FOUNDATION — same arc rotated 180° so it sits at the bottom, letters face out -->
+  <text
+    font-family="'Playfair Display', Georgia, serif"
+    font-size="12"
+    fill="#1B3252"
+    font-weight="700"
+    letter-spacing="3.5"
+    transform="rotate(180 100 100)"
+  >
+    <textPath href="#topArc" startOffset="50%" text-anchor="middle">FOUNDATION</textPath>
+  </text>
+
+  <!-- ── Chimney ── -->
+  <rect x="75" y="38" width="9" height="16" rx="0.5"
+        stroke="#1B3252" stroke-width="1.8"/>
+
+  <!-- ── Roof slopes ── -->
+  <polyline points="55,63 100,34 145,63"
+            stroke="#1B3252" stroke-width="2.2" stroke-linejoin="round"/>
+  <!-- Roof fascia / eave line -->
+  <line x1="53" y1="63" x2="147" y2="63" stroke="#1B3252" stroke-width="1.8"/>
+
+  <!-- ── Building body ── -->
+  <rect x="60" y="63" width="80" height="54" stroke="#1B3252" stroke-width="1.8"/>
+
+  <!-- Floor divider -->
+  <line x1="60" y1="89" x2="140" y2="89" stroke="#1B3252" stroke-width="1.2"/>
+
+  <!-- ── Upper floor ── -->
+  <!-- Left arched window -->
+  <path d="M 69 70 L 69 84 Q 69 88 73.5 88 Q 78 88 78 84 L 78 70"
+        stroke="#1B3252" stroke-width="1.4"/>
+  <!-- Centre balustrade grid -->
+  <rect x="85" y="67" width="30" height="21" stroke="#1B3252" stroke-width="1.4"/>
+  <line x1="95"  y1="67" x2="95"  y2="88" stroke="#1B3252" stroke-width="1"/>
+  <line x1="100" y1="67" x2="100" y2="88" stroke="#1B3252" stroke-width="1"/>
+  <line x1="105" y1="67" x2="105" y2="88" stroke="#1B3252" stroke-width="1"/>
+  <line x1="85"  y1="77" x2="115" y2="77" stroke="#1B3252" stroke-width="1"/>
+  <!-- Right arched window -->
+  <path d="M 122 70 L 122 84 Q 122 88 126.5 88 Q 131 88 131 84 L 131 70"
+        stroke="#1B3252" stroke-width="1.4"/>
+
+  <!-- ── Lower floor ── -->
+  <!-- Left arched window -->
+  <path d="M 68 93 L 68 109 Q 68 115 73.5 115 Q 79 115 79 109 L 79 93 Q 73.5 87 68 93"
+        stroke="#1B3252" stroke-width="1.4"/>
+  <!-- Centre arched door -->
+  <path d="M 87 93 L 87 117 L 113 117 L 113 93 Q 100 80 87 93"
+        stroke="#1B3252" stroke-width="1.8"/>
+  <!-- Right arched window -->
+  <path d="M 121 93 L 121 109 Q 121 115 126.5 115 Q 132 115 132 109 L 132 93 Q 126.5 87 121 93"
+        stroke="#1B3252" stroke-width="1.4"/>
+
+  <!-- ── Waves (2 sweeping curves in lower circle) ── -->
+  <!-- Wave 1 -->
+  <path d="M 28 126 C 48 117 64 133 84 126 S 116 117 136 126 S 162 133 172 126"
+        stroke="#1B3252" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Wave 2 -->
+  <path d="M 22 140 C 46 129 66 147 92 138 S 130 129 158 138 S 176 143 178 140"
+        stroke="#1B3252" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Wave 3 — gentle bow hugging the circle bottom -->
+  <path d="M 24 154 C 52 142 76 156 100 149 S 150 141 176 154"
+        stroke="#1B3252" stroke-width="2" stroke-linecap="round"/>
+</svg>

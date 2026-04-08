@@ -6,49 +6,53 @@
 
 @layer base {
   :root {
-    --background: 36 47% 96%;
-    --foreground: 205 38% 16%;
+    /* Warm cream base (Portofino plaster / paper) */
+    --background: 40 46% 97%;
+    --foreground: 200 32% 18%;
 
-    --card: 36 47% 96%;
-    --card-foreground: 205 38% 16%;
+    --card: 40 46% 97%;
+    --card-foreground: 200 32% 18%;
 
-    --popover: 36 47% 96%;
-    --popover-foreground: 205 38% 16%;
+    --popover: 40 46% 97%;
+    --popover-foreground: 200 32% 18%;
 
-    --primary: 195 66% 32%;
-    --primary-foreground: 36 47% 96%;
+    /* Bay / railings — structure, footer, primary nav */
+    --primary: 188 46% 34%;
+    --primary-foreground: 40 50% 98%;
 
-    --secondary: 11 52% 52%;
-    --secondary-foreground: 36 47% 96%;
+    /* Deeper coral for emphasis chips, stats, warm CTAs */
+    --secondary: 16 58% 52%;
+    --secondary-foreground: 40 50% 98%;
 
-    --muted: 36 30% 90%;
-    --muted-foreground: 205 28% 32%;
+    --muted: 38 30% 92%;
+    --muted-foreground: 200 22% 32%;
 
-    --accent: 180 38% 64%;
-    --accent-foreground: 205 38% 16%;
+    /* Playful peach-coral — colorful houses & sunset in the hero */
+    --accent: 18 72% 72%;
+    --accent-foreground: 200 35% 18%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 36 20% 85%;
-    --input: 36 20% 85%;
-    --ring: 195 66% 32%;
+    --border: 36 26% 88%;
+    --input: 36 26% 88%;
+    --ring: 18 65% 58%;
 
     --radius: 1rem;
 
-    --lavender: 282 28% 72%;
-    --coral: 18 83% 75%;
-    --sage: 145 21% 58%;
-    --seafoam: 180 38% 64%;
+    --lavender: 278 26% 76%;
+    --coral: 18 72% 72%;
+    --sage: 150 24% 48%;
+    --seafoam: 185 40% 52%;
 
-    --sidebar-background: 195 66% 22%;
-    --sidebar-foreground: 36 47% 96%;
-    --sidebar-primary: 180 38% 64%;
-    --sidebar-primary-foreground: 205 38% 16%;
-    --sidebar-accent: 195 66% 28%;
-    --sidebar-accent-foreground: 36 47% 96%;
-    --sidebar-border: 195 50% 30%;
-    --sidebar-ring: 180 38% 64%;
+    --sidebar-background: 188 50% 22%;
+    --sidebar-foreground: 40 50% 98%;
+    --sidebar-primary: 18 72% 72%;
+    --sidebar-primary-foreground: 200 35% 18%;
+    --sidebar-accent: 188 46% 30%;
+    --sidebar-accent-foreground: 40 50% 98%;
+    --sidebar-border: 188 40% 28%;
+    --sidebar-ring: 18 72% 72%;
 
     --font-heading: 'Playfair Display', serif;
     --font-body: 'DM Sans', sans-serif;
@@ -59,9 +63,33 @@
   * {
     @apply border-border;
   }
+  html {
+    margin: 0;
+    padding: 0;
+    background-color: hsl(var(--background));
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply m-0 bg-background p-0 pb-0 text-foreground;
     font-family: var(--font-body);
+  }
+
+  #root {
+    @apply m-0 flex min-h-dvh w-full flex-col p-0 pb-0;
+  }
+
+  /* Plain footer art: guaranteed full-bleed (not dependent on Tailwind class order) */
+  .footer-houses-img {
+    box-sizing: border-box;
+    display: block;
+    width: 100vw;
+    max-width: none;
+    height: auto !important;
+    max-height: 260px;
+    margin: 0;
+    margin-inline: calc(50% - 50vw);
+    padding: 0;
+    object-fit: contain;
+    object-position: bottom;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
@@ -98,6 +126,15 @@
   animation: wave-drift-slow 8s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-wave,
+  .animate-wave-slow,
+  .home-page .home-watercolor-blob,
+  .home-page .home-watercolor-blob--alt {
+    animation: none !important;
+  }
+}
+
 /* Skeleton loading */
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 0.5; }
@@ -108,4 +145,114 @@
   animation: skeleton-pulse 2s ease-in-out infinite;
   background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--lavender) / 0.3) 50%, hsl(var(--muted)) 75%);
   background-size: 200% 100%;
+}
+
+/* Home page — soft watercolor washes (scoped to .home-page) */
+.home-page {
+  position: relative;
+  isolation: isolate;
+}
+
+.home-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes home-watercolor-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.85;
+  }
+  33% {
+    transform: translate(2%, -1.5%) scale(1.03);
+    opacity: 0.95;
+  }
+  66% {
+    transform: translate(-1.5%, 2%) scale(0.98);
+    opacity: 0.88;
+  }
+}
+
+@keyframes home-watercolor-drift-slow {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-2%, 1%) scale(1.02);
+  }
+}
+
+.home-page .home-watercolor-blob {
+  animation: home-watercolor-drift 18s ease-in-out infinite;
+}
+
+.home-page .home-watercolor-blob--alt {
+  animation: home-watercolor-drift-slow 22s ease-in-out infinite;
+  animation-delay: -4s;
+}
+
+/* “How it works” wash: sand base + whisper of bay blue and roof peach (hero palette, low chroma) */
+.home-page .home-watercolor-surface {
+  position: relative;
+  background: linear-gradient(
+    165deg,
+    hsl(40 42% 97%) 0%,
+    hsl(200 22% 96%) 45%,
+    hsl(38 38% 97%) 100%
+  );
+}
+
+.home-page .home-watercolor-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 80% 50% at 12% 12%, hsl(22 42% 92% / 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 48% at 88% 18%, hsl(200 32% 90% / 0.28) 0%, transparent 50%),
+    radial-gradient(ellipse 64% 44% at 50% 92%, hsl(42 36% 94% / 0.4) 0%, transparent 54%);
+  opacity: 0.9;
+}
+
+.home-page .home-watercolor-surface > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Legacy card shell — kept minimal for any remaining home utilities; avoids teal/coral UI shadows */
+.home-page .home-watercolor-card {
+  background: linear-gradient(
+    135deg,
+    hsl(40 44% 99% / 0.75) 0%,
+    hsl(200 20% 98% / 0.5) 50%,
+    hsl(22 35% 98% / 0.45) 100%
+  );
+  border: 1px solid hsl(40 28% 92% / 0.45);
+  box-shadow: 0 2px 24px -8px hsl(200 22% 22% / 0.06);
+  backdrop-filter: blur(10px);
+}
+
+/* Testimonials: tint only — no frame; lets copy breathe */
+.home-page .home-watercolor-quote {
+  background: linear-gradient(
+    165deg,
+    hsl(40 42% 99% / 0.65) 0%,
+    hsl(200 24% 97% / 0.4) 50%,
+    hsl(22 38% 98% / 0.35) 100%
+  );
+  border: none;
+  backdrop-filter: blur(6px);
+}
+
+/* Subtle paper grain — home only, non-interactive */
+.home-page::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
 }

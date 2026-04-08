@@ -52,7 +52,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           Authorization: `Bearer ${accessToken}`,
         },
       });
-      if (!response.ok) return null;
+      if (!response.ok) {
+        // Local dev can have backend misconfig/redirect issues. If the user is signed into Supabase,
+        // fall back to reading their own profile row directly (subject to RLS).
+        if (supabase) {
+          try {
+            const { data: userData } = await supabase.auth.getUser(accessToken);
+            const userId = userData.user?.id;
+            if (userId) {
+              const { data: row } = await supabase
+                .from("profiles")
+                .select("role,first_name,last_name")
+                .eq("id", userId)
+                .maybeSingle();
+
+              const normalizedRole: UserRole =
+                row?.role === "admin" || row?.role === "donor" ? (row.role as "admin" | "donor") : null;
+
+              return {
+                role: normalizedRole,
+                firstName: row?.first_name ?? null,
+                lastName: row?.last_name ?? null,
+              };
+            }
+          } catch {
+            // Ignore and fall through to null.
+          }
+        }
+
+        return null;
+      }
 
       const data = (await response.json()) as {
         role?: string | null;

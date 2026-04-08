@@ -5,24 +5,31 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { CookieBanner } from "@/components/CookieBanner";
+
 import Index from "./pages/Index";
 import Impact from "./pages/Impact";
 import About from "./pages/About";
 import Login from "./pages/Login";
 import SignUpPage from "./pages/SignUpPage";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminDonors from "./pages/AdminDonors";
-import CaseloadInventory from "./pages/CaseloadInventory";
-import HomeVisitationsPage from "./pages/HomeVisitationsPage";
-import ProcessRecordingsPage from "./pages/ProcessRecordingsPage";
-import SocialMediaDashboard from "./pages/SocialMediaDashboard";
-import SettingsPage from "./pages/SettingsPage";
-import NotFound from "./pages/NotFound";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import DonorDashboard from "./pages/DonorDashboard";
 import ForgotPassword from "./pages/ForgotPassword";
 import UpdatePassword from "./pages/UpdatePassword";
-import { CookieBanner } from "@/components/CookieBanner";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import NotFound from "./pages/NotFound";
+
+import DonorDashboard from "./pages/DonorDashboard";
+
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminDonors from "./pages/AdminDonors";
+import AddDonationPage from "./pages/AddDonationPage";
+import AddAllocationPage from "./pages/AddAllocationPage";
+import AddSupporterPage from "./pages/AddSupporterPage";
+import CaseloadInventory from "./pages/CaseloadInventory";
+import ProcessRecordingsPage from "./pages/ProcessRecordingsPage";
+import HomeVisitationsPage from "./pages/HomeVisitationsPage";
+import SocialMediaDashboard from "./pages/SocialMediaDashboard";
+import Reports from "./pages/Reports";
+import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient();
 const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -31,10 +38,10 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter basename={routerBasename || undefined}>
-          <>
+        <div className="flex min-h-dvh w-full flex-1 flex-col">
+          <Toaster />
+          <Sonner />
+          <BrowserRouter basename={routerBasename || undefined}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/about" element={<About />} />
@@ -44,6 +51,7 @@ const App = () => (
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<UpdatePassword />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
+
               <Route
                 path="/dashboard"
                 element={
@@ -52,6 +60,7 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+
               <Route
                 path="/admin"
                 element={
@@ -65,6 +74,30 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredRole="admin">
                     <AdminDonors />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/donors/new-supporter"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AddSupporterPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/donors/new-donation"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AddDonationPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/donors/new-allocation"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AddAllocationPage />
                   </ProtectedRoute>
                 }
               />
@@ -128,7 +161,7 @@ const App = () => (
                 path="/admin/reports"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <SocialMediaDashboard />
+                    <Reports />
                   </ProtectedRoute>
                 }
               />
@@ -140,11 +173,13 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+
               <Route path="*" element={<NotFound />} />
             </Routes>
+
             <CookieBanner />
-          </>
-        </BrowserRouter>
+          </BrowserRouter>
+        </div>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>

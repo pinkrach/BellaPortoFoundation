@@ -1,100 +1,65 @@
 import { AdminLayout } from "@/components/AdminLayout";
-import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Users, Heart, BarChart3, Calendar, Sparkles } from "lucide-react";
-import { adminStats, residentStatusByHouse, mlInsights } from "@/data/mockData";
+import { mlInsights } from "@/data/mockData";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { useAdminDashboardData } from "@/hooks/useAdminDashboardData";
+import { useNavigate } from "react-router-dom";
+
+const activeReports = mlInsights
+  .map((insight, originalIndex) => ({ insight, originalIndex }))
+  .filter(({ insight }) => /high-risk/i.test(insight.title) || /high risk/i.test(insight.title));
 
 const fadeUp = {
   hidden: { opacity: 0, y: 15 },
   visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.4 } }),
 };
 
-const kpis = [
-  { label: "Active Residents", value: adminStats.activeResidents, icon: Users },
-  { label: "Monthly Donations", value: `$${adminStats.monthlyDonations}`, icon: Heart },
-  { label: "Social Engagement", value: adminStats.socialMediaEngagement.toLocaleString(), icon: BarChart3 },
-  { label: "Upcoming Conferences", value: adminStats.upcomingConferences, icon: Calendar },
-];
-
-type RecentDonation = {
-  donation_id: number;
-  donation_type: string | null;
-  donation_date: string | null;
-  amount: number | string | null;
-  estimated_value: number | string | null;
-  currency_code: string | null;
-  supporters?: {
-    display_name?: string | null;
-    organization_name?: string | null;
-    first_name?: string | null;
-    last_name?: string | null;
-  } | null;
-};
-
-const isLocalHost =
-  typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (isLocalHost ? "http://localhost:5250" : "");
-
-function getSupporterName(donation: RecentDonation) {
-  const display = donation.supporters?.display_name?.trim();
-  if (display) return display;
-
-  const org = donation.supporters?.organization_name?.trim();
-  if (org) return org;
-
-  const fullName = [donation.supporters?.first_name, donation.supporters?.last_name]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-  return fullName || "Unknown";
-}
-
-function toNumber(value: number | string | null | undefined) {
-  if (typeof value === "number") return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return 0;
-}
-
-function formatCurrency(value: number | string | null | undefined, code = "PHP") {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: code,
-    maximumFractionDigits: 2,
-  }).format(toNumber(value));
-}
-
-function formatDonationDate(value: string | null) {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleDateString();
-}
-
-async function fetchRecentDonations(): Promise<RecentDonation[]> {
-  const endpoint = apiBaseUrl ? `${apiBaseUrl}/api/donations` : "/api/donations";
-  const response = await fetch(endpoint);
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(body || "Unable to load donations.");
-  }
-
-  const rows = (await response.json()) as RecentDonation[];
-  return rows
-    .slice()
-    .sort((a, b) => new Date(b.donation_date ?? 0).getTime() - new Date(a.donation_date ?? 0).getTime())
-    .slice(0, 8);
-}
-
 const AdminDashboard = () => {
-  const recentDonationsQuery = useQuery({
-    queryKey: ["dashboard-recent-donations"],
-    queryFn: fetchRecentDonations,
-  });
+  const { data } = useAdminDashboardData();
+  const navigate = useNavigate();
+
+  const kpis = [
+    { label: "Active Residents", value: data?.kpis?.[0]?.value ?? "—", icon: Users },
+    { label: "Monthly Donations", value: data?.kpis?.[1]?.value ?? "—", icon: Heart },
+    { label: "Social Engagement", value: data?.kpis?.[2]?.value ?? "—", icon: BarChart3 },
+    { label: "Upcoming Conferences", value: data?.kpis?.[3]?.value ?? "—", icon: Calendar },
+  ];
+
+  const residentStatusByHouse = data?.residentStatusByHouse ?? [];
+  const recentDonations = data?.recentDonations ?? [];
+
+  type RecentDonation = (typeof recentDonations)[number];
+
+  const toNumber = (value: unknown) => {
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  };
+
+  const formatDonationDate = (value: unknown) => {
+    if (typeof value !== "string" || !value) return "-";
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
+  };
+
+  const formatCurrency = (value: unknown, code = "PHP") =>
+    new Intl.NumberFormat("en-PH", { style: "currency", currency: code, maximumFractionDigits: 2 }).format(toNumber(value));
+
+  const getSupporterName = (donation: RecentDonation) => {
+    const supporters = (donation as any)?.supporters;
+    const display = typeof supporters?.display_name === "string" ? supporters.display_name.trim() : "";
+    if (display) return display;
+    const org = typeof supporters?.organization_name === "string" ? supporters.organization_name.trim() : "";
+    if (org) return org;
+    const first = typeof supporters?.first_name === "string" ? supporters.first_name.trim() : "";
+    const last = typeof supporters?.last_name === "string" ? supporters.last_name.trim() : "";
+    const full = `${first} ${last}`.trim();
+    return full || "Unknown";
+  };
 
   return (
     <AdminLayout>
@@ -142,16 +107,27 @@ const AdminDashboard = () => {
         <div className="bg-card rounded-2xl shadow-warm overflow-hidden">
           <div className="bg-primary px-6 py-3 flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-accent" />
-            <h3 className="font-heading text-base font-semibold text-primary-foreground">ML Insights & Recommendations</h3>
+            <h3 className="font-heading text-base font-semibold text-primary-foreground">Reports</h3>
           </div>
           <div className="p-4 space-y-3">
-            {mlInsights.map((insight, i) => (
-              <div key={i} className="p-3 rounded-xl bg-muted/50">
-                <p className="text-sm font-semibold text-foreground">{insight.title}</p>
-                <p className="text-xs text-muted-foreground mt-1">{insight.description}</p>
-              </div>
+            {activeReports.map(({ insight, originalIndex }) => (
+              <button
+                key={originalIndex}
+                onClick={() => navigate(`/admin/reports?item=${originalIndex}`)}
+                className="w-full text-left p-3 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors"
+              >
+                <p className="text-sm font-semibold text-foreground">High Risk Resident Review</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Prioritize residents most likely to need urgent follow‑up in the next 30 days.
+                </p>
+              </button>
             ))}
-            <button className="text-sm text-primary font-medium hover:underline">View Details →</button>
+            <button
+              onClick={() => navigate("/admin/reports")}
+              className="text-sm text-primary font-medium hover:underline"
+            >
+              View all reports →
+            </button>
           </div>
         </div>
 
@@ -169,24 +145,8 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {recentDonationsQuery.isLoading ? (
-                  <tr>
-                    <td className="py-2.5 text-muted-foreground" colSpan={4}>
-                      Loading recent donations...
-                    </td>
-                  </tr>
-                ) : null}
-
-                {recentDonationsQuery.error ? (
-                  <tr>
-                    <td className="py-2.5 text-destructive" colSpan={4}>
-                      {(recentDonationsQuery.error as Error).message}
-                    </td>
-                  </tr>
-                ) : null}
-
-                {recentDonationsQuery.data?.map((d, i) => (
-                  <tr key={d.donation_id} className={`border-b border-border/50 ${i % 2 === 0 ? "bg-muted/30" : ""}`}>
+                {recentDonations.map((d: any, i: number) => (
+                  <tr key={d.donation_id ?? i} className={`border-b border-border/50 ${i % 2 === 0 ? "bg-muted/30" : ""}`}>
                     <td className="py-2.5">{getSupporterName(d)}</td>
                     <td className="py-2.5 font-semibold text-foreground">
                       {d.donation_type === "Monetary"
@@ -202,7 +162,7 @@ const AdminDashboard = () => {
                   </tr>
                 ))}
 
-                {recentDonationsQuery.data && recentDonationsQuery.data.length === 0 ? (
+                {recentDonations.length === 0 ? (
                   <tr>
                     <td className="py-2.5 text-muted-foreground" colSpan={4}>
                       No donations found.

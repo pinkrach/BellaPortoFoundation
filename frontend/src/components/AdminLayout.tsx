@@ -3,7 +3,12 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { adminSidebarItems } from "@/lib/navigation";
 import {
-  Bell, LogOut, Menu, Anchor, PanelLeftClose, PanelLeftOpen
+  Bell,
+  LogOut,
+  Menu,
+  Anchor,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 export const AdminLayout = ({
