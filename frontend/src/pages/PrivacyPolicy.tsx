@@ -134,12 +134,18 @@ const sections = [
   },
   {
     title: "10. Cookies and Analytics",
-    body: ["Users may manage cookies through their browser settings."],
+    body: [
+      "We use cookies and similar browser storage technologies to keep the site secure, remember basic preferences, and understand website performance.",
+      "Essential cookies are used for security, login/session continuity, and core site functionality. These are needed for the site to operate properly.",
+      "Analytics or performance cookies are optional. Where we use them, we rely on user consent and provide a cookie consent notification so visitors can accept or reject optional cookies.",
+      "Visitors may also change or withdraw cookie preferences later by clearing stored cookie-consent preferences in the browser and revisiting the site, or by adjusting browser cookie settings directly.",
+    ],
     bullets: [
-      "secure login sessions",
-      "remembering user preferences",
-      "analytics and website performance",
-      "fraud prevention",
+      "essential cookies for secure login sessions and fraud/security protection",
+      "preference storage for consent choices and basic site settings",
+      "optional analytics and website performance measurement only when consent is provided",
+      "cookie preference records retained for up to 6 months unless cleared earlier by the user",
+      "users can manage or delete cookies through browser settings at any time",
     ],
   },
   {
