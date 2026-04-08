@@ -12,6 +12,9 @@ import Login from "./pages/Login";
 import SignUpPage from "./pages/SignUpPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminDonors from "./pages/AdminDonors";
+import AddDonationPage from "./pages/AddDonationPage";
+import AddAllocationPage from "./pages/AddAllocationPage";
+import AddSupporterPage from "./pages/AddSupporterPage";
 import CaseloadInventory from "./pages/CaseloadInventory";
 import HomeVisitationsPage from "./pages/HomeVisitationsPage";
 import ProcessRecordingsPage from "./pages/ProcessRecordingsPage";
@@ -65,6 +68,30 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredRole="admin">
                     <AdminDonors />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/donors/new-supporter"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AddSupporterPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/donors/new-donation"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AddDonationPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/donors/new-allocation"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AddAllocationPage />
                   </ProtectedRoute>
                 }
               />

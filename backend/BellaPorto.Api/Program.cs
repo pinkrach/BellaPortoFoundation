@@ -67,7 +67,44 @@ app.MapGet("/api/supporters", async (
         }
 
         var supporters = await FetchAllSupportersAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+        var donations = await FetchAllDonationsAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+        var riskScores = await FetchAllSupporterRiskScoresAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+        ApplySupporterRiskData(supporters, donations, riskScores);
         return Results.Ok(supporters);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapPost("/api/supporters", async (
+    Dictionary<string, object?> payload,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        payload.Remove("supporter_id");
+        if (payload.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No supporter fields were provided." });
+        }
+
+        var created = await CreateSupporterAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, payload);
+        return created is null
+            ? Results.Problem("Unable to create supporter.")
+            : Results.Created($"/api/supporters/{created.GetValueOrDefault("supporter_id")}", created);
     }
     catch (Exception ex)
     {
@@ -168,6 +205,41 @@ app.MapGet("/api/donations", async (
     }
 });
 
+app.MapPost("/api/donations", async (
+    Dictionary<string, object?> payload,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        payload.Remove("donation_id");
+        payload.Remove("supporters");
+        if (payload.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No donation fields were provided." });
+        }
+
+        var created = await CreateDonationAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, payload);
+        return created is null
+            ? Results.Problem("Unable to create donation.")
+            : Results.Created($"/api/donations/{created.GetValueOrDefault("donation_id")}", created);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.MapPut("/api/donations/{donationId:int}", async (
     int donationId,
     Dictionary<string, object?> updates,
@@ -231,6 +303,163 @@ app.MapDelete("/api/donations/{donationId:int}", async (
 
         await DeleteDonationAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, donationId);
         return Results.NoContent();
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/donation-allocations", async (
+    int? donationId,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        var allocations = await FetchAllDonationAllocationsAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, donationId);
+        return Results.Ok(allocations);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapPost("/api/donation-allocations", async (
+    Dictionary<string, object?> payload,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        payload.Remove("allocation_id");
+        payload.Remove("donations");
+        payload.Remove("safehouses");
+        if (payload.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No donation allocation fields were provided." });
+        }
+
+        var created = await CreateDonationAllocationAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, payload);
+        return created is null
+            ? Results.Problem("Unable to create donation allocation.")
+            : Results.Created($"/api/donation-allocations/{created.GetValueOrDefault("allocation_id")}", created);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapPut("/api/donation-allocations/{allocationId:int}", async (
+    int allocationId,
+    Dictionary<string, object?> updates,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        updates.Remove("allocation_id");
+        updates.Remove("donations");
+        updates.Remove("safehouses");
+        if (updates.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No update fields were provided." });
+        }
+
+        var updated = await UpdateDonationAllocationAsync(
+            httpClientFactory.CreateClient(),
+            settings.Url!,
+            settings.Key!,
+            allocationId,
+            updates
+        );
+
+        return updated is null
+            ? Results.NotFound(new { message = $"Donation allocation #{allocationId} was not found." })
+            : Results.Ok(updated);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapDelete("/api/donation-allocations/{allocationId:int}", async (
+    int allocationId,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        await DeleteDonationAllocationAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, allocationId);
+        return Results.NoContent();
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/safehouses", async (
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+        {
+            return Results.Problem(
+                "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+            );
+        }
+
+        var safehouses = await FetchAllSafehousesAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+        return Results.Ok(safehouses);
     }
     catch (Exception ex)
     {
@@ -327,6 +556,24 @@ app.MapPost("/api/ml/social/refresh", async (
     }
 });
 
+app.MapPost("/api/ml/supporter-risk/refresh", async (
+    SupporterRiskRefreshRequest? request,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var result = await RunSupporterRiskScoringAsync(repoRoot, request, logger);
+        return Results.Json(result);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to refresh supporter risk scores.");
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.Run();
 
 static string GetRepoRoot(IWebHostEnvironment environment)
@@ -356,6 +603,69 @@ static async Task<List<Dictionary<string, object?>>> ResolveSocialPostsAsync(
 
     logger.LogInformation("Fetching live social_media_posts rows from Supabase.");
     return await FetchAllSocialPostsAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+}
+
+static async Task<JsonNode> RunSupporterRiskScoringAsync(
+    string repoRoot,
+    SupporterRiskRefreshRequest? request,
+    ILogger logger)
+{
+    var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "supporter_risk_scoring.py");
+    if (!File.Exists(scriptPath))
+    {
+        throw new FileNotFoundException("Supporter risk scoring script was not found.", scriptPath);
+    }
+
+    var artifactDir = request?.ModelDir;
+    if (string.IsNullOrWhiteSpace(artifactDir))
+    {
+        artifactDir = Environment.GetEnvironmentVariable("RISK_MODEL_ARTIFACT_DIR")
+            ?? Path.Combine(repoRoot, "ml-pipelines", "model_artifacts");
+    }
+
+    var process = new Process
+    {
+        StartInfo = new ProcessStartInfo
+        {
+            FileName = "python3",
+            WorkingDirectory = repoRoot,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        },
+    };
+    process.StartInfo.ArgumentList.Add(scriptPath);
+    process.StartInfo.ArgumentList.Add("--model-dir");
+    process.StartInfo.ArgumentList.Add(artifactDir);
+
+    if (!string.IsNullOrWhiteSpace(request?.CutoffDate))
+    {
+        process.StartInfo.ArgumentList.Add("--cutoff-date");
+        process.StartInfo.ArgumentList.Add(request.CutoffDate!);
+    }
+
+    logger.LogInformation("Running supporter risk scoring script.");
+    process.Start();
+    var stdoutTask = process.StandardOutput.ReadToEndAsync();
+    var stderrTask = process.StandardError.ReadToEndAsync();
+    await process.WaitForExitAsync();
+
+    var stdout = await stdoutTask;
+    var stderr = await stderrTask;
+
+    if (process.ExitCode != 0)
+    {
+        logger.LogError("Supporter risk scoring failed. stdout: {Stdout} stderr: {Stderr}", stdout, stderr);
+        throw new InvalidOperationException("The supporter risk scoring pipeline failed to run.");
+    }
+
+    if (string.IsNullOrWhiteSpace(stdout))
+    {
+        return JsonSerializer.SerializeToNode(new { status = "ok", message = "Supporter risk scoring completed." })!;
+    }
+
+    var parsed = JsonNode.Parse(stdout.Trim());
+    return parsed ?? JsonSerializer.SerializeToNode(new { status = "ok", output = stdout.Trim() })!;
 }
 
 static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, string repoRoot)
@@ -474,6 +784,236 @@ static async Task<List<Dictionary<string, object?>>> FetchAllSupportersAsync(Htt
     return results;
 }
 
+static async Task<List<Dictionary<string, object?>>> FetchAllSupporterRiskScoresAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey)
+{
+    var results = new List<Dictionary<string, object?>>();
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    const int pageSize = 1000;
+
+    for (var start = 0; ; start += pageSize)
+    {
+        var end = start + pageSize - 1;
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"{baseUrl}/rest/v1/supporter_risk_scores?select=supporter_id,risk_probability,is_at_risk,risk_threshold,risk_reason,model_name,model_version,scored_at,feature_cutoff_date&order=supporter_id.asc"
+        );
+        request.Headers.TryAddWithoutValidation("apikey", apiKey);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+        request.Headers.TryAddWithoutValidation("Range-Unit", "items");
+        request.Headers.TryAddWithoutValidation("Range", $"{start}-{end}");
+
+        using var response = await client.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            // Risk table may not exist yet in lower environments; return empty and keep API available.
+            return [];
+        }
+
+        var body = await response.Content.ReadAsStringAsync();
+        var page = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+        results.AddRange(page);
+
+        if (page.Count < pageSize)
+        {
+            break;
+        }
+    }
+
+    return results;
+}
+
+static void ApplySupporterRiskData(
+    List<Dictionary<string, object?>> supporters,
+    List<Dictionary<string, object?>> donations,
+    List<Dictionary<string, object?>> riskScores)
+{
+    var utcToday = DateTime.UtcNow.Date;
+    var datesBySupporter = new Dictionary<long, List<DateTime>>();
+    foreach (var row in donations)
+    {
+        if (!TryGetLong(row, "supporter_id", out var supporterId))
+        {
+            continue;
+        }
+        if (!TryGetDate(row, "donation_date", out var donationDate))
+        {
+            continue;
+        }
+        if (!datesBySupporter.TryGetValue(supporterId, out var dates))
+        {
+            dates = [];
+            datesBySupporter[supporterId] = dates;
+        }
+        dates.Add(donationDate.Date);
+    }
+
+    var scoresBySupporter = new Dictionary<long, Dictionary<string, object?>>();
+    foreach (var score in riskScores)
+    {
+        if (!TryGetLong(score, "supporter_id", out var supporterId))
+        {
+            continue;
+        }
+        scoresBySupporter[supporterId] = score;
+    }
+
+    foreach (var supporter in supporters)
+    {
+        if (!TryGetLong(supporter, "supporter_id", out var supporterId))
+        {
+            supporter["likely_to_stop_donating"] = false;
+            supporter["donation_risk_reason"] = "missing_supporter_id";
+            continue;
+        }
+
+        // Keep recency/frequency diagnostics visible in admin detail.
+        if (datesBySupporter.TryGetValue(supporterId, out var donationDates) && donationDates.Count > 0)
+        {
+            donationDates.Sort();
+            var lastDonation = donationDates[^1];
+            var daysSinceLast = (utcToday - lastDonation).TotalDays;
+            var giftsLast365 = donationDates.Count(d => (utcToday - d).TotalDays <= 365);
+            supporter["days_since_last_donation"] = (int)Math.Round(daysSinceLast);
+            supporter["gifts_last_365_days"] = giftsLast365;
+        }
+        else
+        {
+            supporter["days_since_last_donation"] = null;
+            supporter["gifts_last_365_days"] = 0;
+        }
+
+        if (!scoresBySupporter.TryGetValue(supporterId, out var modelScore))
+        {
+            // Fallback when nightly scorer has not populated this supporter yet.
+            var fallbackAtRisk = !datesBySupporter.TryGetValue(supporterId, out var dates) || dates.Count == 0;
+            supporter["likely_to_stop_donating"] = fallbackAtRisk;
+            supporter["donation_risk_reason"] = fallbackAtRisk
+                ? "no_model_score_no_donation_history"
+                : "no_model_score";
+            supporter["donation_risk_probability"] = fallbackAtRisk ? 1.0 : (double?)null;
+            supporter["donation_risk_threshold"] = null;
+            supporter["donation_risk_scored_at"] = null;
+            supporter["donation_risk_model_name"] = null;
+            supporter["donation_risk_model_version"] = null;
+            continue;
+        }
+
+        var riskProbability = TryGetDouble(modelScore, "risk_probability", out var prob) ? prob : 0.0;
+        var hasIsAtRisk = TryGetBool(modelScore, "is_at_risk", out var isAtRisk);
+        var threshold = TryGetDouble(modelScore, "risk_threshold", out var thresholdVal) ? thresholdVal : 0.5;
+        var likelyToStop = hasIsAtRisk ? isAtRisk : riskProbability >= threshold;
+
+        supporter["likely_to_stop_donating"] = likelyToStop;
+        supporter["donation_risk_reason"] = modelScore.GetValueOrDefault("risk_reason")?.ToString() ?? "model_score";
+        supporter["donation_risk_probability"] = Math.Round(riskProbability, 6);
+        supporter["donation_risk_threshold"] = threshold;
+        supporter["donation_risk_scored_at"] = modelScore.GetValueOrDefault("scored_at");
+        supporter["donation_risk_model_name"] = modelScore.GetValueOrDefault("model_name");
+        supporter["donation_risk_model_version"] = modelScore.GetValueOrDefault("model_version");
+    }
+}
+
+static bool TryGetLong(Dictionary<string, object?> row, string key, out long value)
+{
+    value = 0;
+    if (!row.TryGetValue(key, out var raw) || raw is null)
+    {
+        return false;
+    }
+
+    if (raw is JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out var n))
+        {
+            value = n;
+            return true;
+        }
+        if (element.ValueKind == JsonValueKind.String && long.TryParse(element.GetString(), out var fromString))
+        {
+            value = fromString;
+            return true;
+        }
+        return false;
+    }
+
+    return long.TryParse(raw.ToString(), out value);
+}
+
+static bool TryGetDouble(Dictionary<string, object?> row, string key, out double value)
+{
+    value = 0;
+    if (!row.TryGetValue(key, out var raw) || raw is null)
+    {
+        return false;
+    }
+
+    if (raw is JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetDouble(out var n))
+        {
+            value = n;
+            return true;
+        }
+        if (element.ValueKind == JsonValueKind.String && double.TryParse(element.GetString(), out var fromString))
+        {
+            value = fromString;
+            return true;
+        }
+        return false;
+    }
+
+    return double.TryParse(raw.ToString(), out value);
+}
+
+static bool TryGetBool(Dictionary<string, object?> row, string key, out bool value)
+{
+    value = false;
+    if (!row.TryGetValue(key, out var raw) || raw is null)
+    {
+        return false;
+    }
+
+    if (raw is JsonElement element)
+    {
+        if (element.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        {
+            value = element.GetBoolean();
+            return true;
+        }
+        if (element.ValueKind == JsonValueKind.String && bool.TryParse(element.GetString(), out var fromString))
+        {
+            value = fromString;
+            return true;
+        }
+        return false;
+    }
+
+    return bool.TryParse(raw.ToString(), out value);
+}
+
+static bool TryGetDate(Dictionary<string, object?> row, string key, out DateTime value)
+{
+    value = default;
+    if (!row.TryGetValue(key, out var raw) || raw is null)
+    {
+        return false;
+    }
+
+    if (raw is JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            return DateTime.TryParse(element.GetString(), out value);
+        }
+        return false;
+    }
+
+    return DateTime.TryParse(raw.ToString(), out value);
+}
+
 static async Task<List<Dictionary<string, object?>>> FetchAllDonationsAsync(
     HttpClient client,
     string supabaseUrl,
@@ -491,6 +1031,82 @@ static async Task<List<Dictionary<string, object?>>> FetchAllDonationsAsync(
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"{baseUrl}/rest/v1/donations?select=donation_id,supporter_id,donation_type,donation_date,is_recurring,campaign_name,channel_source,currency_code,amount,estimated_value,impact_unit,notes,referral_post_id,supporters(display_name,organization_name,first_name,last_name){supporterFilter}&order=donation_date.desc"
+        );
+        request.Headers.TryAddWithoutValidation("apikey", apiKey);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+        request.Headers.TryAddWithoutValidation("Range-Unit", "items");
+        request.Headers.TryAddWithoutValidation("Range", $"{start}-{end}");
+
+        using var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync();
+        var page = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+        results.AddRange(page);
+
+        if (page.Count < pageSize)
+        {
+            break;
+        }
+    }
+
+    return results;
+}
+
+static async Task<List<Dictionary<string, object?>>> FetchAllDonationAllocationsAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    int? donationId = null)
+{
+    var results = new List<Dictionary<string, object?>>();
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    const int pageSize = 1000;
+    var donationFilter = donationId is int id ? $"&donation_id=eq.{id}" : string.Empty;
+
+    for (var start = 0; ; start += pageSize)
+    {
+        var end = start + pageSize - 1;
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"{baseUrl}/rest/v1/donation_allocations?select=allocation_id,donation_id,safehouse_id,program_area,amount_allocated,allocation_date,allocation_notes,safehouses(name),donations(donation_id,supporter_id,donation_type,donation_date,supporters(display_name,organization_name,first_name,last_name)){donationFilter}&order=allocation_date.desc"
+        );
+        request.Headers.TryAddWithoutValidation("apikey", apiKey);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+        request.Headers.TryAddWithoutValidation("Range-Unit", "items");
+        request.Headers.TryAddWithoutValidation("Range", $"{start}-{end}");
+
+        using var response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var body = await response.Content.ReadAsStringAsync();
+        var page = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+        results.AddRange(page);
+
+        if (page.Count < pageSize)
+        {
+            break;
+        }
+    }
+
+    return results;
+}
+
+static async Task<List<Dictionary<string, object?>>> FetchAllSafehousesAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey)
+{
+    var results = new List<Dictionary<string, object?>>();
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    const int pageSize = 1000;
+
+    for (var start = 0; ; start += pageSize)
+    {
+        var end = start + pageSize - 1;
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"{baseUrl}/rest/v1/safehouses?select=safehouse_id,name,safehouse_code,region,city,status&order=name.asc"
         );
         request.Headers.TryAddWithoutValidation("apikey", apiKey);
         request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
@@ -538,6 +1154,30 @@ static async Task<Dictionary<string, object?>?> UpdateSupporterAsync(
     return rows.FirstOrDefault();
 }
 
+static async Task<Dictionary<string, object?>?> CreateSupporterAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    Dictionary<string, object?> payload)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Post,
+        $"{baseUrl}/rest/v1/supporters?select=*"
+    );
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+    request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
+    request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
+
+    var body = await response.Content.ReadAsStringAsync();
+    var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+    return rows.FirstOrDefault();
+}
+
 static async Task DeleteSupporterAsync(
     HttpClient client,
     string supabaseUrl,
@@ -556,6 +1196,30 @@ static async Task DeleteSupporterAsync(
     response.EnsureSuccessStatusCode();
 }
 
+static async Task<Dictionary<string, object?>?> CreateDonationAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    Dictionary<string, object?> payload)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Post,
+        $"{baseUrl}/rest/v1/donations?select=donation_id,supporter_id,donation_type,donation_date,is_recurring,campaign_name,channel_source,currency_code,amount,estimated_value,impact_unit,notes,referral_post_id,supporters(display_name,organization_name,first_name,last_name)"
+    );
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+    request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
+    request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
+
+    var body = await response.Content.ReadAsStringAsync();
+    var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+    return rows.FirstOrDefault();
+}
+
 static async Task<Dictionary<string, object?>?> UpdateDonationAsync(
     HttpClient client,
     string supabaseUrl,
@@ -567,6 +1231,55 @@ static async Task<Dictionary<string, object?>?> UpdateDonationAsync(
     using var request = new HttpRequestMessage(
         HttpMethod.Patch,
         $"{baseUrl}/rest/v1/donations?donation_id=eq.{donationId}&select=donation_id,supporter_id,donation_type,donation_date,is_recurring,campaign_name,channel_source,currency_code,amount,estimated_value,impact_unit,notes,referral_post_id,supporters(display_name,organization_name,first_name,last_name)"
+    );
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+    request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
+    request.Content = new StringContent(JsonSerializer.Serialize(updates), Encoding.UTF8, "application/json");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
+
+    var body = await response.Content.ReadAsStringAsync();
+    var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+    return rows.FirstOrDefault();
+}
+
+static async Task<Dictionary<string, object?>?> CreateDonationAllocationAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    Dictionary<string, object?> payload)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Post,
+        $"{baseUrl}/rest/v1/donation_allocations?select=allocation_id,donation_id,safehouse_id,program_area,amount_allocated,allocation_date,allocation_notes,safehouses(name),donations(donation_id,supporter_id,donation_type,donation_date,supporters(display_name,organization_name,first_name,last_name))"
+    );
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+    request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
+    request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
+
+    var body = await response.Content.ReadAsStringAsync();
+    var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+    return rows.FirstOrDefault();
+}
+
+static async Task<Dictionary<string, object?>?> UpdateDonationAllocationAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    int allocationId,
+    Dictionary<string, object?> updates)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Patch,
+        $"{baseUrl}/rest/v1/donation_allocations?allocation_id=eq.{allocationId}&select=allocation_id,donation_id,safehouse_id,program_area,amount_allocated,allocation_date,allocation_notes,safehouses(name),donations(donation_id,supporter_id,donation_type,donation_date,supporters(display_name,organization_name,first_name,last_name))"
     );
     request.Headers.TryAddWithoutValidation("apikey", apiKey);
     request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
@@ -599,6 +1312,24 @@ static async Task DeleteDonationAsync(
     response.EnsureSuccessStatusCode();
 }
 
+static async Task DeleteDonationAllocationAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    int allocationId)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Delete,
+        $"{baseUrl}/rest/v1/donation_allocations?allocation_id=eq.{allocationId}"
+    );
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
+}
+
 static JsonSerializerOptions JsonOptions()
 {
     return new JsonSerializerOptions
@@ -617,4 +1348,10 @@ sealed class SupabaseSettings
 sealed class SocialAnalyticsRefreshRequest
 {
     public List<Dictionary<string, object?>> Posts { get; set; } = [];
+}
+
+sealed class SupporterRiskRefreshRequest
+{
+    public string? CutoffDate { get; set; }
+    public string? ModelDir { get; set; }
 }
