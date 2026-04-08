@@ -89,7 +89,10 @@ export const AdminLayout = ({
 
         <nav className={`flex-1 overflow-y-auto py-4 ${sidebarCollapsed ? "space-y-2 px-2" : "space-y-1 px-3"}`}>
           {adminSidebarItems.map((item) => {
-            const active = location.pathname === item.to;
+            const active =
+              item.matchTab === "settings"
+                ? location.pathname === "/admin/settings"
+                : location.pathname === "/admin" && new URLSearchParams(location.search).get("tab") === item.matchTab;
             const Icon = item.icon;
             return (
               <Link
@@ -136,7 +139,7 @@ export const AdminLayout = ({
               <Menu className="h-6 w-6 text-foreground" />
             </button>
             <div>
-              <h1 className="font-heading text-lg font-semibold text-foreground">{title}</h1>
+              <h1 className="font-heading text-2xl font-semibold text-foreground lg:text-3xl">{title}</h1>
             </div>
           </div>
           <div className="flex items-center gap-4">

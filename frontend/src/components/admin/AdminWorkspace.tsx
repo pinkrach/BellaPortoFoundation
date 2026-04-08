@@ -1,0 +1,4689 @@
+import { startTransition, type ReactNode, useDeferredValue, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  AlertTriangle,
+  BarChart3,
+  Building2,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  ChevronRight,
+  ClipboardList,
+  Download,
+  FileHeart,
+  HandCoins,
+  Heart,
+  HeartPulse,
+  Home,
+  LayoutDashboard,
+  Megaphone,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Settings,
+  Share2,
+  ShieldAlert,
+  Sparkles,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/components/ui/sonner";
+import { cn } from "@/lib/utils";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  deleteRecord,
+  getDonationAllocations,
+  getDonations,
+  getEducationRecords,
+  getHealthWellbeingRecords,
+  getHomeVisitations,
+  getIncidentReports,
+  getInKindDonationItems,
+  getInterventionPlans,
+  getProcessRecordings,
+  getPublicImpactSnapshots,
+  getResidents,
+  getSafehouseMonthlyMetricsAll,
+  getSafehouses,
+  getSocialMediaPosts,
+  getSupporters,
+  insertRecord,
+  updateRecord,
+} from "@/services/databaseService";
+
+type MainTab = "dashboard" | "residents" | "donations" | "safe-houses" | "reports" | "outreach" | "settings";
+type ResidentsSubTab = "all-residents" | "process-records" | "visitations" | "education" | "health" | "interventions" | "incidents";
+type DonationsSubTab = "summary-statistics" | "supporters" | "donations" | "in-kind" | "allocations";
+type SafeHousesSubTab = "safe-houses" | "allocation-history" | "monthly-metrics";
+type OutreachSubTab = "social-media" | "public-impact";
+
+type Resident = {
+  resident_id: number;
+  case_control_no: string | null;
+  internal_code: string | null;
+  safehouse_id: number | null;
+  safehouse_name?: string | null;
+  case_status: string | null;
+  sex: string | null;
+  date_of_birth: string | null;
+  place_of_birth: string | null;
+  religion: string | null;
+  case_category: string | null;
+  date_of_admission: string | null;
+  assigned_social_worker: string | null;
+  current_risk_level: string | null;
+  created_at: string | null;
+  notes_restricted: string | null;
+  referring_agency_person: string | null;
+  present_age: string | null;
+  reintegration_status: string | null;
+};
+
+type Supporter = {
+  supporter_id: number;
+  supporter_type: string | null;
+  display_name: string | null;
+  organization_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  relationship_type: string | null;
+  region: string | null;
+  country: string | null;
+  email: string | null;
+  phone: string | null;
+  status: string | null;
+  created_at: string | null;
+  first_donation_date: string | null;
+  acquisition_channel: string | null;
+};
+
+type Donation = {
+  donation_id: number;
+  supporter_id: number | null;
+  donation_type: string | null;
+  donation_date: string | null;
+  is_recurring: boolean | null;
+  campaign_name: string | null;
+  channel_source: string | null;
+  currency_code: string | null;
+  amount: number | string | null;
+  estimated_value: number | string | null;
+  impact_unit: string | null;
+  notes: string | null;
+  referral_post_id: number | string | null;
+  supporter_name?: string | null;
+  supporters?: {
+    display_name?: string | null;
+    organization_name?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+};
+
+type DonationAllocation = {
+  allocation_id: number;
+  donation_id: number | null;
+  safehouse_id: number | null;
+  program_area: string | null;
+  amount_allocated: number | string | null;
+  allocation_date: string | null;
+  allocation_notes: string | null;
+};
+
+type InKindItem = {
+  item_id: number;
+  donation_id: number | null;
+  item_name: string | null;
+  item_category: string | null;
+  quantity: number | string | null;
+  unit_of_measure: string | null;
+  estimated_unit_value: number | string | null;
+  intended_use: string | null;
+  received_condition: string | null;
+};
+
+type Safehouse = {
+  safehouse_id: number;
+  safehouse_code: string | null;
+  name: string | null;
+  region: string | null;
+  city: string | null;
+  province: string | null;
+  country: string | null;
+  open_date: string | null;
+  status: string | null;
+  capacity_girls: number | string | null;
+  capacity_staff: number | string | null;
+  current_occupancy: number | string | null;
+  notes: string | null;
+};
+
+type MonthlyMetric = {
+  metric_id: number;
+  safehouse_id: number | null;
+  month_start: string | null;
+  month_end: string | null;
+  active_residents: number | string | null;
+  avg_education_progress: number | string | null;
+  avg_health_score: number | string | null;
+  process_recording_count: number | string | null;
+  home_visitation_count: number | string | null;
+  incident_count: number | string | null;
+  notes: string | null;
+};
+
+type SocialPost = {
+  post_id: number;
+  platform: string | null;
+  created_at: string | null;
+  post_type: string | null;
+  campaign_name: string | null;
+  impressions: number | string | null;
+  engagement_rate: number | string | null;
+  donation_referrals: number | string | null;
+  estimated_donation_value_php: number | string | null;
+};
+
+type PublicImpactSnapshot = {
+  snapshot_id: number;
+  snapshot_date: string | null;
+  headline: string | null;
+  summary_text: string | null;
+  is_published: boolean | string | null;
+  published_at: string | null;
+};
+
+type RecordRow = Record<string, unknown>;
+type ResidentWithSafehouse = Resident & { safehouse_name: string | null };
+
+type WorkspaceData = {
+  residents: Resident[];
+  processRecordings: RecordRow[];
+  visitations: RecordRow[];
+  education: RecordRow[];
+  health: RecordRow[];
+  interventions: RecordRow[];
+  incidents: RecordRow[];
+  supporters: Supporter[];
+  donations: Donation[];
+  allocations: DonationAllocation[];
+  inKind: InKindItem[];
+  safehouses: Safehouse[];
+  monthlyMetrics: MonthlyMetric[];
+  socialPosts: SocialPost[];
+  publicImpact: PublicImpactSnapshot[];
+};
+
+type ResidentFormState = {
+  case_control_no: string;
+  internal_code: string;
+  safehouse_id: string;
+  case_status: string;
+  sex: string;
+  date_of_birth: string;
+  place_of_birth: string;
+  religion: string;
+  case_category: string;
+  date_of_admission: string;
+  assigned_social_worker: string;
+  current_risk_level: string;
+  notes_restricted: string;
+};
+
+type SupporterFormState = {
+  supporter_type: string;
+  display_name: string;
+  organization_name: string;
+  first_name: string;
+  last_name: string;
+  relationship_type: string;
+  region: string;
+  country: string;
+  email: string;
+  phone: string;
+  status: string;
+  first_donation_date: string;
+  acquisition_channel: string;
+};
+
+type DonationFormState = {
+  supporter_id: string;
+  donation_type: string;
+  donation_date: string;
+  is_recurring: string;
+  campaign_name: string;
+  channel_source: string;
+  currency_code: string;
+  amount: string;
+  estimated_value: string;
+  impact_unit: string;
+  notes: string;
+  referral_post_id: string;
+};
+
+type InKindFormState = {
+  donation_id: string;
+  item_name: string;
+  item_category: string;
+  quantity: string;
+  unit_of_measure: string;
+  estimated_unit_value: string;
+  intended_use: string;
+  received_condition: string;
+};
+
+type AllocationFormState = {
+  donation_id: string;
+  safehouse_id: string;
+  program_area: string;
+  amount_allocated: string;
+  allocation_date: string;
+  allocation_notes: string;
+};
+
+type SafehouseFormState = {
+  safehouse_code: string;
+  name: string;
+  region: string;
+  city: string;
+  province: string;
+  country: string;
+  open_date: string;
+  status: string;
+  capacity_girls: string;
+  capacity_staff: string;
+  current_occupancy: string;
+  notes: string;
+};
+
+type ProcessRecordFormState = {
+  resident_id: string;
+  session_date: string;
+  social_worker: string;
+  session_type: string;
+  session_duration_minutes: string;
+  emotional_state_observed: string;
+  emotional_state_end: string;
+  session_narrative: string;
+  interventions_applied: string;
+  follow_up_actions: string;
+  progress_noted: string;
+  concerns_flagged: string;
+  referral_made: string;
+  notes_restricted: string;
+};
+
+type VisitationFormState = {
+  resident_id: string;
+  visit_date: string;
+  social_worker: string;
+  visit_type: string;
+  location_visited: string;
+  family_members_present: string;
+  purpose: string;
+  observations: string;
+  family_cooperation_level: string;
+  safety_concerns_noted: string;
+  follow_up_needed: string;
+  follow_up_notes: string;
+  visit_outcome: string;
+};
+
+type EducationFormState = {
+  resident_id: string;
+  record_date: string;
+  education_level: string;
+  school_name: string;
+  enrollment_status: string;
+  attendance_rate: string;
+  progress_percent: string;
+  completion_status: string;
+  notes: string;
+};
+
+type HealthFormState = {
+  resident_id: string;
+  record_date: string;
+  general_health_score: string;
+  nutrition_score: string;
+  sleep_quality_score: string;
+  energy_level_score: string;
+  height_cm: string;
+  weight_kg: string;
+  bmi: string;
+  medical_checkup_done: string;
+  dental_checkup_done: string;
+  psychological_checkup_done: string;
+  notes: string;
+};
+
+type InterventionFormState = {
+  resident_id: string;
+  plan_category: string;
+  plan_description: string;
+  services_provided: string;
+  target_value: string;
+  target_date: string;
+  status: string;
+  case_conference_date: string;
+};
+
+type IncidentFormState = {
+  resident_id: string;
+  safehouse_id: string;
+  incident_date: string;
+  incident_type: string;
+  severity: string;
+  description: string;
+  response_taken: string;
+  resolved: string;
+  resolution_date: string;
+  reported_by: string;
+  follow_up_required: string;
+};
+
+const RESIDENT_SUBTABS: Array<{ value: ResidentsSubTab; label: string }> = [
+  { value: "all-residents", label: "All Residents" },
+  { value: "process-records", label: "Process Records" },
+  { value: "visitations", label: "Visitations & Conferences" },
+  { value: "education", label: "Education" },
+  { value: "health", label: "Health" },
+  { value: "interventions", label: "Interventions" },
+  { value: "incidents", label: "Incidents" },
+];
+
+const DONATION_SUBTABS: Array<{ value: DonationsSubTab; label: string }> = [
+  { value: "summary-statistics", label: "Summary Statistics" },
+  { value: "supporters", label: "Supporters" },
+  { value: "donations", label: "Donations" },
+  { value: "in-kind", label: "In-Kind" },
+  { value: "allocations", label: "Allocations" },
+];
+
+const SAFEHOUSE_SUBTABS: Array<{ value: SafeHousesSubTab; label: string }> = [
+  { value: "safe-houses", label: "Safe Houses" },
+  { value: "allocation-history", label: "Allocation History" },
+  { value: "monthly-metrics", label: "Monthly Metrics" },
+];
+
+const OUTREACH_SUBTABS: Array<{ value: OutreachSubTab; label: string }> = [
+  { value: "social-media", label: "Social Media" },
+  { value: "public-impact", label: "Public Impact" },
+];
+
+const CHART_COLORS = [
+  "hsl(var(--primary))",
+  "hsl(var(--secondary))",
+  "hsl(var(--accent))",
+  "hsl(var(--lavender))",
+  "hsl(var(--sage))",
+  "hsl(var(--seafoam))",
+];
+
+const EMPTY_WORKSPACE: WorkspaceData = {
+  residents: [],
+  processRecordings: [],
+  visitations: [],
+  education: [],
+  health: [],
+  interventions: [],
+  incidents: [],
+  supporters: [],
+  donations: [],
+  allocations: [],
+  inKind: [],
+  safehouses: [],
+  monthlyMetrics: [],
+  socialPosts: [],
+  publicImpact: [],
+};
+
+async function fetchAdminWorkspace(): Promise<WorkspaceData> {
+  const [
+    residents,
+    processRecordings,
+    visitations,
+    education,
+    health,
+    interventions,
+    incidents,
+    supporters,
+    donations,
+    allocations,
+    inKind,
+    safehouses,
+    monthlyMetrics,
+    socialPosts,
+    publicImpact,
+  ] = await Promise.all([
+    getResidents(),
+    getProcessRecordings(),
+    getHomeVisitations(),
+    getEducationRecords(),
+    getHealthWellbeingRecords(),
+    getInterventionPlans(),
+    getIncidentReports(),
+    getSupporters(),
+    getDonations({ limit: 1000 }),
+    getDonationAllocations(),
+    getInKindDonationItems(),
+    getSafehouses(),
+    getSafehouseMonthlyMetricsAll(),
+    getSocialMediaPosts(),
+    getPublicImpactSnapshots(),
+  ]);
+
+  return {
+    residents: (residents as Resident[]) ?? [],
+    processRecordings: (processRecordings as RecordRow[]) ?? [],
+    visitations: (visitations as RecordRow[]) ?? [],
+    education: (education as RecordRow[]) ?? [],
+    health: (health as RecordRow[]) ?? [],
+    interventions: (interventions as RecordRow[]) ?? [],
+    incidents: (incidents as RecordRow[]) ?? [],
+    supporters: (supporters as Supporter[]) ?? [],
+    donations: (donations as Donation[]) ?? [],
+    allocations: (allocations as DonationAllocation[]) ?? [],
+    inKind: (inKind as InKindItem[]) ?? [],
+    safehouses: (safehouses as Safehouse[]) ?? [],
+    monthlyMetrics: (monthlyMetrics as MonthlyMetric[]) ?? [],
+    socialPosts: (socialPosts as SocialPost[]) ?? [],
+    publicImpact: (publicImpact as PublicImpactSnapshot[]) ?? [],
+  };
+}
+
+function parseIds(value: string | null) {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((entry) => Number(entry))
+    .filter((entry) => Number.isInteger(entry) && entry > 0);
+}
+
+function toNumber(value: unknown) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function toNullableNumber(value: string) {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toBooleanString(value: unknown) {
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "false") return normalized;
+  }
+  return "false";
+}
+
+function toNullableBoolean(value: string) {
+  if (!value.trim()) return null;
+  return value === "true";
+}
+
+function asText(value: unknown, fallback = "Not recorded") {
+  if (value == null) return fallback;
+  const text = String(value).trim();
+  return text || fallback;
+}
+
+function asDisplayDate(value: unknown, fallback = "Not scheduled") {
+  if (!value) return fallback;
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
+}
+
+function formatCurrency(value: unknown, currency = "PHP") {
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(toNumber(value));
+}
+
+function residentLabel(resident: Resident) {
+  return resident.internal_code?.trim() || resident.case_control_no?.trim() || `Resident ${resident.resident_id}`;
+}
+
+function supporterLabel(supporter: Supporter) {
+  const display = supporter.display_name?.trim();
+  if (display) return display;
+  const organization = supporter.organization_name?.trim();
+  if (organization) return organization;
+  const fullName = [supporter.first_name, supporter.last_name].filter(Boolean).join(" ").trim();
+  return fullName || `Supporter ${supporter.supporter_id}`;
+}
+
+function compareDatesDescending(a: unknown, b: unknown) {
+  const aDate = new Date(String(a ?? ""));
+  const bDate = new Date(String(b ?? ""));
+  const aTime = Number.isNaN(aDate.getTime()) ? 0 : aDate.getTime();
+  const bTime = Number.isNaN(bDate.getTime()) ? 0 : bDate.getTime();
+  return bTime - aTime;
+}
+
+function sortUpcomingThenRecent<T extends Record<string, unknown>>(rows: T[], dateKey: string) {
+  const now = new Date();
+  const future = rows
+    .filter((row) => {
+      const raw = row[dateKey];
+      const date = new Date(String(raw ?? ""));
+      return !Number.isNaN(date.getTime()) && date >= now;
+    })
+    .sort((left, right) => new Date(String(left[dateKey])).getTime() - new Date(String(right[dateKey])).getTime());
+  const past = rows
+    .filter((row) => {
+      const raw = row[dateKey];
+      const date = new Date(String(raw ?? ""));
+      return Number.isNaN(date.getTime()) || date < now;
+    })
+    .sort((left, right) => compareDatesDescending(left[dateKey], right[dateKey]));
+  return [...future, ...past];
+}
+
+function splitFutureRows<T extends Record<string, unknown>>(rows: T[], dateKey: string) {
+  const now = new Date();
+  const upcoming = rows
+    .filter((row) => {
+      const date = new Date(String(row[dateKey] ?? ""));
+      return !Number.isNaN(date.getTime()) && date > now;
+    })
+    .sort((left, right) => new Date(String(left[dateKey])).getTime() - new Date(String(right[dateKey])).getTime());
+
+  const currentAndPast = rows
+    .filter((row) => {
+      const date = new Date(String(row[dateKey] ?? ""));
+      return Number.isNaN(date.getTime()) || date <= now;
+    })
+    .sort((left, right) => compareDatesDescending(left[dateKey], right[dateKey]));
+
+  return { upcoming, currentAndPast };
+}
+
+function exportRows(label: string, rows: Array<Record<string, unknown>>) {
+  if (rows.length === 0) {
+    toast.error(`No ${label.toLowerCase()} rows are available to export.`);
+    return;
+  }
+
+  const keys = Array.from(
+    rows.reduce<Set<string>>((accumulator, row) => {
+      Object.keys(row).forEach((key) => accumulator.add(key));
+      return accumulator;
+    }, new Set()),
+  );
+
+  const csv = [
+    keys.join(","),
+    ...rows.map((row) =>
+      keys
+        .map((key) => {
+          const value = row[key];
+          const text = value == null ? "" : String(value);
+          return `"${text.replaceAll('"', '""')}"`;
+        })
+        .join(","),
+    ),
+  ].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${label.toLowerCase().replaceAll(/\s+/g, "-")}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-border bg-muted/40 px-6 py-10 text-center">
+      <p className="font-medium text-foreground">{title}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function SectionCard({
+  title,
+  description,
+  action,
+  children,
+  contentClassName,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+  contentClassName?: string;
+}) {
+  return (
+    <Card className="rounded-2xl border-border/70 bg-card shadow-warm">
+      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+        <div>
+          <CardTitle className="font-heading text-xl text-foreground">{title}</CardTitle>
+          {description ? <CardDescription className="mt-1">{description}</CardDescription> : null}
+        </div>
+        {action}
+      </CardHeader>
+      <CardContent className={cn("pt-0", contentClassName)}>{children}</CardContent>
+    </Card>
+  );
+}
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: typeof LayoutDashboard;
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <Card className="rounded-2xl border-border/70 bg-card shadow-warm transition-transform hover:-translate-y-0.5">
+      <CardContent className="p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+            <Icon className="h-5 w-5" />
+          </div>
+          <span className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">{label}</span>
+        </div>
+        <p className="text-3xl font-semibold text-foreground">{value}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StatusBadge({
+  value,
+  tone,
+}: {
+  value: string;
+  tone?: "default" | "secondary" | "destructive" | "outline";
+}) {
+  return (
+    <Badge
+      variant={tone ?? "secondary"}
+      className="rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]"
+    >
+      {value}
+    </Badge>
+  );
+}
+
+function FilterCheckboxGroup({
+  title,
+  options,
+  selected,
+  onChange,
+  allLabel,
+}: {
+  title: string;
+  options: string[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+  allLabel: string;
+}) {
+  const allSelected = options.length > 0 && selected.length === options.length;
+
+  const toggleValue = (value: string) => {
+    if (selected.includes(value)) {
+      onChange(selected.filter((entry) => entry !== value));
+      return;
+    }
+    onChange([...selected, value]);
+  };
+
+  return (
+    <div className="rounded-2xl border border-border/70 bg-background p-4">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{title}</p>
+      <div className="space-y-3 text-sm text-foreground">
+        <label className="flex items-center gap-3 font-medium">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={() => onChange(allSelected ? [] : options)}
+            className="h-4 w-4 rounded border-border"
+          />
+          {allLabel}
+        </label>
+        {options.map((option) => (
+          <label key={option} className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={selected.includes(option)}
+              onChange={() => toggleValue(option)}
+              className="h-4 w-4 rounded border-border"
+            />
+            {option}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CollapsibleSubsection({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="rounded-2xl border border-border/70 bg-muted/20">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <button type="button" className="flex w-full items-center justify-between px-4 py-3 text-left">
+            <span className="font-medium text-foreground">{title}</span>
+            <span className="text-sm text-muted-foreground">{open ? "Hide" : "Show"}</span>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="border-t border-border/70 px-4 py-4">{children}</CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+}
+
+function Toolbar({
+  title = "Filters",
+  defaultOpen = false,
+  searchValue,
+  onSearchChange,
+  searchPlaceholder,
+  filters,
+  bottomContent,
+  onClearFilters,
+  sortValue,
+  sortOptions,
+  onSortChange,
+  actionItems,
+}: {
+  title?: string;
+  defaultOpen?: boolean;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
+  searchPlaceholder: string;
+  filters?: ReactNode;
+  bottomContent?: ReactNode;
+  onClearFilters?: () => void;
+  sortValue: string;
+  sortOptions: Array<{ value: string; label: string }>;
+  onSortChange: (value: string) => void;
+  actionItems?: Array<{ label: string; onClick: () => void }>;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Card className="rounded-2xl border-border/70 bg-card shadow-warm">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "flex w-full items-center justify-between gap-3 text-left",
+              open ? "border-b border-border/70 px-4 py-4" : "px-4 py-1.5",
+            )}
+          >
+            <span className={cn("font-semibold text-foreground", open ? "text-2xl" : "text-xl")}>{title}</span>
+            <div className="flex items-center gap-3">
+              <span className={cn("flex items-center gap-2 font-medium text-muted-foreground", open ? "text-sm" : "text-xs")}>
+                {open ? "Hide" : "Show"}
+                {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </span>
+              {actionItems?.length ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
+                    <Button variant="outline" className={cn("rounded-full px-4", open ? "h-10" : "h-8 text-xs")}>
+                      <MoreHorizontal className="h-4 w-4" />
+                      Actions
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 rounded-xl">
+                    {actionItems.map((item) => (
+                      <DropdownMenuItem key={item.label} onClick={item.onClick}>
+                        {item.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchValue}
+                    onChange={(event) => onSearchChange(event.target.value)}
+                    placeholder={searchPlaceholder}
+                    className="h-11 rounded-full border-border/80 bg-background pl-9"
+                  />
+                </div>
+                {onClearFilters ? (
+                  <Button variant="outline" className="h-11 rounded-full px-6" onClick={onClearFilters}>
+                    Clear filters
+                  </Button>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  value={sortValue}
+                  onChange={(event) => onSortChange(event.target.value)}
+                  className="h-11 rounded-full border border-input bg-background px-4 text-sm text-foreground"
+                >
+                  {sortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {filters ? <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">{filters}</div> : null}
+            {bottomContent ? <div className="mt-4 border-t border-border/70 pt-4">{bottomContent}</div> : null}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
+function PaginatedRows<T>({
+  rows,
+  page,
+  perPage = 10,
+}: {
+  rows: T[];
+  page: number;
+  perPage?: number;
+}) {
+  const totalPages = Math.max(1, Math.ceil(rows.length / perPage));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const start = (safePage - 1) * perPage;
+  return {
+    totalPages,
+    safePage,
+    visibleRows: rows.slice(start, start + perPage),
+    start: rows.length ? start + 1 : 0,
+    end: Math.min(start + perPage, rows.length),
+  };
+}
+
+function TablePagination({
+  page,
+  totalPages,
+  totalRows,
+  start,
+  end,
+  perPage,
+  onPerPageChange,
+  onPageChange,
+}: {
+  page: number;
+  totalPages: number;
+  totalRows: number;
+  start: number;
+  end: number;
+  perPage: number;
+  onPerPageChange: (perPage: number) => void;
+  onPageChange: (page: number) => void;
+}) {
+  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1).filter((entry) => {
+    if (totalPages <= 7) return true;
+    return entry === 1 || entry === totalPages || Math.abs(entry - page) <= 1;
+  });
+
+  return (
+    <div className="mt-4 flex flex-col gap-3 border-t border-border/70 pt-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-wrap items-center gap-4">
+        <p className="text-sm text-muted-foreground">
+          Showing {Math.max(end - start + 1, 0)} of {totalRows}
+        </p>
+        <label className="flex items-center gap-3 text-sm text-muted-foreground">
+          Rows per page
+          <select
+            value={String(perPage)}
+            onChange={(event) => onPerPageChange(Number(event.target.value))}
+            className="h-10 rounded-full border border-input bg-background px-3 text-sm text-foreground"
+          >
+            {[10, 25, 50].map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <Pagination className="mx-0 w-auto justify-start md:justify-end">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              href="#"
+              onClick={(event) => {
+                event.preventDefault();
+                onPageChange(Math.max(1, page - 1));
+              }}
+              className={cn(page === 1 && "pointer-events-none opacity-50")}
+            />
+          </PaginationItem>
+          {pageNumbers.map((entry) => (
+            <PaginationItem key={entry}>
+              <PaginationLink
+                href="#"
+                isActive={entry === page}
+                onClick={(event) => {
+                  event.preventDefault();
+                  onPageChange(entry);
+                }}
+              >
+                {entry}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
+          <PaginationItem>
+            <PaginationNext
+              href="#"
+              onClick={(event) => {
+                event.preventDefault();
+                onPageChange(Math.min(totalPages, page + 1));
+              }}
+              className={cn(page === totalPages && "pointer-events-none opacity-50")}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    </div>
+  );
+}
+
+type FormField = {
+  key: string;
+  label: string;
+  type?: "text" | "date" | "number" | "textarea" | "select" | "email";
+  options?: Array<{ value: string; label: string }>;
+};
+
+function EntityModal<T extends Record<string, string>>({
+  open,
+  onOpenChange,
+  title,
+  description,
+  fields,
+  state,
+  onChange,
+  onSubmit,
+  submitLabel,
+  pending,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  fields: FormField[];
+  state: T;
+  onChange: (key: keyof T, value: string) => void;
+  onSubmit: () => void;
+  submitLabel: string;
+  pending: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+        <DialogHeader>
+          <DialogTitle className="font-heading text-2xl text-foreground">{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 md:grid-cols-2">
+          {fields.map((field) => (
+            <label key={field.key} className={cn("grid gap-2 text-sm", field.type === "textarea" ? "md:col-span-2" : "")}>
+              <span className="font-medium text-foreground">{field.label}</span>
+              {field.type === "textarea" ? (
+                <Textarea
+                  value={state[field.key as keyof T]}
+                  onChange={(event) => onChange(field.key as keyof T, event.target.value)}
+                  className="min-h-28 rounded-xl border-border/80 bg-background"
+                />
+              ) : field.type === "select" ? (
+                <select
+                  value={state[field.key as keyof T]}
+                  onChange={(event) => onChange(field.key as keyof T, event.target.value)}
+                  className="h-11 rounded-xl border border-input bg-background px-3 text-sm text-foreground"
+                >
+                  <option value="">Select…</option>
+                  {field.options?.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  type={field.type ?? "text"}
+                  value={state[field.key as keyof T]}
+                  onChange={(event) => onChange(field.key as keyof T, event.target.value)}
+                  className="h-11 rounded-xl border-border/80 bg-background"
+                />
+              )}
+            </label>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
+            Cancel
+          </Button>
+          <Button onClick={onSubmit} disabled={pending} className="rounded-xl">
+            {pending ? "Saving..." : submitLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function AdminWorkspace() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const currentTab = (searchParams.get("tab") as MainTab | null) ?? "dashboard";
+  const residentsSubTab = (searchParams.get("residentsSubTab") as ResidentsSubTab | null) ?? "all-residents";
+  const donationsSubTab = (searchParams.get("donationsSubTab") as DonationsSubTab | null) ?? "summary-statistics";
+  const safeHousesSubTab = (searchParams.get("safeHousesSubTab") as SafeHousesSubTab | null) ?? "safe-houses";
+  const outreachSubTab = (searchParams.get("outreachSubTab") as OutreachSubTab | null) ?? "social-media";
+  const selectedResidentIds = parseIds(searchParams.get("residentIds"));
+  const selectedSupporterId = Number(searchParams.get("supporterId") || 0) || null;
+  const selectedSafehouseId = Number(searchParams.get("safehouseId") || 0) || null;
+
+  const [residentSearch, setResidentSearch] = useState("");
+  const [residentStatusFilter, setResidentStatusFilter] = useState<string[]>(["Active", "Open", "Closed", "Transferred"]);
+  const [residentRiskFilter, setResidentRiskFilter] = useState<string[]>(["High", "Medium", "Low"]);
+  const [residentSafehouseFilter, setResidentSafehouseFilter] = useState<string[]>([]);
+  const [residentSort, setResidentSort] = useState("recent");
+  const deferredResidentSearch = useDeferredValue(residentSearch);
+  const [processTypeFilter, setProcessTypeFilter] = useState<string[]>([]);
+  const [processWorkerFilter, setProcessWorkerFilter] = useState<string[]>([]);
+  const [visitationTypeFilter, setVisitationTypeFilter] = useState<string[]>([]);
+  const [visitationOutcomeFilter, setVisitationOutcomeFilter] = useState<string[]>([]);
+  const [educationLevelFilter, setEducationLevelFilter] = useState<string[]>([]);
+  const [educationEnrollmentFilter, setEducationEnrollmentFilter] = useState<string[]>([]);
+  const [healthCheckupFilter, setHealthCheckupFilter] = useState<string[]>([]);
+  const [interventionCategoryFilter, setInterventionCategoryFilter] = useState<string[]>([]);
+  const [interventionStatusFilter, setInterventionStatusFilter] = useState<string[]>([]);
+  const [incidentTypeFilter, setIncidentTypeFilter] = useState<string[]>([]);
+  const [incidentSeverityFilter, setIncidentSeverityFilter] = useState<string[]>([]);
+
+  const [donationSearch, setDonationSearch] = useState("");
+  const [donationTypeFilter, setDonationTypeFilter] = useState<string[]>([]);
+  const [donationRelationshipFilter, setDonationRelationshipFilter] = useState<string[]>([]);
+  const [donationStatusFilter, setDonationStatusFilter] = useState<string[]>([]);
+  const [donationRegionFilter, setDonationRegionFilter] = useState<string[]>([]);
+  const [donationCountryFilter, setDonationCountryFilter] = useState<string[]>([]);
+  const [donationSort, setDonationSort] = useState("recent");
+  const deferredDonationSearch = useDeferredValue(donationSearch);
+
+  const [safehouseSearch, setSafehouseSearch] = useState("");
+  const [safehouseStatusFilter, setSafehouseStatusFilter] = useState<string[]>([]);
+  const [safehouseRegionFilter, setSafehouseRegionFilter] = useState<string[]>([]);
+  const [safehouseSort, setSafehouseSort] = useState("occupancy");
+  const deferredSafehouseSearch = useDeferredValue(safehouseSearch);
+  const [tablePages, setTablePages] = useState<Record<string, number>>({});
+  const [tablePageSizes, setTablePageSizes] = useState<Record<string, number>>({});
+
+  const [residentDetailId, setResidentDetailId] = useState<number | null>(null);
+  const [residentModalOpen, setResidentModalOpen] = useState(false);
+  const [residentFormOpen, setResidentFormOpen] = useState(false);
+  const [editingResidentId, setEditingResidentId] = useState<number | null>(null);
+  const [residentForm, setResidentForm] = useState<ResidentFormState>({
+    case_control_no: "",
+    internal_code: "",
+    safehouse_id: "",
+    case_status: "Active",
+    sex: "F",
+    date_of_birth: "",
+    place_of_birth: "",
+    religion: "",
+    case_category: "",
+    date_of_admission: "",
+    assigned_social_worker: "",
+    current_risk_level: "Medium",
+    notes_restricted: "",
+  });
+
+  const [supporterFormOpen, setSupporterFormOpen] = useState(false);
+  const [editingSupporterId, setEditingSupporterId] = useState<number | null>(null);
+  const [supporterForm, setSupporterForm] = useState<SupporterFormState>({
+    supporter_type: "MonetaryDonor",
+    display_name: "",
+    organization_name: "",
+    first_name: "",
+    last_name: "",
+    relationship_type: "",
+    region: "",
+    country: "Philippines",
+    email: "",
+    phone: "",
+    status: "Active",
+    first_donation_date: "",
+    acquisition_channel: "",
+  });
+
+  const [donationFormOpen, setDonationFormOpen] = useState(false);
+  const [editingDonationId, setEditingDonationId] = useState<number | null>(null);
+  const [donationForm, setDonationForm] = useState<DonationFormState>({
+    supporter_id: "",
+    donation_type: "Monetary",
+    donation_date: "",
+    is_recurring: "false",
+    campaign_name: "",
+    channel_source: "",
+    currency_code: "PHP",
+    amount: "",
+    estimated_value: "",
+    impact_unit: "",
+    notes: "",
+    referral_post_id: "",
+  });
+
+  const [inKindFormOpen, setInKindFormOpen] = useState(false);
+  const [editingInKindId, setEditingInKindId] = useState<number | null>(null);
+  const [inKindForm, setInKindForm] = useState<InKindFormState>({
+    donation_id: "",
+    item_name: "",
+    item_category: "",
+    quantity: "",
+    unit_of_measure: "",
+    estimated_unit_value: "",
+    intended_use: "",
+    received_condition: "",
+  });
+
+  const [allocationFormOpen, setAllocationFormOpen] = useState(false);
+  const [editingAllocationId, setEditingAllocationId] = useState<number | null>(null);
+  const [allocationForm, setAllocationForm] = useState<AllocationFormState>({
+    donation_id: "",
+    safehouse_id: "",
+    program_area: "",
+    amount_allocated: "",
+    allocation_date: "",
+    allocation_notes: "",
+  });
+
+  const [safehouseFormOpen, setSafehouseFormOpen] = useState(false);
+  const [editingSafehouseId, setEditingSafehouseId] = useState<number | null>(null);
+  const [safehouseForm, setSafehouseForm] = useState<SafehouseFormState>({
+    safehouse_code: "",
+    name: "",
+    region: "",
+    city: "",
+    province: "",
+    country: "Philippines",
+    open_date: "",
+    status: "Active",
+    capacity_girls: "",
+    capacity_staff: "",
+    current_occupancy: "",
+    notes: "",
+  });
+  const [processFormOpen, setProcessFormOpen] = useState(false);
+  const [editingProcessId, setEditingProcessId] = useState<number | null>(null);
+  const [processForm, setProcessForm] = useState<ProcessRecordFormState>({
+    resident_id: "",
+    session_date: "",
+    social_worker: "",
+    session_type: "",
+    session_duration_minutes: "",
+    emotional_state_observed: "",
+    emotional_state_end: "",
+    session_narrative: "",
+    interventions_applied: "",
+    follow_up_actions: "",
+    progress_noted: "false",
+    concerns_flagged: "false",
+    referral_made: "false",
+    notes_restricted: "",
+  });
+  const [visitationFormOpen, setVisitationFormOpen] = useState(false);
+  const [editingVisitationId, setEditingVisitationId] = useState<number | null>(null);
+  const [visitationForm, setVisitationForm] = useState<VisitationFormState>({
+    resident_id: "",
+    visit_date: "",
+    social_worker: "",
+    visit_type: "",
+    location_visited: "",
+    family_members_present: "",
+    purpose: "",
+    observations: "",
+    family_cooperation_level: "",
+    safety_concerns_noted: "false",
+    follow_up_needed: "false",
+    follow_up_notes: "",
+    visit_outcome: "",
+  });
+  const [educationFormOpen, setEducationFormOpen] = useState(false);
+  const [editingEducationId, setEditingEducationId] = useState<number | null>(null);
+  const [educationForm, setEducationForm] = useState<EducationFormState>({
+    resident_id: "",
+    record_date: "",
+    education_level: "",
+    school_name: "",
+    enrollment_status: "",
+    attendance_rate: "",
+    progress_percent: "",
+    completion_status: "",
+    notes: "",
+  });
+  const [healthFormOpen, setHealthFormOpen] = useState(false);
+  const [editingHealthId, setEditingHealthId] = useState<number | null>(null);
+  const [healthForm, setHealthForm] = useState<HealthFormState>({
+    resident_id: "",
+    record_date: "",
+    general_health_score: "",
+    nutrition_score: "",
+    sleep_quality_score: "",
+    energy_level_score: "",
+    height_cm: "",
+    weight_kg: "",
+    bmi: "",
+    medical_checkup_done: "false",
+    dental_checkup_done: "false",
+    psychological_checkup_done: "false",
+    notes: "",
+  });
+  const [interventionFormOpen, setInterventionFormOpen] = useState(false);
+  const [editingInterventionId, setEditingInterventionId] = useState<number | null>(null);
+  const [interventionForm, setInterventionForm] = useState<InterventionFormState>({
+    resident_id: "",
+    plan_category: "",
+    plan_description: "",
+    services_provided: "",
+    target_value: "",
+    target_date: "",
+    status: "",
+    case_conference_date: "",
+  });
+  const [incidentFormOpen, setIncidentFormOpen] = useState(false);
+  const [editingIncidentId, setEditingIncidentId] = useState<number | null>(null);
+  const [incidentForm, setIncidentForm] = useState<IncidentFormState>({
+    resident_id: "",
+    safehouse_id: "",
+    incident_date: "",
+    incident_type: "",
+    severity: "",
+    description: "",
+    response_taken: "",
+    resolved: "false",
+    resolution_date: "",
+    reported_by: "",
+    follow_up_required: "false",
+  });
+
+  const workspaceQuery = useQuery({
+    queryKey: ["admin-workspace"],
+    queryFn: fetchAdminWorkspace,
+  });
+
+  const workspace = workspaceQuery.data ?? EMPTY_WORKSPACE;
+
+  const safehouseMap = useMemo(
+    () => new Map(workspace.safehouses.map((safehouse) => [safehouse.safehouse_id, safehouse])),
+    [workspace.safehouses],
+  );
+
+  const residentMap = useMemo<Map<number, ResidentWithSafehouse>>(
+    () =>
+      new Map(
+        workspace.residents.map((resident) => [
+          resident.resident_id,
+          {
+            ...resident,
+            safehouse_name: resident.safehouse_name ?? safehouseMap.get(resident.safehouse_id ?? -1)?.name ?? null,
+          },
+        ]),
+      ),
+    [safehouseMap, workspace.residents],
+  );
+
+  const supporterMap = useMemo(
+    () => new Map(workspace.supporters.map((supporter) => [supporter.supporter_id, supporter])),
+    [workspace.supporters],
+  );
+
+  const donationMap = useMemo(
+    () => new Map(workspace.donations.map((donation) => [donation.donation_id, donation])),
+    [workspace.donations],
+  );
+  const residentStatusOptions = ["Active", "Open", "Closed", "Transferred"];
+  const residentRiskOptions = ["High", "Medium", "Low"];
+  const residentSafehouseOptions = useMemo(
+    () => Array.from(new Set(workspace.residents.map((resident) => safehouseMap.get(resident.safehouse_id ?? -1)?.name ?? "Unassigned"))).sort(),
+    [safehouseMap, workspace.residents],
+  );
+  const donationTypeOptions = useMemo(
+    () => Array.from(new Set(workspace.supporters.map((supporter) => supporter.supporter_type).filter(Boolean) as string[])).sort(),
+    [workspace.supporters],
+  );
+  const donationRelationshipOptions = useMemo(
+    () => Array.from(new Set(workspace.supporters.map((supporter) => supporter.relationship_type).filter(Boolean) as string[])).sort(),
+    [workspace.supporters],
+  );
+  const donationStatusOptions = useMemo(
+    () => Array.from(new Set(workspace.supporters.map((supporter) => supporter.status).filter(Boolean) as string[])).sort(),
+    [workspace.supporters],
+  );
+  const donationRegionOptions = useMemo(
+    () => Array.from(new Set(workspace.supporters.map((supporter) => supporter.region).filter(Boolean) as string[])).sort(),
+    [workspace.supporters],
+  );
+  const donationCountryOptions = useMemo(
+    () => Array.from(new Set(workspace.supporters.map((supporter) => supporter.country).filter(Boolean) as string[])).sort(),
+    [workspace.supporters],
+  );
+  const safehouseStatusOptions = useMemo(
+    () => Array.from(new Set(workspace.safehouses.map((safehouse) => safehouse.status).filter(Boolean) as string[])).sort(),
+    [workspace.safehouses],
+  );
+  const safehouseRegionOptions = useMemo(
+    () => Array.from(new Set(workspace.safehouses.map((safehouse) => safehouse.region).filter(Boolean) as string[])).sort(),
+    [workspace.safehouses],
+  );
+  const processTypeOptions = useMemo(
+    () => Array.from(new Set(workspace.processRecordings.map((row) => String(row.session_type ?? "")).filter(Boolean))).sort(),
+    [workspace.processRecordings],
+  );
+  const processWorkerOptions = useMemo(
+    () => Array.from(new Set(workspace.processRecordings.map((row) => String(row.social_worker ?? "")).filter(Boolean))).sort(),
+    [workspace.processRecordings],
+  );
+  const visitationTypeOptions = useMemo(
+    () => Array.from(new Set(workspace.visitations.map((row) => String(row.visit_type ?? "")).filter(Boolean))).sort(),
+    [workspace.visitations],
+  );
+  const visitationOutcomeOptions = useMemo(
+    () => Array.from(new Set(workspace.visitations.map((row) => String(row.visit_outcome ?? "")).filter(Boolean))).sort(),
+    [workspace.visitations],
+  );
+  const educationLevelOptions = useMemo(
+    () => Array.from(new Set(workspace.education.map((row) => String(row.education_level ?? "")).filter(Boolean))).sort(),
+    [workspace.education],
+  );
+  const educationEnrollmentOptions = useMemo(
+    () => Array.from(new Set(workspace.education.map((row) => String(row.enrollment_status ?? "")).filter(Boolean))).sort(),
+    [workspace.education],
+  );
+  const interventionCategoryOptions = useMemo(
+    () => Array.from(new Set(workspace.interventions.map((row) => String(row.plan_category ?? "")).filter(Boolean))).sort(),
+    [workspace.interventions],
+  );
+  const interventionStatusOptions = useMemo(
+    () => Array.from(new Set(workspace.interventions.map((row) => String(row.status ?? "")).filter(Boolean))).sort(),
+    [workspace.interventions],
+  );
+  const incidentTypeOptions = useMemo(
+    () => Array.from(new Set(workspace.incidents.map((row) => String(row.incident_type ?? "")).filter(Boolean))).sort(),
+    [workspace.incidents],
+  );
+  const incidentSeverityOptions = useMemo(
+    () => Array.from(new Set(workspace.incidents.map((row) => String(row.severity ?? "")).filter(Boolean))).sort(),
+    [workspace.incidents],
+  );
+
+  const selectedResidents = selectedResidentIds
+    .map((residentId) => residentMap.get(residentId))
+    .filter((resident): resident is ResidentWithSafehouse => Boolean(resident));
+
+  const setParams = (updates: Record<string, string | null>) => {
+    startTransition(() => {
+      const next = new URLSearchParams(searchParams);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (!value) next.delete(key);
+        else next.set(key, value);
+      });
+      setSearchParams(next, { replace: true });
+    });
+  };
+
+  const getPage = (key: string) => tablePages[key] ?? 1;
+  const setPage = (key: string, page: number) => {
+    setTablePages((current) => ({ ...current, [key]: page }));
+  };
+  const getPageSize = (key: string) => tablePageSizes[key] ?? 10;
+  const setPageSize = (key: string, size: number) => {
+    setTablePageSizes((current) => ({ ...current, [key]: size }));
+    setTablePages((current) => ({ ...current, [key]: 1 }));
+  };
+
+  const setTab = (tab: MainTab) => {
+    setParams({ tab });
+  };
+
+  const setResidentSelection = (ids: number[]) => {
+    setParams({ residentIds: ids.length ? ids.join(",") : null });
+  };
+
+  const toggleResidentSelection = (residentId: number) => {
+    const next = selectedResidentIds.includes(residentId)
+      ? selectedResidentIds.filter((entry) => entry !== residentId)
+      : [...selectedResidentIds, residentId];
+    setResidentSelection(next);
+  };
+
+  const openResidentDetail = (residentId: number) => {
+    if (!selectedResidentIds.includes(residentId)) {
+      setResidentSelection([...selectedResidentIds, residentId]);
+    }
+    setResidentDetailId(residentId);
+    setResidentModalOpen(true);
+  };
+
+  const selectedResidentDetail = residentDetailId ? residentMap.get(residentDetailId) ?? null : null;
+
+  const invalidateWorkspace = async (message: string) => {
+    await queryClient.invalidateQueries({ queryKey: ["admin-workspace"] });
+    toast.success(message);
+  };
+
+  const createMutation = useMutation({
+    mutationFn: async ({
+      table,
+      payload,
+    }: {
+      table:
+        | "residents"
+        | "supporters"
+        | "donations"
+        | "in_kind_donation_items"
+        | "donation_allocations"
+        | "safehouses"
+        | "process_recordings"
+        | "home_visitations"
+        | "education_records"
+        | "health_wellbeing_records"
+        | "intervention_plans"
+        | "incident_reports";
+      payload: Record<string, unknown>;
+    }) => insertRecord(table, payload),
+    onSuccess: async () => {
+      await invalidateWorkspace("Record created.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Unable to create that record.");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({
+      table,
+      id,
+      payload,
+    }: {
+      table:
+        | "residents"
+        | "supporters"
+        | "donations"
+        | "in_kind_donation_items"
+        | "donation_allocations"
+        | "safehouses"
+        | "process_recordings"
+        | "home_visitations"
+        | "education_records"
+        | "health_wellbeing_records"
+        | "intervention_plans"
+        | "incident_reports";
+      id: number;
+      payload: Record<string, unknown>;
+    }) => updateRecord(table, id, payload),
+    onSuccess: async () => {
+      await invalidateWorkspace("Record updated.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Unable to update that record.");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async ({
+      table,
+      id,
+    }: {
+      table:
+        | "residents"
+        | "supporters"
+        | "donations"
+        | "in_kind_donation_items"
+        | "donation_allocations"
+        | "safehouses"
+        | "process_recordings"
+        | "home_visitations"
+        | "education_records"
+        | "health_wellbeing_records"
+        | "intervention_plans"
+        | "incident_reports";
+      id: number;
+    }) => deleteRecord(table, id),
+    onSuccess: async () => {
+      await invalidateWorkspace("Record deleted.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Unable to delete that record.");
+    },
+  });
+
+  const latestVisitationByResident = useMemo(() => {
+    const grouped = new Map<number, RecordRow>();
+    sortUpcomingThenRecent(workspace.visitations, "visit_date").forEach((row) => {
+      const residentId = toNumber(row.resident_id);
+      if (!residentId || grouped.has(residentId)) return;
+      grouped.set(residentId, row);
+    });
+    return grouped;
+  }, [workspace.visitations]);
+
+  const filteredResidentsTable = useMemo(() => {
+    const query = deferredResidentSearch.trim().toLowerCase();
+    const rows = workspace.residents.filter((resident) => {
+      const safehouse = safehouseMap.get(resident.safehouse_id ?? -1);
+      const matchesSearch =
+        !query ||
+        [
+          residentLabel(resident),
+          resident.case_control_no,
+          resident.case_status,
+          resident.case_category,
+          resident.assigned_social_worker,
+          safehouse?.name,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+
+      const safehouseName = safehouse?.name ?? "Unassigned";
+      const normalizedRisk = (resident.current_risk_level ?? "").toLowerCase();
+      const matchesStatus = residentStatusFilter.length === 0 || residentStatusFilter.includes(resident.case_status ?? "");
+      const matchesRisk = residentRiskFilter.length === 0 || residentRiskFilter.some((entry) => normalizedRisk.startsWith(entry.toLowerCase()));
+      const matchesSafehouse = residentSafehouseFilter.length === 0 || residentSafehouseFilter.includes(safehouseName);
+
+      return matchesSearch && matchesStatus && matchesRisk && matchesSafehouse;
+    });
+
+    const sorted = [...rows].sort((left, right) => {
+      if (residentSort === "risk") {
+        const order = { High: 0, Medium: 1, Low: 2 } as Record<string, number>;
+        const leftRank = order[left.current_risk_level ?? ""] ?? 3;
+        const rightRank = order[right.current_risk_level ?? ""] ?? 3;
+        return leftRank - rightRank || compareDatesDescending(left.created_at, right.created_at);
+      }
+      if (residentSort === "latest-visit") {
+        return compareDatesDescending(
+          latestVisitationByResident.get(left.resident_id)?.visit_date,
+          latestVisitationByResident.get(right.resident_id)?.visit_date,
+        );
+      }
+      return compareDatesDescending(left.created_at, right.created_at);
+    });
+
+    return sorted;
+  }, [
+    deferredResidentSearch,
+    latestVisitationByResident,
+    residentRiskFilter,
+    residentSafehouseFilter,
+    residentSort,
+    residentStatusFilter,
+    safehouseMap,
+    workspace.residents,
+  ]);
+
+  const selectedResidentIdSet = useMemo(() => new Set(selectedResidentIds), [selectedResidentIds]);
+
+  const filterResidentLinkedRows = (rows: RecordRow[]) => {
+    if (!selectedResidentIds.length) return rows;
+    return rows.filter((row) => selectedResidentIdSet.has(toNumber(row.resident_id)));
+  };
+
+  const residentProcessSplit = useMemo(() => {
+    const rows = filterResidentLinkedRows(workspace.processRecordings).filter((row) => {
+      const matchesType = processTypeFilter.length === 0 || processTypeFilter.includes(String(row.session_type ?? ""));
+      const matchesWorker = processWorkerFilter.length === 0 || processWorkerFilter.includes(String(row.social_worker ?? ""));
+      return matchesType && matchesWorker;
+    });
+    return splitFutureRows(rows, "session_date");
+  }, [processTypeFilter, processWorkerFilter, selectedResidentIdSet, selectedResidentIds.length, workspace.processRecordings]);
+  const residentVisitationSplit = useMemo(() => {
+    const rows = filterResidentLinkedRows(workspace.visitations).filter((row) => {
+      const matchesType = visitationTypeFilter.length === 0 || visitationTypeFilter.includes(String(row.visit_type ?? ""));
+      const matchesOutcome = visitationOutcomeFilter.length === 0 || visitationOutcomeFilter.includes(String(row.visit_outcome ?? ""));
+      return matchesType && matchesOutcome;
+    });
+    return splitFutureRows(rows, "visit_date");
+  }, [selectedResidentIdSet, selectedResidentIds.length, visitationOutcomeFilter, visitationTypeFilter, workspace.visitations]);
+  const residentEducationSplit = useMemo(() => {
+    const rows = filterResidentLinkedRows(workspace.education).filter((row) => {
+      const matchesLevel = educationLevelFilter.length === 0 || educationLevelFilter.includes(String(row.education_level ?? ""));
+      const matchesEnrollment = educationEnrollmentFilter.length === 0 || educationEnrollmentFilter.includes(String(row.enrollment_status ?? ""));
+      return matchesLevel && matchesEnrollment;
+    });
+    return splitFutureRows(rows, "record_date");
+  }, [educationEnrollmentFilter, educationLevelFilter, selectedResidentIdSet, selectedResidentIds.length, workspace.education]);
+  const residentHealthSplit = useMemo(() => {
+    const rows = filterResidentLinkedRows(workspace.health).filter((row) => {
+      if (healthCheckupFilter.length === 0) return true;
+      const selected = new Set(healthCheckupFilter);
+      return (
+        (selected.has("Medical") && String(row.medical_checkup_done).toLowerCase() === "true") ||
+        (selected.has("Dental") && String(row.dental_checkup_done).toLowerCase() === "true") ||
+        (selected.has("Psychological") && String(row.psychological_checkup_done).toLowerCase() === "true")
+      );
+    });
+    return splitFutureRows(rows, "record_date");
+  }, [healthCheckupFilter, selectedResidentIdSet, selectedResidentIds.length, workspace.health]);
+  const residentInterventionSplit = useMemo(() => {
+    const rows = filterResidentLinkedRows(workspace.interventions).filter((row) => {
+      const matchesCategory = interventionCategoryFilter.length === 0 || interventionCategoryFilter.includes(String(row.plan_category ?? ""));
+      const matchesStatus = interventionStatusFilter.length === 0 || interventionStatusFilter.includes(String(row.status ?? ""));
+      return matchesCategory && matchesStatus;
+    });
+    return splitFutureRows(rows, "target_date");
+  }, [interventionCategoryFilter, interventionStatusFilter, selectedResidentIdSet, selectedResidentIds.length, workspace.interventions]);
+  const residentIncidentSplit = useMemo(() => {
+    const rows = filterResidentLinkedRows(workspace.incidents).filter((row) => {
+      const matchesType = incidentTypeFilter.length === 0 || incidentTypeFilter.includes(String(row.incident_type ?? ""));
+      const matchesSeverity = incidentSeverityFilter.length === 0 || incidentSeverityFilter.includes(String(row.severity ?? ""));
+      return matchesType && matchesSeverity;
+    });
+    return splitFutureRows(rows, "incident_date");
+  }, [incidentSeverityFilter, incidentTypeFilter, selectedResidentIdSet, selectedResidentIds.length, workspace.incidents]);
+
+  const residentUpcomingEvents = useMemo(() => {
+    const now = new Date();
+    const visitEvents = residentVisitationSplit.upcoming
+      .slice(0, 5)
+      .map((row) => ({
+        id: `visit-${row.visitation_id}`,
+        label: `${residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))} visitation`,
+        date: String(row.visit_date ?? ""),
+        detail: String(row.location_visited ?? row.visit_type ?? "Upcoming visitation"),
+      }));
+
+    const interventionEvents = residentInterventionSplit.upcoming
+      .slice(0, 5)
+      .map((row) => ({
+        id: `plan-${row.plan_id}`,
+        label: `${residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))} intervention target`,
+        date: String(row.target_date ?? ""),
+        detail: String(row.plan_category ?? row.status ?? "Upcoming intervention"),
+      }));
+
+    return [...visitEvents, ...interventionEvents]
+      .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
+      .slice(0, 6);
+  }, [residentInterventionSplit.upcoming, residentMap, residentVisitationSplit.upcoming]);
+
+  const filteredSupporters = useMemo(() => {
+    const query = deferredDonationSearch.trim().toLowerCase();
+    return [...workspace.supporters]
+      .filter((supporter) => {
+        const matchesType = donationTypeFilter.length === 0 || donationTypeFilter.includes(supporter.supporter_type ?? "");
+        const matchesRelationship =
+          donationRelationshipFilter.length === 0 || donationRelationshipFilter.includes(supporter.relationship_type ?? "");
+        const matchesStatus = donationStatusFilter.length === 0 || donationStatusFilter.includes(supporter.status ?? "");
+        const matchesRegion = donationRegionFilter.length === 0 || donationRegionFilter.includes(supporter.region ?? "");
+        const matchesCountry = donationCountryFilter.length === 0 || donationCountryFilter.includes(supporter.country ?? "");
+        const matchesSearch =
+          !query ||
+          [
+            supporterLabel(supporter),
+            supporter.supporter_type,
+            supporter.region,
+            supporter.status,
+            supporter.acquisition_channel,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query);
+        return matchesSearch && matchesType && matchesRelationship && matchesStatus && matchesRegion && matchesCountry;
+      })
+      .sort((left, right) => {
+        if (donationSort === "name") return supporterLabel(left).localeCompare(supporterLabel(right));
+        return compareDatesDescending(left.created_at, right.created_at);
+      });
+  }, [
+    deferredDonationSearch,
+    donationCountryFilter,
+    donationRegionFilter,
+    donationRelationshipFilter,
+    donationSort,
+    donationStatusFilter,
+    donationTypeFilter,
+    workspace.supporters,
+  ]);
+
+  const filteredDonations = useMemo(() => {
+    const query = deferredDonationSearch.trim().toLowerCase();
+    return [...workspace.donations]
+      .filter((donation) => {
+        const supporter = donation.supporter_id ? supporterMap.get(donation.supporter_id) ?? null : null;
+        const matchesSearch =
+          !query ||
+          [
+            supporter ? supporterLabel(supporter) : donation.supporter_name,
+            donation.donation_type,
+            donation.campaign_name,
+            donation.channel_source,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query);
+        const matchesType = donationTypeFilter.length === 0 || donationTypeFilter.includes(supporter?.supporter_type ?? "");
+        const matchesRelationship =
+          donationRelationshipFilter.length === 0 || donationRelationshipFilter.includes(supporter?.relationship_type ?? "");
+        const matchesStatus = donationStatusFilter.length === 0 || donationStatusFilter.includes(supporter?.status ?? "");
+        const matchesRegion = donationRegionFilter.length === 0 || donationRegionFilter.includes(supporter?.region ?? "");
+        const matchesCountry = donationCountryFilter.length === 0 || donationCountryFilter.includes(supporter?.country ?? "");
+        const matchesSupporter = !selectedSupporterId || donation.supporter_id === selectedSupporterId;
+        return matchesSearch && matchesType && matchesRelationship && matchesStatus && matchesRegion && matchesCountry && matchesSupporter;
+      })
+      .sort((left, right) => {
+        if (donationSort === "amount") {
+          return toNumber(right.amount ?? right.estimated_value) - toNumber(left.amount ?? left.estimated_value);
+        }
+        return compareDatesDescending(left.donation_date, right.donation_date);
+      });
+  }, [
+    deferredDonationSearch,
+    donationCountryFilter,
+    donationRegionFilter,
+    donationRelationshipFilter,
+    donationSort,
+    donationStatusFilter,
+    donationTypeFilter,
+    selectedSupporterId,
+    supporterMap,
+    workspace.donations,
+  ]);
+
+  const filteredInKind = useMemo(
+    () =>
+      workspace.inKind.filter((item) => {
+        if (!selectedSupporterId) return true;
+        const donation = item.donation_id ? donationMap.get(item.donation_id) ?? null : null;
+        return donation?.supporter_id === selectedSupporterId;
+      }),
+    [donationMap, selectedSupporterId, workspace.inKind],
+  );
+
+  const filteredAllocations = useMemo(
+    () =>
+      [...workspace.allocations]
+        .filter((allocation) => {
+          if (!selectedSupporterId) return true;
+          const donation = allocation.donation_id ? donationMap.get(allocation.donation_id) ?? null : null;
+          return donation?.supporter_id === selectedSupporterId;
+        })
+        .sort((left, right) => compareDatesDescending(left.allocation_date, right.allocation_date)),
+    [donationMap, selectedSupporterId, workspace.allocations],
+  );
+
+  const filteredSafehouses = useMemo(() => {
+    const query = deferredSafehouseSearch.trim().toLowerCase();
+    return [...workspace.safehouses]
+      .filter((safehouse) => {
+        const matchesSearch =
+          !query ||
+          [safehouse.name, safehouse.safehouse_code, safehouse.region, safehouse.city, safehouse.status]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query);
+        const matchesStatus = safehouseStatusFilter.length === 0 || safehouseStatusFilter.includes(safehouse.status ?? "");
+        const matchesRegion = safehouseRegionFilter.length === 0 || safehouseRegionFilter.includes(safehouse.region ?? "");
+        return matchesSearch && matchesStatus && matchesRegion;
+      })
+      .sort((left, right) => {
+        if (safehouseSort === "name") return asText(left.name, "").localeCompare(asText(right.name, ""));
+        if (safehouseSort === "recent") return compareDatesDescending(left.open_date, right.open_date);
+        const leftOccupancy = toNumber(left.current_occupancy) / Math.max(toNumber(left.capacity_girls), 1);
+        const rightOccupancy = toNumber(right.current_occupancy) / Math.max(toNumber(right.capacity_girls), 1);
+        return rightOccupancy - leftOccupancy;
+      });
+  }, [deferredSafehouseSearch, safehouseRegionFilter, safehouseSort, safehouseStatusFilter, workspace.safehouses]);
+
+  const safehouseAllocations = useMemo(
+    () =>
+      filteredAllocations.filter((allocation) => !selectedSafehouseId || allocation.safehouse_id === selectedSafehouseId),
+    [filteredAllocations, selectedSafehouseId],
+  );
+
+  const safehouseMetrics = useMemo(
+    () =>
+      [...workspace.monthlyMetrics]
+        .filter((metric) => !selectedSafehouseId || metric.safehouse_id === selectedSafehouseId)
+        .sort((left, right) => compareDatesDescending(left.month_start, right.month_start)),
+    [selectedSafehouseId, workspace.monthlyMetrics],
+  );
+
+  const dashboardKpis = useMemo(() => {
+    const activeResidents = workspace.residents.filter((resident) => (resident.case_status ?? "").toLowerCase() === "active").length;
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const newResidents = workspace.residents.filter((resident) => {
+      const date = new Date(String(resident.created_at ?? resident.date_of_admission ?? ""));
+      return !Number.isNaN(date.getTime()) && date >= monthStart;
+    }).length;
+    const upcomingVisitations = workspace.visitations.filter((row) => {
+      const date = new Date(String(row.visit_date ?? ""));
+      return !Number.isNaN(date.getTime()) && date >= now;
+    }).length;
+    const openIncidents = workspace.incidents.filter((row) => !String(row.resolved ?? "").toLowerCase().startsWith("true")).length;
+    const donationsThisMonth = workspace.donations
+      .filter((donation) => {
+        const date = new Date(String(donation.donation_date ?? ""));
+        return !Number.isNaN(date.getTime()) && date >= monthStart;
+      })
+      .reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0);
+    const totalCapacity = workspace.safehouses.reduce((sum, safehouse) => sum + toNumber(safehouse.capacity_girls), 0);
+    const totalOccupancy = workspace.safehouses.reduce((sum, safehouse) => sum + toNumber(safehouse.current_occupancy), 0);
+    const occupancy = totalCapacity ? `${Math.round((totalOccupancy / totalCapacity) * 100)}%` : "0%";
+    const totalAllocated = workspace.allocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0);
+    const totalDonated = workspace.donations.reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0);
+    const unallocated = Math.max(totalDonated - totalAllocated, 0);
+
+    return [
+      {
+        label: "Total Active Residents",
+        value: String(activeResidents),
+        detail: "Current open and active caseload",
+        icon: Users,
+      },
+      {
+        label: "New Residents This Month",
+        value: String(newResidents),
+        detail: "Residents added since the month opened",
+        icon: Sparkles,
+      },
+      {
+        label: "Upcoming Visitations",
+        value: String(upcomingVisitations),
+        detail: "Scheduled follow-ups still ahead",
+        icon: CalendarDays,
+      },
+      {
+        label: "Open Incidents",
+        value: String(openIncidents),
+        detail: "Incidents still needing closure",
+        icon: AlertTriangle,
+      },
+      {
+        label: "Total Donations This Month",
+        value: formatCurrency(donationsThisMonth),
+        detail: "Combined monetary and estimated value",
+        icon: Heart,
+      },
+      {
+        label: "Safe House Occupancy %",
+        value: occupancy,
+        detail: "Current occupancy across all houses",
+        icon: Building2,
+      },
+      {
+        label: "Unallocated Donations",
+        value: formatCurrency(unallocated),
+        detail: "Donation value still awaiting assignment",
+        icon: ClipboardList,
+      },
+    ];
+  }, [workspace.allocations, workspace.donations, workspace.incidents, workspace.residents, workspace.safehouses, workspace.visitations]);
+
+  const dashboardRecentIncidents = useMemo(
+    () => [...workspace.incidents].sort((left, right) => compareDatesDescending(left.incident_date, right.incident_date)).slice(0, 6),
+    [workspace.incidents],
+  );
+  const dashboardUpcomingVisitations = residentVisitationSplit.upcoming.slice(0, 6);
+  const dashboardRecentDonations = filteredDonations.slice(0, 6);
+
+  const occupancyChartData = useMemo(
+    () =>
+      workspace.safehouses.map((safehouse, index) => ({
+        name: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
+        occupancy: toNumber(safehouse.current_occupancy),
+        capacity: toNumber(safehouse.capacity_girls),
+        fill: CHART_COLORS[index % CHART_COLORS.length],
+      })),
+    [workspace.safehouses],
+  );
+
+  const recentActivity = useMemo(() => {
+    const incidentActivity = workspace.incidents.slice(0, 4).map((row) => ({
+      id: `incident-${row.incident_id}`,
+      label: `${row.incident_type ?? "Incident"} logged`,
+      detail: residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident)),
+      date: String(row.incident_date ?? ""),
+    }));
+    const donationActivity = workspace.donations.slice(0, 4).map((row) => ({
+      id: `donation-${row.donation_id}`,
+      label: `${row.donation_type ?? "Donation"} received`,
+      detail: row.supporter_id ? supporterLabel(supporterMap.get(row.supporter_id) ?? ({} as Supporter)) : "Anonymous",
+      date: String(row.donation_date ?? ""),
+    }));
+    return [...incidentActivity, ...donationActivity]
+      .sort((left, right) => compareDatesDescending(left.date, right.date))
+      .slice(0, 8);
+  }, [residentMap, supporterMap, workspace.donations, workspace.incidents]);
+
+  const donationSummary = useMemo(() => {
+    const total = filteredDonations.reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0);
+    const recurring = filteredDonations.filter((donation) => donation.is_recurring).length;
+    const inKindValue = filteredInKind.reduce(
+      (sum, item) => sum + toNumber(item.quantity) * toNumber(item.estimated_unit_value),
+      0,
+    );
+    const allocated = filteredAllocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0);
+    return { total, recurring, inKindValue, allocated };
+  }, [filteredAllocations, filteredDonations, filteredInKind]);
+
+  const supporterDonationTotals = useMemo(() => {
+    const totals = new Map<number, number>();
+    filteredDonations.forEach((donation) => {
+      if (!donation.supporter_id) return;
+      totals.set(donation.supporter_id, (totals.get(donation.supporter_id) ?? 0) + toNumber(donation.amount ?? donation.estimated_value));
+    });
+    return Array.from(totals.entries())
+      .map(([supporterId, value]) => ({
+        name: supporterLabel(supporterMap.get(supporterId) ?? ({} as Supporter)),
+        value,
+      }))
+      .sort((left, right) => right.value - left.value)
+      .slice(0, 6);
+  }, [filteredDonations, supporterMap]);
+
+  const outreachKpis = useMemo(() => {
+    const totalImpressions = workspace.socialPosts.reduce((sum, post) => sum + toNumber(post.impressions), 0);
+    const totalReferrals = workspace.socialPosts.reduce((sum, post) => sum + toNumber(post.donation_referrals), 0);
+    const totalEstimatedValue = workspace.socialPosts.reduce((sum, post) => sum + toNumber(post.estimated_donation_value_php), 0);
+    const avgEngagementRate =
+      workspace.socialPosts.length > 0
+        ? workspace.socialPosts.reduce((sum, post) => sum + toNumber(post.engagement_rate), 0) / workspace.socialPosts.length
+        : 0;
+    return {
+      totalImpressions,
+      totalReferrals,
+      totalEstimatedValue,
+      avgEngagementRate,
+    };
+  }, [workspace.socialPosts]);
+
+  const outreachPlatformChart = useMemo(() => {
+    const grouped = new Map<string, { impressions: number; referrals: number }>();
+    workspace.socialPosts.forEach((post) => {
+      const key = post.platform ?? "Unknown";
+      const current = grouped.get(key) ?? { impressions: 0, referrals: 0 };
+      current.impressions += toNumber(post.impressions);
+      current.referrals += toNumber(post.donation_referrals);
+      grouped.set(key, current);
+    });
+    return Array.from(grouped.entries()).map(([platform, metrics], index) => ({
+      platform,
+      impressions: metrics.impressions,
+      referrals: metrics.referrals,
+      fill: CHART_COLORS[index % CHART_COLORS.length],
+    }));
+  }, [workspace.socialPosts]);
+
+  const publicImpactTimeline = useMemo(
+    () =>
+      [...workspace.publicImpact]
+        .sort((left, right) => compareDatesDescending(left.snapshot_date, right.snapshot_date))
+        .slice(0, 8)
+        .reverse()
+        .map((snapshot) => ({
+          label: asDisplayDate(snapshot.snapshot_date, "Unknown"),
+          published: String(snapshot.is_published).toLowerCase() === "true" ? 1 : 0,
+        })),
+    [workspace.publicImpact],
+  );
+
+  const reportsTrendData = useMemo(() => {
+    const byMonth = new Map<string, { incidents: number; occupancy: number; donations: number }>();
+
+    workspace.incidents.forEach((incident) => {
+      const raw = String(incident.incident_date ?? "");
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const current = byMonth.get(key) ?? { incidents: 0, occupancy: 0, donations: 0 };
+      current.incidents += 1;
+      byMonth.set(key, current);
+    });
+
+    workspace.monthlyMetrics.forEach((metric) => {
+      const raw = String(metric.month_start ?? "");
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const current = byMonth.get(key) ?? { incidents: 0, occupancy: 0, donations: 0 };
+      current.occupancy += toNumber(metric.active_residents);
+      byMonth.set(key, current);
+    });
+
+    workspace.donations.forEach((donation) => {
+      const raw = String(donation.donation_date ?? "");
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const current = byMonth.get(key) ?? { incidents: 0, occupancy: 0, donations: 0 };
+      current.donations += toNumber(donation.amount ?? donation.estimated_value);
+      byMonth.set(key, current);
+    });
+
+    return Array.from(byMonth.entries())
+      .sort((left, right) => left[0].localeCompare(right[0]))
+      .slice(-8)
+      .map(([month, values]) => ({
+        month,
+        incidents: values.incidents,
+        occupancy: values.occupancy,
+        donations: Math.round(values.donations / 1000),
+      }));
+  }, [workspace.donations, workspace.incidents, workspace.monthlyMetrics]);
+
+  const residentsTablePage = PaginatedRows({ rows: filteredResidentsTable, page: getPage("residents"), perPage: getPageSize("residents") });
+  const processTablePage = PaginatedRows({ rows: residentProcessSplit.currentAndPast, page: getPage("process-records"), perPage: getPageSize("process-records") });
+  const visitationsTablePage = PaginatedRows({ rows: residentVisitationSplit.currentAndPast, page: getPage("visitations"), perPage: getPageSize("visitations") });
+  const educationTablePage = PaginatedRows({ rows: residentEducationSplit.currentAndPast, page: getPage("education"), perPage: getPageSize("education") });
+  const healthTablePage = PaginatedRows({ rows: residentHealthSplit.currentAndPast, page: getPage("health"), perPage: getPageSize("health") });
+  const interventionsTablePage = PaginatedRows({ rows: residentInterventionSplit.currentAndPast, page: getPage("interventions"), perPage: getPageSize("interventions") });
+  const incidentsTablePage = PaginatedRows({ rows: residentIncidentSplit.currentAndPast, page: getPage("incidents"), perPage: getPageSize("incidents") });
+  const supportersTablePage = PaginatedRows({ rows: filteredSupporters, page: getPage("supporters"), perPage: getPageSize("supporters") });
+  const donationsTablePage = PaginatedRows({ rows: filteredDonations, page: getPage("donations"), perPage: getPageSize("donations") });
+  const inKindTablePage = PaginatedRows({ rows: filteredInKind, page: getPage("in-kind"), perPage: getPageSize("in-kind") });
+  const allocationsTablePage = PaginatedRows({ rows: filteredAllocations, page: getPage("allocations"), perPage: getPageSize("allocations") });
+  const safehousesTablePage = PaginatedRows({ rows: filteredSafehouses, page: getPage("safe-houses"), perPage: getPageSize("safe-houses") });
+  const allocationHistoryTablePage = PaginatedRows({ rows: safehouseAllocations, page: getPage("allocation-history"), perPage: getPageSize("allocation-history") });
+  const monthlyMetricsTablePage = PaginatedRows({ rows: safehouseMetrics, page: getPage("monthly-metrics"), perPage: getPageSize("monthly-metrics") });
+  const outreachPostsTablePage = PaginatedRows({
+    rows: [...workspace.socialPosts].sort((left, right) => compareDatesDescending(left.created_at, right.created_at)),
+    page: getPage("social-posts"),
+    perPage: getPageSize("social-posts"),
+  });
+
+  const residentFields: FormField[] = [
+    { key: "case_control_no", label: "Case Control No." },
+    { key: "internal_code", label: "Internal Code" },
+    {
+      key: "safehouse_id",
+      label: "Safe House",
+      type: "select",
+      options: workspace.safehouses.map((safehouse) => ({
+        value: String(safehouse.safehouse_id),
+        label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
+      })),
+    },
+    {
+      key: "case_status",
+      label: "Case Status",
+      type: "select",
+      options: ["Active", "Open", "Closed", "Transferred"].map((entry) => ({ value: entry, label: entry })),
+    },
+    {
+      key: "sex",
+      label: "Sex",
+      type: "select",
+      options: ["F", "M"].map((entry) => ({ value: entry, label: entry })),
+    },
+    { key: "date_of_birth", label: "Date of Birth", type: "date" },
+    { key: "place_of_birth", label: "Place of Birth" },
+    { key: "religion", label: "Religion" },
+    { key: "case_category", label: "Case Category" },
+    { key: "date_of_admission", label: "Intake Date", type: "date" },
+    { key: "assigned_social_worker", label: "Assigned Social Worker" },
+    {
+      key: "current_risk_level",
+      label: "Risk Status",
+      type: "select",
+      options: ["Low", "Medium", "High", "Critical"].map((entry) => ({ value: entry, label: entry })),
+    },
+    { key: "notes_restricted", label: "Notes", type: "textarea" },
+  ];
+
+  const supporterFields: FormField[] = [
+    {
+      key: "supporter_type",
+      label: "Supporter Type",
+      type: "select",
+      options: [
+        "MonetaryDonor",
+        "InKindDonor",
+        "SocialMediaAdvocate",
+        "Volunteer",
+        "PartnerOrganization",
+      ].map((entry) => ({ value: entry, label: entry })),
+    },
+    { key: "display_name", label: "Display Name" },
+    { key: "organization_name", label: "Organization Name" },
+    { key: "first_name", label: "First Name" },
+    { key: "last_name", label: "Last Name" },
+    { key: "relationship_type", label: "Relationship Type" },
+    { key: "region", label: "Region" },
+    { key: "country", label: "Country" },
+    { key: "email", label: "Email", type: "email" },
+    { key: "phone", label: "Phone" },
+    { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"].map((entry) => ({ value: entry, label: entry })) },
+    { key: "first_donation_date", label: "First Donation Date", type: "date" },
+    { key: "acquisition_channel", label: "Acquisition Channel" },
+  ];
+
+  const donationFields: FormField[] = [
+    {
+      key: "supporter_id",
+      label: "Supporter",
+      type: "select",
+      options: workspace.supporters.map((supporter) => ({
+        value: String(supporter.supporter_id),
+        label: supporterLabel(supporter),
+      })),
+    },
+    {
+      key: "donation_type",
+      label: "Donation Type",
+      type: "select",
+      options: ["Monetary", "InKind"].map((entry) => ({ value: entry, label: entry })),
+    },
+    { key: "donation_date", label: "Donation Date", type: "date" },
+    {
+      key: "is_recurring",
+      label: "Recurring",
+      type: "select",
+      options: [
+        { value: "true", label: "Yes" },
+        { value: "false", label: "No" },
+      ],
+    },
+    { key: "campaign_name", label: "Campaign Name" },
+    { key: "channel_source", label: "Channel Source" },
+    { key: "currency_code", label: "Currency Code" },
+    { key: "amount", label: "Amount", type: "number" },
+    { key: "estimated_value", label: "Estimated Value", type: "number" },
+    { key: "impact_unit", label: "Impact Unit" },
+    { key: "notes", label: "Notes", type: "textarea" },
+    { key: "referral_post_id", label: "Referral Post ID" },
+  ];
+
+  const inKindFields: FormField[] = [
+    {
+      key: "donation_id",
+      label: "Donation",
+      type: "select",
+      options: workspace.donations.map((donation) => ({
+        value: String(donation.donation_id),
+        label: `Donation #${donation.donation_id}`,
+      })),
+    },
+    { key: "item_name", label: "Item Name" },
+    { key: "item_category", label: "Category" },
+    { key: "quantity", label: "Quantity", type: "number" },
+    { key: "unit_of_measure", label: "Unit of Measure" },
+    { key: "estimated_unit_value", label: "Estimated Unit Value", type: "number" },
+    { key: "intended_use", label: "Intended Use" },
+    { key: "received_condition", label: "Received Condition" },
+  ];
+
+  const allocationFields: FormField[] = [
+    {
+      key: "donation_id",
+      label: "Donation",
+      type: "select",
+      options: workspace.donations.map((donation) => ({
+        value: String(donation.donation_id),
+        label: `Donation #${donation.donation_id}`,
+      })),
+    },
+    {
+      key: "safehouse_id",
+      label: "Safe House",
+      type: "select",
+      options: workspace.safehouses.map((safehouse) => ({
+        value: String(safehouse.safehouse_id),
+        label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
+      })),
+    },
+    { key: "program_area", label: "Program Area" },
+    { key: "amount_allocated", label: "Amount Allocated", type: "number" },
+    { key: "allocation_date", label: "Allocation Date", type: "date" },
+    { key: "allocation_notes", label: "Allocation Notes", type: "textarea" },
+  ];
+
+  const safehouseFields: FormField[] = [
+    { key: "safehouse_code", label: "Safe House Code" },
+    { key: "name", label: "Name" },
+    { key: "region", label: "Region" },
+    { key: "city", label: "City" },
+    { key: "province", label: "Province" },
+    { key: "country", label: "Country" },
+    { key: "open_date", label: "Open Date", type: "date" },
+    { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"].map((entry) => ({ value: entry, label: entry })) },
+    { key: "capacity_girls", label: "Capacity Girls", type: "number" },
+    { key: "capacity_staff", label: "Capacity Staff", type: "number" },
+    { key: "current_occupancy", label: "Current Occupancy", type: "number" },
+    { key: "notes", label: "Notes", type: "textarea" },
+  ];
+  const residentSelectOptions = workspace.residents.map((resident) => ({
+    value: String(resident.resident_id),
+    label: residentLabel(resident),
+  }));
+  const processFields: FormField[] = [
+    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
+    { key: "session_date", label: "Session Date", type: "date" },
+    { key: "social_worker", label: "Social Worker" },
+    { key: "session_type", label: "Session Type" },
+    { key: "session_duration_minutes", label: "Duration (minutes)", type: "number" },
+    { key: "emotional_state_observed", label: "Emotional State Observed" },
+    { key: "emotional_state_end", label: "Emotional State End" },
+    { key: "session_narrative", label: "Session Narrative", type: "textarea" },
+    { key: "interventions_applied", label: "Interventions Applied" },
+    { key: "follow_up_actions", label: "Follow-up Actions" },
+    { key: "progress_noted", label: "Progress Noted", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+    { key: "concerns_flagged", label: "Concerns Flagged", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+    { key: "referral_made", label: "Referral Made", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+    { key: "notes_restricted", label: "Notes", type: "textarea" },
+  ];
+  const visitationFields: FormField[] = [
+    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
+    { key: "visit_date", label: "Visit Date", type: "date" },
+    { key: "social_worker", label: "Social Worker" },
+    { key: "visit_type", label: "Visit Type" },
+    { key: "location_visited", label: "Location Visited" },
+    { key: "family_members_present", label: "Family Members Present" },
+    { key: "purpose", label: "Purpose", type: "textarea" },
+    { key: "observations", label: "Observations", type: "textarea" },
+    { key: "family_cooperation_level", label: "Family Cooperation" },
+    { key: "safety_concerns_noted", label: "Safety Concerns", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+    { key: "follow_up_needed", label: "Follow-up Needed", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+    { key: "follow_up_notes", label: "Follow-up Notes", type: "textarea" },
+    { key: "visit_outcome", label: "Visit Outcome" },
+  ];
+  const educationFields: FormField[] = [
+    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
+    { key: "record_date", label: "Record Date", type: "date" },
+    { key: "education_level", label: "Education Level" },
+    { key: "school_name", label: "School Name" },
+    { key: "enrollment_status", label: "Enrollment Status" },
+    { key: "attendance_rate", label: "Attendance Rate", type: "number" },
+    { key: "progress_percent", label: "Progress Percent", type: "number" },
+    { key: "completion_status", label: "Completion Status" },
+    { key: "notes", label: "Notes", type: "textarea" },
+  ];
+  const healthFields: FormField[] = [
+    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
+    { key: "record_date", label: "Record Date", type: "date" },
+    { key: "general_health_score", label: "General Health Score", type: "number" },
+    { key: "nutrition_score", label: "Nutrition Score", type: "number" },
+    { key: "sleep_quality_score", label: "Sleep Quality Score", type: "number" },
+    { key: "energy_level_score", label: "Energy Score", type: "number" },
+    { key: "height_cm", label: "Height (cm)", type: "number" },
+    { key: "weight_kg", label: "Weight (kg)", type: "number" },
+    { key: "bmi", label: "BMI", type: "number" },
+    { key: "medical_checkup_done", label: "Medical Checkup", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+    { key: "dental_checkup_done", label: "Dental Checkup", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+    { key: "psychological_checkup_done", label: "Psychological Checkup", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+    { key: "notes", label: "Notes", type: "textarea" },
+  ];
+  const interventionFields: FormField[] = [
+    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
+    { key: "plan_category", label: "Plan Category" },
+    { key: "plan_description", label: "Plan Description", type: "textarea" },
+    { key: "services_provided", label: "Services Provided" },
+    { key: "target_value", label: "Target Value", type: "number" },
+    { key: "target_date", label: "Target Date", type: "date" },
+    { key: "status", label: "Status" },
+    { key: "case_conference_date", label: "Case Conference Date", type: "date" },
+  ];
+  const incidentFields: FormField[] = [
+    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
+    { key: "safehouse_id", label: "Safe House", type: "select", options: workspace.safehouses.map((safehouse) => ({ value: String(safehouse.safehouse_id), label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}` })) },
+    { key: "incident_date", label: "Incident Date", type: "date" },
+    { key: "incident_type", label: "Incident Type" },
+    { key: "severity", label: "Severity" },
+    { key: "description", label: "Description", type: "textarea" },
+    { key: "response_taken", label: "Response Taken", type: "textarea" },
+    { key: "resolved", label: "Resolved", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+    { key: "resolution_date", label: "Resolution Date", type: "date" },
+    { key: "reported_by", label: "Reported By" },
+    { key: "follow_up_required", label: "Follow-up Required", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+  ];
+
+  const openResidentForm = (resident?: Resident) => {
+    setEditingResidentId(resident?.resident_id ?? null);
+    setResidentForm({
+      case_control_no: resident?.case_control_no ?? "",
+      internal_code: resident?.internal_code ?? "",
+      safehouse_id: resident?.safehouse_id ? String(resident.safehouse_id) : "",
+      case_status: resident?.case_status ?? "Active",
+      sex: resident?.sex ?? "F",
+      date_of_birth: resident?.date_of_birth ?? "",
+      place_of_birth: resident?.place_of_birth ?? "",
+      religion: resident?.religion ?? "",
+      case_category: resident?.case_category ?? "",
+      date_of_admission: resident?.date_of_admission ?? "",
+      assigned_social_worker: resident?.assigned_social_worker ?? "",
+      current_risk_level: resident?.current_risk_level ?? "Medium",
+      notes_restricted: resident?.notes_restricted ?? "",
+    });
+    setResidentFormOpen(true);
+  };
+
+  const openSupporterForm = (supporter?: Supporter) => {
+    setEditingSupporterId(supporter?.supporter_id ?? null);
+    setSupporterForm({
+      supporter_type: supporter?.supporter_type ?? "MonetaryDonor",
+      display_name: supporter?.display_name ?? "",
+      organization_name: supporter?.organization_name ?? "",
+      first_name: supporter?.first_name ?? "",
+      last_name: supporter?.last_name ?? "",
+      relationship_type: supporter?.relationship_type ?? "",
+      region: supporter?.region ?? "",
+      country: supporter?.country ?? "Philippines",
+      email: supporter?.email ?? "",
+      phone: supporter?.phone ?? "",
+      status: supporter?.status ?? "Active",
+      first_donation_date: supporter?.first_donation_date ?? "",
+      acquisition_channel: supporter?.acquisition_channel ?? "",
+    });
+    setSupporterFormOpen(true);
+  };
+
+  const openDonationForm = (donation?: Donation) => {
+    setEditingDonationId(donation?.donation_id ?? null);
+    setDonationForm({
+      supporter_id: donation?.supporter_id ? String(donation.supporter_id) : "",
+      donation_type: donation?.donation_type ?? "Monetary",
+      donation_date: donation?.donation_date ?? "",
+      is_recurring: toBooleanString(donation?.is_recurring),
+      campaign_name: donation?.campaign_name ?? "",
+      channel_source: donation?.channel_source ?? "",
+      currency_code: donation?.currency_code ?? "PHP",
+      amount: donation?.amount != null ? String(donation.amount) : "",
+      estimated_value: donation?.estimated_value != null ? String(donation.estimated_value) : "",
+      impact_unit: donation?.impact_unit ?? "",
+      notes: donation?.notes ?? "",
+      referral_post_id: donation?.referral_post_id != null ? String(donation.referral_post_id) : "",
+    });
+    setDonationFormOpen(true);
+  };
+
+  const openInKindForm = (item?: InKindItem) => {
+    setEditingInKindId(item?.item_id ?? null);
+    setInKindForm({
+      donation_id: item?.donation_id ? String(item.donation_id) : "",
+      item_name: item?.item_name ?? "",
+      item_category: item?.item_category ?? "",
+      quantity: item?.quantity != null ? String(item.quantity) : "",
+      unit_of_measure: item?.unit_of_measure ?? "",
+      estimated_unit_value: item?.estimated_unit_value != null ? String(item.estimated_unit_value) : "",
+      intended_use: item?.intended_use ?? "",
+      received_condition: item?.received_condition ?? "",
+    });
+    setInKindFormOpen(true);
+  };
+
+  const openAllocationForm = (allocation?: DonationAllocation) => {
+    setEditingAllocationId(allocation?.allocation_id ?? null);
+    setAllocationForm({
+      donation_id: allocation?.donation_id ? String(allocation.donation_id) : "",
+      safehouse_id: allocation?.safehouse_id ? String(allocation.safehouse_id) : "",
+      program_area: allocation?.program_area ?? "",
+      amount_allocated: allocation?.amount_allocated != null ? String(allocation.amount_allocated) : "",
+      allocation_date: allocation?.allocation_date ?? "",
+      allocation_notes: allocation?.allocation_notes ?? "",
+    });
+    setAllocationFormOpen(true);
+  };
+
+  const openSafehouseForm = (safehouse?: Safehouse) => {
+    setEditingSafehouseId(safehouse?.safehouse_id ?? null);
+    setSafehouseForm({
+      safehouse_code: safehouse?.safehouse_code ?? "",
+      name: safehouse?.name ?? "",
+      region: safehouse?.region ?? "",
+      city: safehouse?.city ?? "",
+      province: safehouse?.province ?? "",
+      country: safehouse?.country ?? "Philippines",
+      open_date: safehouse?.open_date ?? "",
+      status: safehouse?.status ?? "Active",
+      capacity_girls: safehouse?.capacity_girls != null ? String(safehouse.capacity_girls) : "",
+      capacity_staff: safehouse?.capacity_staff != null ? String(safehouse.capacity_staff) : "",
+      current_occupancy: safehouse?.current_occupancy != null ? String(safehouse.current_occupancy) : "",
+      notes: safehouse?.notes ?? "",
+    });
+    setSafehouseFormOpen(true);
+  };
+
+  const openProcessForm = (row?: RecordRow) => {
+    setEditingProcessId(row ? toNumber(row.recording_id) : null);
+    setProcessForm({
+      resident_id: row?.resident_id ? String(row.resident_id) : selectedResidentIds[0] ? String(selectedResidentIds[0]) : "",
+      session_date: String(row?.session_date ?? ""),
+      social_worker: String(row?.social_worker ?? ""),
+      session_type: String(row?.session_type ?? ""),
+      session_duration_minutes: row?.session_duration_minutes ? String(row.session_duration_minutes) : "",
+      emotional_state_observed: String(row?.emotional_state_observed ?? ""),
+      emotional_state_end: String(row?.emotional_state_end ?? ""),
+      session_narrative: String(row?.session_narrative ?? ""),
+      interventions_applied: String(row?.interventions_applied ?? ""),
+      follow_up_actions: String(row?.follow_up_actions ?? ""),
+      progress_noted: toBooleanString(row?.progress_noted),
+      concerns_flagged: toBooleanString(row?.concerns_flagged),
+      referral_made: toBooleanString(row?.referral_made),
+      notes_restricted: String(row?.notes_restricted ?? ""),
+    });
+    setProcessFormOpen(true);
+  };
+
+  const openVisitationForm = (row?: RecordRow) => {
+    setEditingVisitationId(row ? toNumber(row.visitation_id) : null);
+    setVisitationForm({
+      resident_id: row?.resident_id ? String(row.resident_id) : selectedResidentIds[0] ? String(selectedResidentIds[0]) : "",
+      visit_date: String(row?.visit_date ?? ""),
+      social_worker: String(row?.social_worker ?? ""),
+      visit_type: String(row?.visit_type ?? ""),
+      location_visited: String(row?.location_visited ?? ""),
+      family_members_present: String(row?.family_members_present ?? ""),
+      purpose: String(row?.purpose ?? ""),
+      observations: String(row?.observations ?? ""),
+      family_cooperation_level: String(row?.family_cooperation_level ?? ""),
+      safety_concerns_noted: toBooleanString(row?.safety_concerns_noted),
+      follow_up_needed: toBooleanString(row?.follow_up_needed),
+      follow_up_notes: String(row?.follow_up_notes ?? ""),
+      visit_outcome: String(row?.visit_outcome ?? ""),
+    });
+    setVisitationFormOpen(true);
+  };
+
+  const openEducationForm = (row?: RecordRow) => {
+    setEditingEducationId(row ? toNumber(row.education_record_id) : null);
+    setEducationForm({
+      resident_id: row?.resident_id ? String(row.resident_id) : selectedResidentIds[0] ? String(selectedResidentIds[0]) : "",
+      record_date: String(row?.record_date ?? ""),
+      education_level: String(row?.education_level ?? ""),
+      school_name: String(row?.school_name ?? ""),
+      enrollment_status: String(row?.enrollment_status ?? ""),
+      attendance_rate: row?.attendance_rate ? String(row.attendance_rate) : "",
+      progress_percent: row?.progress_percent ? String(row.progress_percent) : "",
+      completion_status: String(row?.completion_status ?? ""),
+      notes: String(row?.notes ?? ""),
+    });
+    setEducationFormOpen(true);
+  };
+
+  const openHealthForm = (row?: RecordRow) => {
+    setEditingHealthId(row ? toNumber(row.health_record_id) : null);
+    setHealthForm({
+      resident_id: row?.resident_id ? String(row.resident_id) : selectedResidentIds[0] ? String(selectedResidentIds[0]) : "",
+      record_date: String(row?.record_date ?? ""),
+      general_health_score: row?.general_health_score ? String(row.general_health_score) : "",
+      nutrition_score: row?.nutrition_score ? String(row.nutrition_score) : "",
+      sleep_quality_score: row?.sleep_quality_score ? String(row.sleep_quality_score) : "",
+      energy_level_score: row?.energy_level_score ? String(row.energy_level_score) : "",
+      height_cm: row?.height_cm ? String(row.height_cm) : "",
+      weight_kg: row?.weight_kg ? String(row.weight_kg) : "",
+      bmi: row?.bmi ? String(row.bmi) : "",
+      medical_checkup_done: toBooleanString(row?.medical_checkup_done),
+      dental_checkup_done: toBooleanString(row?.dental_checkup_done),
+      psychological_checkup_done: toBooleanString(row?.psychological_checkup_done),
+      notes: String(row?.notes ?? ""),
+    });
+    setHealthFormOpen(true);
+  };
+
+  const openInterventionForm = (row?: RecordRow) => {
+    setEditingInterventionId(row ? toNumber(row.plan_id) : null);
+    setInterventionForm({
+      resident_id: row?.resident_id ? String(row.resident_id) : selectedResidentIds[0] ? String(selectedResidentIds[0]) : "",
+      plan_category: String(row?.plan_category ?? ""),
+      plan_description: String(row?.plan_description ?? ""),
+      services_provided: String(row?.services_provided ?? ""),
+      target_value: row?.target_value ? String(row.target_value) : "",
+      target_date: String(row?.target_date ?? ""),
+      status: String(row?.status ?? ""),
+      case_conference_date: String(row?.case_conference_date ?? ""),
+    });
+    setInterventionFormOpen(true);
+  };
+
+  const openIncidentForm = (row?: RecordRow) => {
+    setEditingIncidentId(row ? toNumber(row.incident_id) : null);
+    setIncidentForm({
+      resident_id: row?.resident_id ? String(row.resident_id) : selectedResidentIds[0] ? String(selectedResidentIds[0]) : "",
+      safehouse_id: row?.safehouse_id ? String(row.safehouse_id) : "",
+      incident_date: String(row?.incident_date ?? ""),
+      incident_type: String(row?.incident_type ?? ""),
+      severity: String(row?.severity ?? ""),
+      description: String(row?.description ?? ""),
+      response_taken: String(row?.response_taken ?? ""),
+      resolved: toBooleanString(row?.resolved),
+      resolution_date: String(row?.resolution_date ?? ""),
+      reported_by: String(row?.reported_by ?? ""),
+      follow_up_required: toBooleanString(row?.follow_up_required),
+    });
+    setIncidentFormOpen(true);
+  };
+
+  const submitResidentForm = () => {
+    const payload = {
+      case_control_no: residentForm.case_control_no || null,
+      internal_code: residentForm.internal_code || null,
+      safehouse_id: toNullableNumber(residentForm.safehouse_id),
+      case_status: residentForm.case_status || null,
+      sex: residentForm.sex || null,
+      date_of_birth: residentForm.date_of_birth || null,
+      place_of_birth: residentForm.place_of_birth || null,
+      religion: residentForm.religion || null,
+      case_category: residentForm.case_category || null,
+      date_of_admission: residentForm.date_of_admission || null,
+      assigned_social_worker: residentForm.assigned_social_worker || null,
+      current_risk_level: residentForm.current_risk_level || null,
+      notes_restricted: residentForm.notes_restricted || null,
+    };
+    if (editingResidentId) {
+      updateMutation.mutate({ table: "residents", id: editingResidentId, payload });
+    } else {
+      createMutation.mutate({ table: "residents", payload });
+    }
+    setResidentFormOpen(false);
+  };
+
+  const submitSupporterForm = () => {
+    const payload = Object.fromEntries(
+      Object.entries(supporterForm).map(([key, value]) => [key, value.trim() ? value : null]),
+    );
+    if (editingSupporterId) {
+      updateMutation.mutate({ table: "supporters", id: editingSupporterId, payload });
+    } else {
+      createMutation.mutate({ table: "supporters", payload });
+    }
+    setSupporterFormOpen(false);
+  };
+
+  const submitDonationForm = () => {
+    const payload = {
+      supporter_id: toNullableNumber(donationForm.supporter_id),
+      donation_type: donationForm.donation_type || null,
+      donation_date: donationForm.donation_date || null,
+      is_recurring: toNullableBoolean(donationForm.is_recurring),
+      campaign_name: donationForm.campaign_name || null,
+      channel_source: donationForm.channel_source || null,
+      currency_code: donationForm.currency_code || null,
+      amount: toNullableNumber(donationForm.amount),
+      estimated_value: toNullableNumber(donationForm.estimated_value),
+      impact_unit: donationForm.impact_unit || null,
+      notes: donationForm.notes || null,
+      referral_post_id: toNullableNumber(donationForm.referral_post_id),
+    };
+    if (editingDonationId) {
+      updateMutation.mutate({ table: "donations", id: editingDonationId, payload });
+    } else {
+      createMutation.mutate({ table: "donations", payload });
+    }
+    setDonationFormOpen(false);
+  };
+
+  const submitInKindForm = () => {
+    const payload = {
+      donation_id: toNullableNumber(inKindForm.donation_id),
+      item_name: inKindForm.item_name || null,
+      item_category: inKindForm.item_category || null,
+      quantity: toNullableNumber(inKindForm.quantity),
+      unit_of_measure: inKindForm.unit_of_measure || null,
+      estimated_unit_value: toNullableNumber(inKindForm.estimated_unit_value),
+      intended_use: inKindForm.intended_use || null,
+      received_condition: inKindForm.received_condition || null,
+    };
+    if (editingInKindId) {
+      updateMutation.mutate({ table: "in_kind_donation_items", id: editingInKindId, payload });
+    } else {
+      createMutation.mutate({ table: "in_kind_donation_items", payload });
+    }
+    setInKindFormOpen(false);
+  };
+
+  const submitAllocationForm = () => {
+    const payload = {
+      donation_id: toNullableNumber(allocationForm.donation_id),
+      safehouse_id: toNullableNumber(allocationForm.safehouse_id),
+      program_area: allocationForm.program_area || null,
+      amount_allocated: toNullableNumber(allocationForm.amount_allocated),
+      allocation_date: allocationForm.allocation_date || null,
+      allocation_notes: allocationForm.allocation_notes || null,
+    };
+    if (editingAllocationId) {
+      updateMutation.mutate({ table: "donation_allocations", id: editingAllocationId, payload });
+    } else {
+      createMutation.mutate({ table: "donation_allocations", payload });
+    }
+    setAllocationFormOpen(false);
+  };
+
+  const submitSafehouseForm = () => {
+    const payload = {
+      safehouse_code: safehouseForm.safehouse_code || null,
+      name: safehouseForm.name || null,
+      region: safehouseForm.region || null,
+      city: safehouseForm.city || null,
+      province: safehouseForm.province || null,
+      country: safehouseForm.country || null,
+      open_date: safehouseForm.open_date || null,
+      status: safehouseForm.status || null,
+      capacity_girls: toNullableNumber(safehouseForm.capacity_girls),
+      capacity_staff: toNullableNumber(safehouseForm.capacity_staff),
+      current_occupancy: toNullableNumber(safehouseForm.current_occupancy),
+      notes: safehouseForm.notes || null,
+    };
+    if (editingSafehouseId) {
+      updateMutation.mutate({ table: "safehouses", id: editingSafehouseId, payload });
+    } else {
+      createMutation.mutate({ table: "safehouses", payload });
+    }
+    setSafehouseFormOpen(false);
+  };
+
+  const submitProcessForm = () => {
+    const payload = {
+      resident_id: toNullableNumber(processForm.resident_id),
+      session_date: processForm.session_date || null,
+      social_worker: processForm.social_worker || null,
+      session_type: processForm.session_type || null,
+      session_duration_minutes: toNullableNumber(processForm.session_duration_minutes),
+      emotional_state_observed: processForm.emotional_state_observed || null,
+      emotional_state_end: processForm.emotional_state_end || null,
+      session_narrative: processForm.session_narrative || null,
+      interventions_applied: processForm.interventions_applied || null,
+      follow_up_actions: processForm.follow_up_actions || null,
+      progress_noted: toNullableBoolean(processForm.progress_noted),
+      concerns_flagged: toNullableBoolean(processForm.concerns_flagged),
+      referral_made: toNullableBoolean(processForm.referral_made),
+      notes_restricted: processForm.notes_restricted || null,
+    };
+    if (editingProcessId) updateMutation.mutate({ table: "process_recordings", id: editingProcessId, payload });
+    else createMutation.mutate({ table: "process_recordings", payload });
+    setProcessFormOpen(false);
+  };
+
+  const submitVisitationForm = () => {
+    const payload = {
+      resident_id: toNullableNumber(visitationForm.resident_id),
+      visit_date: visitationForm.visit_date || null,
+      social_worker: visitationForm.social_worker || null,
+      visit_type: visitationForm.visit_type || null,
+      location_visited: visitationForm.location_visited || null,
+      family_members_present: visitationForm.family_members_present || null,
+      purpose: visitationForm.purpose || null,
+      observations: visitationForm.observations || null,
+      family_cooperation_level: visitationForm.family_cooperation_level || null,
+      safety_concerns_noted: toNullableBoolean(visitationForm.safety_concerns_noted),
+      follow_up_needed: toNullableBoolean(visitationForm.follow_up_needed),
+      follow_up_notes: visitationForm.follow_up_notes || null,
+      visit_outcome: visitationForm.visit_outcome || null,
+    };
+    if (editingVisitationId) updateMutation.mutate({ table: "home_visitations", id: editingVisitationId, payload });
+    else createMutation.mutate({ table: "home_visitations", payload });
+    setVisitationFormOpen(false);
+  };
+
+  const submitEducationForm = () => {
+    const payload = {
+      resident_id: toNullableNumber(educationForm.resident_id),
+      record_date: educationForm.record_date || null,
+      education_level: educationForm.education_level || null,
+      school_name: educationForm.school_name || null,
+      enrollment_status: educationForm.enrollment_status || null,
+      attendance_rate: toNullableNumber(educationForm.attendance_rate),
+      progress_percent: toNullableNumber(educationForm.progress_percent),
+      completion_status: educationForm.completion_status || null,
+      notes: educationForm.notes || null,
+    };
+    if (editingEducationId) updateMutation.mutate({ table: "education_records", id: editingEducationId, payload });
+    else createMutation.mutate({ table: "education_records", payload });
+    setEducationFormOpen(false);
+  };
+
+  const submitHealthForm = () => {
+    const payload = {
+      resident_id: toNullableNumber(healthForm.resident_id),
+      record_date: healthForm.record_date || null,
+      general_health_score: toNullableNumber(healthForm.general_health_score),
+      nutrition_score: toNullableNumber(healthForm.nutrition_score),
+      sleep_quality_score: toNullableNumber(healthForm.sleep_quality_score),
+      energy_level_score: toNullableNumber(healthForm.energy_level_score),
+      height_cm: toNullableNumber(healthForm.height_cm),
+      weight_kg: toNullableNumber(healthForm.weight_kg),
+      bmi: toNullableNumber(healthForm.bmi),
+      medical_checkup_done: toNullableBoolean(healthForm.medical_checkup_done),
+      dental_checkup_done: toNullableBoolean(healthForm.dental_checkup_done),
+      psychological_checkup_done: toNullableBoolean(healthForm.psychological_checkup_done),
+      notes: healthForm.notes || null,
+    };
+    if (editingHealthId) updateMutation.mutate({ table: "health_wellbeing_records", id: editingHealthId, payload });
+    else createMutation.mutate({ table: "health_wellbeing_records", payload });
+    setHealthFormOpen(false);
+  };
+
+  const submitInterventionForm = () => {
+    const payload = {
+      resident_id: toNullableNumber(interventionForm.resident_id),
+      plan_category: interventionForm.plan_category || null,
+      plan_description: interventionForm.plan_description || null,
+      services_provided: interventionForm.services_provided || null,
+      target_value: toNullableNumber(interventionForm.target_value),
+      target_date: interventionForm.target_date || null,
+      status: interventionForm.status || null,
+      case_conference_date: interventionForm.case_conference_date || null,
+    };
+    if (editingInterventionId) updateMutation.mutate({ table: "intervention_plans", id: editingInterventionId, payload });
+    else createMutation.mutate({ table: "intervention_plans", payload });
+    setInterventionFormOpen(false);
+  };
+
+  const submitIncidentForm = () => {
+    const payload = {
+      resident_id: toNullableNumber(incidentForm.resident_id),
+      safehouse_id: toNullableNumber(incidentForm.safehouse_id),
+      incident_date: incidentForm.incident_date || null,
+      incident_type: incidentForm.incident_type || null,
+      severity: incidentForm.severity || null,
+      description: incidentForm.description || null,
+      response_taken: incidentForm.response_taken || null,
+      resolved: toNullableBoolean(incidentForm.resolved),
+      resolution_date: incidentForm.resolution_date || null,
+      reported_by: incidentForm.reported_by || null,
+      follow_up_required: toNullableBoolean(incidentForm.follow_up_required),
+    };
+    if (editingIncidentId) updateMutation.mutate({ table: "incident_reports", id: editingIncidentId, payload });
+    else createMutation.mutate({ table: "incident_reports", payload });
+    setIncidentFormOpen(false);
+  };
+
+  const confirmDelete = (table: "residents" | "supporters" | "donations" | "in_kind_donation_items" | "donation_allocations" | "safehouses" | "process_recordings" | "home_visitations" | "education_records" | "health_wellbeing_records" | "intervention_plans" | "incident_reports", id: number, label: string) => {
+    if (!window.confirm(`Hard delete ${label}? This cannot be undone.`)) return;
+    deleteMutation.mutate({ table, id });
+  };
+
+  const goToResidentSubview = (subtab: ResidentsSubTab, residentId: number) => {
+    setResidentModalOpen(false);
+    setParams({
+      tab: "residents",
+      residentsSubTab: subtab,
+      residentIds: selectedResidentIds.includes(residentId) ? selectedResidentIds.join(",") : [...selectedResidentIds, residentId].join(","),
+    });
+  };
+
+  const renderResidentToolbar = () => {
+    const commonFilters = (
+      <>
+        <FilterCheckboxGroup title="Status" options={residentStatusOptions} selected={residentStatusFilter} onChange={setResidentStatusFilter} allLabel="All statuses" />
+        <FilterCheckboxGroup title="Risk" options={residentRiskOptions} selected={residentRiskFilter} onChange={setResidentRiskFilter} allLabel="All risks" />
+        <FilterCheckboxGroup title="Safe House" options={residentSafehouseOptions} selected={residentSafehouseFilter} onChange={setResidentSafehouseFilter} allLabel="All safe houses" />
+        {residentsSubTab === "process-records" ? (
+          <>
+            <FilterCheckboxGroup title="Session Type" options={processTypeOptions} selected={processTypeFilter} onChange={setProcessTypeFilter} allLabel="All session types" />
+            <FilterCheckboxGroup title="Social Worker" options={processWorkerOptions} selected={processWorkerFilter} onChange={setProcessWorkerFilter} allLabel="All social workers" />
+          </>
+        ) : null}
+        {residentsSubTab === "visitations" ? (
+          <>
+            <FilterCheckboxGroup title="Visit Type" options={visitationTypeOptions} selected={visitationTypeFilter} onChange={setVisitationTypeFilter} allLabel="All visit types" />
+            <FilterCheckboxGroup title="Outcome" options={visitationOutcomeOptions} selected={visitationOutcomeFilter} onChange={setVisitationOutcomeFilter} allLabel="All outcomes" />
+          </>
+        ) : null}
+        {residentsSubTab === "education" ? (
+          <>
+            <FilterCheckboxGroup title="Education Level" options={educationLevelOptions} selected={educationLevelFilter} onChange={setEducationLevelFilter} allLabel="All levels" />
+            <FilterCheckboxGroup title="Enrollment" options={educationEnrollmentOptions} selected={educationEnrollmentFilter} onChange={setEducationEnrollmentFilter} allLabel="All enrollment statuses" />
+          </>
+        ) : null}
+        {residentsSubTab === "health" ? (
+          <FilterCheckboxGroup title="Checkups" options={["Medical", "Dental", "Psychological"]} selected={healthCheckupFilter} onChange={setHealthCheckupFilter} allLabel="All checkup types" />
+        ) : null}
+        {residentsSubTab === "interventions" ? (
+          <>
+            <FilterCheckboxGroup title="Category" options={interventionCategoryOptions} selected={interventionCategoryFilter} onChange={setInterventionCategoryFilter} allLabel="All categories" />
+            <FilterCheckboxGroup title="Status" options={interventionStatusOptions} selected={interventionStatusFilter} onChange={setInterventionStatusFilter} allLabel="All statuses" />
+          </>
+        ) : null}
+        {residentsSubTab === "incidents" ? (
+          <>
+            <FilterCheckboxGroup title="Incident Type" options={incidentTypeOptions} selected={incidentTypeFilter} onChange={setIncidentTypeFilter} allLabel="All incident types" />
+            <FilterCheckboxGroup title="Severity" options={incidentSeverityOptions} selected={incidentSeverityFilter} onChange={setIncidentSeverityFilter} allLabel="All severities" />
+          </>
+        ) : null}
+      </>
+    );
+
+    return (
+      <Toolbar
+        defaultOpen={false}
+        searchValue={residentSearch}
+        onSearchChange={setResidentSearch}
+        searchPlaceholder="Search residents, status, case category, social worker, or safe house"
+        filters={commonFilters}
+        onClearFilters={() => {
+          setResidentSearch("");
+          setResidentStatusFilter(residentStatusOptions);
+          setResidentRiskFilter(residentRiskOptions);
+          setResidentSafehouseFilter([]);
+          setProcessTypeFilter([]);
+          setProcessWorkerFilter([]);
+          setVisitationTypeFilter([]);
+          setVisitationOutcomeFilter([]);
+          setEducationLevelFilter([]);
+          setEducationEnrollmentFilter([]);
+          setHealthCheckupFilter([]);
+          setInterventionCategoryFilter([]);
+          setInterventionStatusFilter([]);
+          setIncidentTypeFilter([]);
+          setIncidentSeverityFilter([]);
+          setResidentSelection([]);
+        }}
+        bottomContent={
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-1 flex-col gap-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <ShieldAlert className="h-4 w-4 text-primary" />
+                Filtered by:
+              </div>
+              {selectedResidents.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedResidents.map((resident) => (
+                    <button
+                      key={resident.resident_id}
+                      type="button"
+                      onClick={() => toggleResidentSelection(resident.resident_id)}
+                      className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
+                    >
+                      {residentLabel(resident)}
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No resident filters applied. Select residents from the table to narrow all resident-linked records.
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <StatusBadge value={selectedResidents.length ? "Filter active" : "Viewing all residents"} tone={selectedResidents.length ? "default" : "outline"} />
+              <Button variant="outline" className="rounded-xl" onClick={() => setResidentSelection([])} disabled={!selectedResidents.length}>
+                Clear resident filters
+              </Button>
+            </div>
+          </div>
+        }
+        sortValue={residentSort}
+        sortOptions={[
+          { value: "recent", label: "Most recent first" },
+          { value: "risk", label: "Highest risk first" },
+          { value: "latest-visit", label: "Latest visitation first" },
+        ]}
+        onSortChange={setResidentSort}
+        actionItems={[
+          {
+            label:
+              residentsSubTab === "all-residents"
+                ? "Add resident"
+                : residentsSubTab === "process-records"
+                  ? "Add process record"
+                  : residentsSubTab === "visitations"
+                    ? "Add visitation"
+                    : residentsSubTab === "education"
+                      ? "Add education record"
+                      : residentsSubTab === "health"
+                        ? "Add health record"
+                        : residentsSubTab === "interventions"
+                          ? "Add intervention"
+                          : "Add incident",
+            onClick: () => {
+              if (residentsSubTab === "all-residents") openResidentForm();
+              else if (residentsSubTab === "process-records") openProcessForm();
+              else if (residentsSubTab === "visitations") openVisitationForm();
+              else if (residentsSubTab === "education") openEducationForm();
+              else if (residentsSubTab === "health") openHealthForm();
+              else if (residentsSubTab === "interventions") openInterventionForm();
+              else openIncidentForm();
+            },
+          },
+          {
+            label: "Export current view as CSV",
+            onClick: () => {
+              if (residentsSubTab === "all-residents") exportRows("Residents", filteredResidentsTable.map((resident) => ({
+                name: residentLabel(resident),
+                age: resident.present_age,
+                case_status: resident.case_status,
+                safe_house: safehouseMap.get(resident.safehouse_id ?? -1)?.name ?? "",
+                latest_visitation: latestVisitationByResident.get(resident.resident_id)?.visit_date ?? "",
+                risk_status: resident.current_risk_level,
+                date_added: resident.created_at,
+              })));
+              else if (residentsSubTab === "process-records") exportRows("Process Records", residentProcessSplit.currentAndPast);
+              else if (residentsSubTab === "visitations") exportRows("Visitations", residentVisitationSplit.currentAndPast);
+              else if (residentsSubTab === "education") exportRows("Education", residentEducationSplit.currentAndPast);
+              else if (residentsSubTab === "health") exportRows("Health", residentHealthSplit.currentAndPast);
+              else if (residentsSubTab === "interventions") exportRows("Interventions", residentInterventionSplit.currentAndPast);
+              else exportRows("Incidents", residentIncidentSplit.currentAndPast);
+            },
+          },
+        ]}
+      />
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {workspaceQuery.isError ? (
+        <Card className="rounded-2xl border-destructive/30 bg-destructive/5 shadow-warm">
+          <CardContent className="flex items-center gap-3 p-5 text-sm text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            {workspaceQuery.error instanceof Error ? workspaceQuery.error.message : "The admin workspace could not load."}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Tabs value={currentTab} onValueChange={(value) => setTab(value as MainTab)} className="space-y-6">
+        <TabsContent value="dashboard" className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {dashboardKpis.map((kpi) => (
+              <KpiCard key={kpi.label} icon={kpi.icon} label={kpi.label} value={kpi.value} detail={kpi.detail} />
+            ))}
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
+            <SectionCard title="Recent incidents" description="Newest incident reports needing attention first.">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Resident</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Severity</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardRecentIncidents.map((incident) => (
+                    <TableRow key={String(incident.incident_id)}>
+                      <TableCell>{residentLabel(residentMap.get(toNumber(incident.resident_id)) ?? ({} as Resident))}</TableCell>
+                      <TableCell>{asDisplayDate(incident.incident_date)}</TableCell>
+                      <TableCell>{asText(incident.incident_type)}</TableCell>
+                      <TableCell>{asText(incident.severity)}</TableCell>
+                      <TableCell>
+                        <StatusBadge
+                          value={String(incident.resolved).toLowerCase() === "true" ? "Resolved" : "Open"}
+                          tone={String(incident.resolved).toLowerCase() === "true" ? "outline" : "destructive"}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </SectionCard>
+
+            <SectionCard title="Recent activity feed" description="A quick stream of the latest operational changes.">
+              <div className="space-y-3">
+                {recentActivity.map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium text-foreground">{item.label}</p>
+                      <span className="text-xs text-muted-foreground">{asDisplayDate(item.date)}</span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <SectionCard title="Upcoming visitations" description="Scheduled home and follow-up visits across the caseload.">
+              <div className="space-y-3">
+                {dashboardUpcomingVisitations.map((visit) => (
+                  <div key={String(visit.visitation_id)} className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/30 p-4">
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {residentLabel(residentMap.get(toNumber(visit.resident_id)) ?? ({} as Resident))}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{asText(visit.location_visited)} • {asText(visit.visit_type)}</p>
+                    </div>
+                    <StatusBadge value={asDisplayDate(visit.visit_date)} tone="outline" />
+                  </div>
+                ))}
+                {!dashboardUpcomingVisitations.length ? (
+                  <EmptyState title="No upcoming visitations" description="Scheduled visitations will appear here when dates are available." />
+                ) : null}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Recent donations summary" description="Most recent donations, supporter names, and allocation context.">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Supporter</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Value</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardRecentDonations.map((donation) => (
+                    <TableRow key={donation.donation_id}>
+                      <TableCell>{donation.supporter_id ? supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter)) : donation.supporter_name ?? "Anonymous"}</TableCell>
+                      <TableCell>{asDisplayDate(donation.donation_date)}</TableCell>
+                      <TableCell>{asText(donation.donation_type)}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(donation.amount ?? donation.estimated_value, donation.currency_code ?? "PHP")}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </SectionCard>
+          </div>
+
+          <SectionCard title="Safe house occupancy chart" description="Current occupancy against stated capacity across every house.">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={occupancyChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                <Tooltip />
+                <Bar dataKey="occupancy" radius={[8, 8, 0, 0]}>
+                  {occupancyChartData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.fill} />
+                  ))}
+                </Bar>
+                <Bar dataKey="capacity" radius={[8, 8, 0, 0]} fill="hsl(var(--accent) / 0.45)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="residents" className="space-y-6">
+          <Tabs value={residentsSubTab} onValueChange={(value) => setParams({ residentsSubTab: value })} className="space-y-6">
+            <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm">
+              {RESIDENT_SUBTABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="rounded-xl px-4 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            <TabsContent value="all-residents" className="space-y-6">
+              <SectionCard
+                title="Residents"
+                description="Row click opens the resident detail modal and applies the resident to the global cross-tab filter."
+              >
+                {renderResidentToolbar()}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Select</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Age</TableHead>
+                      <TableHead>Case Status</TableHead>
+                      <TableHead>Safe House</TableHead>
+                      <TableHead>Latest Visitation</TableHead>
+                      <TableHead>Risk Status</TableHead>
+                      <TableHead>Date Added</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {residentsTablePage.visibleRows.map((resident) => (
+                      <TableRow
+                        key={resident.resident_id}
+                        className="cursor-pointer"
+                        onClick={() => openResidentDetail(resident.resident_id)}
+                      >
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedResidentIdSet.has(resident.resident_id)}
+                            onChange={() => toggleResidentSelection(resident.resident_id)}
+                            className="h-4 w-4 rounded border-border text-primary"
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium text-foreground">{residentLabel(resident)}</TableCell>
+                        <TableCell>{asText(resident.present_age, "Unknown")}</TableCell>
+                        <TableCell>
+                          <StatusBadge value={asText(resident.case_status, "Unknown")} tone="outline" />
+                        </TableCell>
+                        <TableCell>{safehouseMap.get(resident.safehouse_id ?? -1)?.name ?? "Unassigned"}</TableCell>
+                        <TableCell>{asDisplayDate(latestVisitationByResident.get(resident.resident_id)?.visit_date)}</TableCell>
+                        <TableCell>
+                          <StatusBadge
+                            value={asText(resident.current_risk_level, "Unknown")}
+                            tone={(resident.current_risk_level ?? "").toLowerCase().startsWith("high") ? "destructive" : "secondary"}
+                          />
+                        </TableCell>
+                        <TableCell>{asDisplayDate(resident.created_at)}</TableCell>
+                        <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openResidentForm(resident)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl text-destructive hover:text-destructive"
+                              onClick={() => confirmDelete("residents", resident.resident_id, residentLabel(resident))}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!filteredResidentsTable.length ? (
+                      <TableRow>
+                        <TableCell colSpan={9}>
+                          <EmptyState title="No residents matched this view" description="Adjust the search, risk, or case status filters to see more records." />
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={residentsTablePage.safePage}
+                  totalPages={residentsTablePage.totalPages}
+                  totalRows={filteredResidentsTable.length}
+                  start={residentsTablePage.start}
+                  end={residentsTablePage.end}
+                  perPage={getPageSize("residents")}
+                  onPerPageChange={(size) => setPageSize("residents", size)}
+                  onPageChange={(page) => setPage("residents", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="process-records">
+              <SectionCard
+                title="Process records"
+                description={selectedResidents.length ? "Process records are filtered to the selected resident set." : "Showing current and past process records. Future-dated sessions are separated below."}
+              >
+                {renderResidentToolbar()}
+                {residentProcessSplit.upcoming.length ? (
+                  <div className="mb-4">
+                    <CollapsibleSubsection title={`Upcoming process sessions (${residentProcessSplit.upcoming.length})`}>
+                      <div className="space-y-3">
+                        {residentProcessSplit.upcoming.map((row) => (
+                          <div key={String(row.recording_id)} className="rounded-2xl border border-border/70 bg-background p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-medium text-foreground">{residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}</p>
+                              <StatusBadge value={asDisplayDate(row.session_date)} tone="outline" />
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">{asText(row.session_type)} • {asText(row.social_worker)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleSubsection>
+                  </div>
+                ) : null}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Resident</TableHead>
+                      <TableHead>Session Date</TableHead>
+                      <TableHead>Social Worker</TableHead>
+                      <TableHead>Session Type</TableHead>
+                      <TableHead>Concerns Flagged</TableHead>
+                      <TableHead>Follow-up</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {processTablePage.visibleRows.map((row) => (
+                      <TableRow key={String(row.recording_id)}>
+                        <TableCell>{residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}</TableCell>
+                        <TableCell>{asDisplayDate(row.session_date)}</TableCell>
+                        <TableCell>{asText(row.social_worker)}</TableCell>
+                        <TableCell>{asText(row.session_type)}</TableCell>
+                        <TableCell>{String(row.concerns_flagged).toLowerCase() === "true" ? "Yes" : "No"}</TableCell>
+                        <TableCell>{asText(row.follow_up_actions)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openProcessForm(row)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("process_recordings", toNumber(row.recording_id), `process record #${row.recording_id}`)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={processTablePage.safePage}
+                  totalPages={processTablePage.totalPages}
+                  totalRows={residentProcessSplit.currentAndPast.length}
+                  start={processTablePage.start}
+                  end={processTablePage.end}
+                  perPage={getPageSize("process-records")}
+                  onPerPageChange={(size) => setPageSize("process-records", size)}
+                  onPageChange={(page) => setPage("process-records", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="visitations">
+              <SectionCard title="Visitations & conferences" description={selectedResidents.length ? "Visitations are filtered to the selected resident set." : "All visitations are sorted upcoming first and then newest completed visits."}>
+                {renderResidentToolbar()}
+                {residentUpcomingEvents.length ? (
+                  <div className="mb-4">
+                    <CollapsibleSubsection title={`Upcoming events & conferences (${residentUpcomingEvents.length})`}>
+                      <div className="space-y-3">
+                        {residentUpcomingEvents.map((event) => (
+                          <div key={event.id} className="rounded-2xl border border-border/70 bg-background p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-medium text-foreground">{event.label}</p>
+                              <StatusBadge value={asDisplayDate(event.date)} tone="outline" />
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">{event.detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleSubsection>
+                  </div>
+                ) : null}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Resident</TableHead>
+                      <TableHead>Visit Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Social Worker</TableHead>
+                      <TableHead>Outcome</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visitationsTablePage.visibleRows.map((row) => (
+                      <TableRow key={String(row.visitation_id)}>
+                        <TableCell>{residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}</TableCell>
+                        <TableCell>{asDisplayDate(row.visit_date)}</TableCell>
+                        <TableCell>{asText(row.visit_type)}</TableCell>
+                        <TableCell>{asText(row.location_visited)}</TableCell>
+                        <TableCell>{asText(row.social_worker)}</TableCell>
+                        <TableCell>{asText(row.visit_outcome)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openVisitationForm(row)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("home_visitations", toNumber(row.visitation_id), `visitation #${row.visitation_id}`)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={visitationsTablePage.safePage}
+                  totalPages={visitationsTablePage.totalPages}
+                  totalRows={residentVisitationSplit.currentAndPast.length}
+                  start={visitationsTablePage.start}
+                  end={visitationsTablePage.end}
+                  perPage={getPageSize("visitations")}
+                  onPerPageChange={(size) => setPageSize("visitations", size)}
+                  onPageChange={(page) => setPage("visitations", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="education">
+              <SectionCard title="Education records" description={selectedResidents.length ? "Education records are filtered to the selected resident set." : "All education records are sorted upcoming first and then newest first."}>
+                {renderResidentToolbar()}
+                {residentEducationSplit.upcoming.length ? (
+                  <div className="mb-4">
+                    <CollapsibleSubsection title={`Future education records (${residentEducationSplit.upcoming.length})`}>
+                      <div className="space-y-3">
+                        {residentEducationSplit.upcoming.map((row) => (
+                          <div key={String(row.education_record_id)} className="rounded-2xl border border-border/70 bg-background p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-medium text-foreground">{residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}</p>
+                              <StatusBadge value={asDisplayDate(row.record_date)} tone="outline" />
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">{asText(row.education_level)} • {asText(row.school_name)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleSubsection>
+                  </div>
+                ) : null}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Resident</TableHead>
+                      <TableHead>Record Date</TableHead>
+                      <TableHead>Level</TableHead>
+                      <TableHead>School</TableHead>
+                      <TableHead>Enrollment</TableHead>
+                      <TableHead>Progress</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {educationTablePage.visibleRows.map((row) => (
+                      <TableRow key={String(row.education_record_id)}>
+                        <TableCell>{residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}</TableCell>
+                        <TableCell>{asDisplayDate(row.record_date)}</TableCell>
+                        <TableCell>{asText(row.education_level)}</TableCell>
+                        <TableCell>{asText(row.school_name)}</TableCell>
+                        <TableCell>{asText(row.enrollment_status)}</TableCell>
+                        <TableCell>{toNumber(row.progress_percent).toFixed(0)}%</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openEducationForm(row)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("education_records", toNumber(row.education_record_id), `education record #${row.education_record_id}`)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={educationTablePage.safePage}
+                  totalPages={educationTablePage.totalPages}
+                  totalRows={residentEducationSplit.currentAndPast.length}
+                  start={educationTablePage.start}
+                  end={educationTablePage.end}
+                  perPage={getPageSize("education")}
+                  onPerPageChange={(size) => setPageSize("education", size)}
+                  onPageChange={(page) => setPage("education", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="health">
+              <SectionCard title="Health & well-being" description={selectedResidents.length ? "Health records are filtered to the selected resident set." : "All health records are sorted upcoming first and then newest first."}>
+                {renderResidentToolbar()}
+                {residentHealthSplit.upcoming.length ? (
+                  <div className="mb-4">
+                    <CollapsibleSubsection title={`Future health records (${residentHealthSplit.upcoming.length})`}>
+                      <div className="space-y-3">
+                        {residentHealthSplit.upcoming.map((row) => (
+                          <div key={String(row.health_record_id)} className="rounded-2xl border border-border/70 bg-background p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-medium text-foreground">{residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}</p>
+                              <StatusBadge value={asDisplayDate(row.record_date)} tone="outline" />
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">Health score {toNumber(row.general_health_score).toFixed(1)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleSubsection>
+                  </div>
+                ) : null}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Resident</TableHead>
+                      <TableHead>Record Date</TableHead>
+                      <TableHead>Health Score</TableHead>
+                      <TableHead>Nutrition</TableHead>
+                      <TableHead>Sleep</TableHead>
+                      <TableHead>BMI</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {healthTablePage.visibleRows.map((row) => (
+                      <TableRow key={String(row.health_record_id)}>
+                        <TableCell>{residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}</TableCell>
+                        <TableCell>{asDisplayDate(row.record_date)}</TableCell>
+                        <TableCell>{toNumber(row.general_health_score).toFixed(1)}</TableCell>
+                        <TableCell>{toNumber(row.nutrition_score).toFixed(1)}</TableCell>
+                        <TableCell>{toNumber(row.sleep_quality_score).toFixed(1)}</TableCell>
+                        <TableCell>{toNumber(row.bmi).toFixed(1)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openHealthForm(row)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("health_wellbeing_records", toNumber(row.health_record_id), `health record #${row.health_record_id}`)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={healthTablePage.safePage}
+                  totalPages={healthTablePage.totalPages}
+                  totalRows={residentHealthSplit.currentAndPast.length}
+                  start={healthTablePage.start}
+                  end={healthTablePage.end}
+                  perPage={getPageSize("health")}
+                  onPerPageChange={(size) => setPageSize("health", size)}
+                  onPageChange={(page) => setPage("health", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="interventions">
+              <SectionCard title="Interventions" description={selectedResidents.length ? "Interventions are filtered to the selected resident set." : "All interventions are sorted by upcoming target first and then newest first."}>
+                {renderResidentToolbar()}
+                {residentInterventionSplit.upcoming.length ? (
+                  <div className="mb-4">
+                    <CollapsibleSubsection title={`Upcoming interventions & conferences (${residentInterventionSplit.upcoming.length})`}>
+                      <div className="space-y-3">
+                        {residentInterventionSplit.upcoming.map((row) => (
+                          <div key={String(row.plan_id)} className="rounded-2xl border border-border/70 bg-background p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-medium text-foreground">{residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}</p>
+                              <StatusBadge value={asDisplayDate(row.target_date)} tone="outline" />
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">{asText(row.plan_category)} • {asText(row.status)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleSubsection>
+                  </div>
+                ) : null}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Resident</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Target Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Conference Date</TableHead>
+                      <TableHead>Services</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {interventionsTablePage.visibleRows.map((row) => (
+                      <TableRow key={String(row.plan_id)}>
+                        <TableCell>{residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}</TableCell>
+                        <TableCell>{asText(row.plan_category)}</TableCell>
+                        <TableCell>{asDisplayDate(row.target_date)}</TableCell>
+                        <TableCell>{asText(row.status)}</TableCell>
+                        <TableCell>{asDisplayDate(row.case_conference_date)}</TableCell>
+                        <TableCell>{asText(row.services_provided)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openInterventionForm(row)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("intervention_plans", toNumber(row.plan_id), `intervention #${row.plan_id}`)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={interventionsTablePage.safePage}
+                  totalPages={interventionsTablePage.totalPages}
+                  totalRows={residentInterventionSplit.currentAndPast.length}
+                  start={interventionsTablePage.start}
+                  end={interventionsTablePage.end}
+                  perPage={getPageSize("interventions")}
+                  onPerPageChange={(size) => setPageSize("interventions", size)}
+                  onPageChange={(page) => setPage("interventions", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="incidents">
+              <SectionCard title="Incidents" description={selectedResidents.length ? "Incidents are filtered to the selected resident set." : "All incident reports are sorted upcoming first and then newest first."}>
+                {renderResidentToolbar()}
+                {residentIncidentSplit.upcoming.length ? (
+                  <div className="mb-4">
+                    <CollapsibleSubsection title={`Future-dated incidents (${residentIncidentSplit.upcoming.length})`}>
+                      <div className="space-y-3">
+                        {residentIncidentSplit.upcoming.map((row) => (
+                          <div key={String(row.incident_id)} className="rounded-2xl border border-border/70 bg-background p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="font-medium text-foreground">{residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}</p>
+                              <StatusBadge value={asDisplayDate(row.incident_date)} tone="outline" />
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">{asText(row.incident_type)} • {asText(row.severity)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleSubsection>
+                  </div>
+                ) : null}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Resident</TableHead>
+                      <TableHead>Incident Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Severity</TableHead>
+                      <TableHead>Reported By</TableHead>
+                      <TableHead>Resolved</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {incidentsTablePage.visibleRows.map((row) => (
+                      <TableRow key={String(row.incident_id)}>
+                        <TableCell>{residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}</TableCell>
+                        <TableCell>{asDisplayDate(row.incident_date)}</TableCell>
+                        <TableCell>{asText(row.incident_type)}</TableCell>
+                        <TableCell>{asText(row.severity)}</TableCell>
+                        <TableCell>{asText(row.reported_by)}</TableCell>
+                        <TableCell>{String(row.resolved).toLowerCase() === "true" ? "Yes" : "No"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openIncidentForm(row)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("incident_reports", toNumber(row.incident_id), `incident #${row.incident_id}`)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={incidentsTablePage.safePage}
+                  totalPages={incidentsTablePage.totalPages}
+                  totalRows={residentIncidentSplit.currentAndPast.length}
+                  start={incidentsTablePage.start}
+                  end={incidentsTablePage.end}
+                  perPage={getPageSize("incidents")}
+                  onPerPageChange={(size) => setPageSize("incidents", size)}
+                  onPageChange={(page) => setPage("incidents", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="donations" className="space-y-6">
+          <Toolbar
+            defaultOpen={false}
+            searchValue={donationSearch}
+            onSearchChange={setDonationSearch}
+            searchPlaceholder="Search supporters, donations, channels, or campaigns"
+            filters={
+              <>
+                <FilterCheckboxGroup title="Type" options={donationTypeOptions} selected={donationTypeFilter} onChange={setDonationTypeFilter} allLabel="All types" />
+                <FilterCheckboxGroup title="Relationship" options={donationRelationshipOptions} selected={donationRelationshipFilter} onChange={setDonationRelationshipFilter} allLabel="All relationships" />
+                <FilterCheckboxGroup title="Status" options={donationStatusOptions} selected={donationStatusFilter} onChange={setDonationStatusFilter} allLabel="All statuses" />
+                <FilterCheckboxGroup title="Region" options={donationRegionOptions} selected={donationRegionFilter} onChange={setDonationRegionFilter} allLabel="All regions" />
+                <FilterCheckboxGroup title="Country" options={donationCountryOptions} selected={donationCountryFilter} onChange={setDonationCountryFilter} allLabel="All countries" />
+              </>
+            }
+            onClearFilters={() => {
+              setDonationSearch("");
+              setDonationTypeFilter([]);
+              setDonationRelationshipFilter([]);
+              setDonationStatusFilter([]);
+              setDonationRegionFilter([]);
+              setDonationCountryFilter([]);
+              setParams({ supporterId: null });
+            }}
+            sortValue={donationSort}
+            sortOptions={[
+              { value: "recent", label: "Most recent first" },
+              { value: "amount", label: "Highest amount first" },
+              { value: "name", label: "Supporter name" },
+            ]}
+            onSortChange={setDonationSort}
+            actionItems={[
+              {
+                label:
+                  donationsSubTab === "supporters"
+                    ? "Add supporter"
+                    : donationsSubTab === "in-kind"
+                      ? "Add in-kind item"
+                      : donationsSubTab === "allocations"
+                        ? "Add allocation"
+                        : "Add donation",
+                onClick: () => {
+                  if (donationsSubTab === "supporters") openSupporterForm();
+                  else if (donationsSubTab === "donations") openDonationForm();
+                  else if (donationsSubTab === "in-kind") openInKindForm();
+                  else if (donationsSubTab === "allocations") openAllocationForm();
+                  else openDonationForm();
+                },
+              },
+              {
+                label: "Export current view as CSV",
+                onClick: () => {
+                  if (donationsSubTab === "supporters") exportRows("Supporters", filteredSupporters as unknown as Array<Record<string, unknown>>);
+                  else if (donationsSubTab === "donations") exportRows("Donations", filteredDonations as unknown as Array<Record<string, unknown>>);
+                  else if (donationsSubTab === "in-kind") exportRows("In Kind", filteredInKind as unknown as Array<Record<string, unknown>>);
+                  else if (donationsSubTab === "allocations") exportRows("Allocations", filteredAllocations as unknown as Array<Record<string, unknown>>);
+                  else exportRows("Donations Summary", filteredDonations as unknown as Array<Record<string, unknown>>);
+                },
+              },
+            ]}
+          />
+
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-warm">
+            <p className="text-sm font-medium text-foreground">Supporter filter:</p>
+            {selectedSupporterId ? (
+              <button
+                type="button"
+                onClick={() => setParams({ supporterId: null })}
+                className="inline-flex items-center gap-2 rounded-full border border-secondary/20 bg-secondary/10 px-3 py-1.5 text-sm font-medium text-secondary"
+              >
+                {supporterLabel(supporterMap.get(selectedSupporterId) ?? ({} as Supporter))}
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <span className="text-sm text-muted-foreground">No supporter filter applied.</span>
+            )}
+          </div>
+
+          <Tabs value={donationsSubTab} onValueChange={(value) => setParams({ donationsSubTab: value })} className="space-y-6">
+            <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm">
+              {DONATION_SUBTABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="rounded-xl px-4 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            <TabsContent value="summary-statistics" className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <KpiCard icon={HandCoins} label="Total donation value" value={formatCurrency(donationSummary.total)} detail="Current filtered donation value" />
+                <KpiCard icon={Heart} label="Recurring gifts" value={String(donationSummary.recurring)} detail="Recurring donation records" />
+                <KpiCard icon={ClipboardList} label="In-kind estimated value" value={formatCurrency(donationSummary.inKindValue)} detail="Estimated total from in-kind items" />
+                <KpiCard icon={Building2} label="Allocated value" value={formatCurrency(donationSummary.allocated)} detail="Donation value already assigned to programs" />
+              </div>
+              <div className="grid gap-6 xl:grid-cols-2">
+                <SectionCard title="Top supporter value" description="Supporters currently contributing the most value in this filtered view.">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={supporterDonationTotals}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" hide />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                      <Bar dataKey="value" radius={[8, 8, 0, 0]} fill="hsl(var(--primary))" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </SectionCard>
+                <SectionCard title="Donation mix" description="Monetary versus in-kind donation composition in the current view.">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          {
+                            name: "Monetary",
+                            value: filteredDonations.filter((donation) => donation.donation_type === "Monetary").length,
+                          },
+                          {
+                            name: "In-Kind",
+                            value: filteredDonations.filter((donation) => donation.donation_type === "InKind").length,
+                          },
+                        ]}
+                        dataKey="value"
+                        innerRadius={60}
+                        outerRadius={100}
+                      >
+                        {CHART_COLORS.slice(0, 2).map((color) => (
+                          <Cell key={color} fill={color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </SectionCard>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="supporters">
+              <SectionCard title="Supporters" description="Click a supporter row to filter all donation subtabs to that supporter.">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Region</TableHead>
+                      <TableHead>First Donation</TableHead>
+                      <TableHead>Channel</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {supportersTablePage.visibleRows.map((supporter) => (
+                      <TableRow
+                        key={supporter.supporter_id}
+                        className="cursor-pointer"
+                        onClick={() => setParams({ supporterId: String(supporter.supporter_id) })}
+                      >
+                        <TableCell className="font-medium text-foreground">{supporterLabel(supporter)}</TableCell>
+                        <TableCell>{asText(supporter.supporter_type)}</TableCell>
+                        <TableCell>
+                          <StatusBadge value={asText(supporter.status, "Unknown")} tone={supporter.status === "Active" ? "default" : "outline"} />
+                        </TableCell>
+                        <TableCell>{asText(supporter.region)}</TableCell>
+                        <TableCell>{asDisplayDate(supporter.first_donation_date)}</TableCell>
+                        <TableCell>{asText(supporter.acquisition_channel)}</TableCell>
+                        <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openSupporterForm(supporter)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl text-destructive hover:text-destructive"
+                              onClick={() => confirmDelete("supporters", supporter.supporter_id, supporterLabel(supporter))}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={supportersTablePage.safePage}
+                  totalPages={supportersTablePage.totalPages}
+                  totalRows={filteredSupporters.length}
+                  start={supportersTablePage.start}
+                  end={supportersTablePage.end}
+                  perPage={getPageSize("supporters")}
+                  onPerPageChange={(size) => setPageSize("supporters", size)}
+                  onPageChange={(page) => setPage("supporters", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="donations">
+              <SectionCard title="Donations" description="The same table and action pattern used elsewhere in the admin workspace.">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Supporter</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Campaign</TableHead>
+                      <TableHead>Channel</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {donationsTablePage.visibleRows.map((donation) => (
+                      <TableRow key={donation.donation_id}>
+                        <TableCell>{donation.supporter_id ? supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter)) : donation.supporter_name ?? "Anonymous"}</TableCell>
+                        <TableCell>{asDisplayDate(donation.donation_date)}</TableCell>
+                        <TableCell>{asText(donation.donation_type)}</TableCell>
+                        <TableCell>{asText(donation.campaign_name)}</TableCell>
+                        <TableCell>{asText(donation.channel_source)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(donation.amount ?? donation.estimated_value, donation.currency_code ?? "PHP")}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openDonationForm(donation)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl text-destructive hover:text-destructive"
+                              onClick={() => confirmDelete("donations", donation.donation_id, `donation #${donation.donation_id}`)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={donationsTablePage.safePage}
+                  totalPages={donationsTablePage.totalPages}
+                  totalRows={filteredDonations.length}
+                  start={donationsTablePage.start}
+                  end={donationsTablePage.end}
+                  perPage={getPageSize("donations")}
+                  onPerPageChange={(size) => setPageSize("donations", size)}
+                  onPageChange={(page) => setPage("donations", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="in-kind">
+              <SectionCard title="In-kind items" description="Itemized in-kind inventory remains in the same add, edit, delete flow.">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Donation</TableHead>
+                      <TableHead>Item</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Intended Use</TableHead>
+                      <TableHead>Condition</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {inKindTablePage.visibleRows.map((item) => (
+                      <TableRow key={item.item_id}>
+                        <TableCell>#{item.donation_id}</TableCell>
+                        <TableCell>{asText(item.item_name)}</TableCell>
+                        <TableCell>{asText(item.item_category)}</TableCell>
+                        <TableCell>{`${toNumber(item.quantity)} ${asText(item.unit_of_measure, "")}`.trim()}</TableCell>
+                        <TableCell>{asText(item.intended_use)}</TableCell>
+                        <TableCell>{asText(item.received_condition)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openInKindForm(item)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl text-destructive hover:text-destructive"
+                              onClick={() => confirmDelete("in_kind_donation_items", item.item_id, item.item_name ?? `item #${item.item_id}`)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={inKindTablePage.safePage}
+                  totalPages={inKindTablePage.totalPages}
+                  totalRows={filteredInKind.length}
+                  start={inKindTablePage.start}
+                  end={inKindTablePage.end}
+                  perPage={getPageSize("in-kind")}
+                  onPerPageChange={(size) => setPageSize("in-kind", size)}
+                  onPageChange={(page) => setPage("in-kind", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="allocations">
+              <SectionCard title="Allocations" description="Donation allocations stay in the same action pattern and inherit the active supporter filter.">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Donation</TableHead>
+                      <TableHead>Safe House</TableHead>
+                      <TableHead>Program Area</TableHead>
+                      <TableHead>Allocation Date</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allocationsTablePage.visibleRows.map((allocation) => (
+                      <TableRow key={allocation.allocation_id}>
+                        <TableCell>#{allocation.donation_id}</TableCell>
+                        <TableCell>{safehouseMap.get(allocation.safehouse_id ?? -1)?.name ?? "Unassigned"}</TableCell>
+                        <TableCell>{asText(allocation.program_area)}</TableCell>
+                        <TableCell>{asDisplayDate(allocation.allocation_date)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(allocation.amount_allocated)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openAllocationForm(allocation)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl text-destructive hover:text-destructive"
+                              onClick={() => confirmDelete("donation_allocations", allocation.allocation_id, `allocation #${allocation.allocation_id}`)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={allocationsTablePage.safePage}
+                  totalPages={allocationsTablePage.totalPages}
+                  totalRows={filteredAllocations.length}
+                  start={allocationsTablePage.start}
+                  end={allocationsTablePage.end}
+                  perPage={getPageSize("allocations")}
+                  onPerPageChange={(size) => setPageSize("allocations", size)}
+                  onPageChange={(page) => setPage("allocations", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="safe-houses" className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <KpiCard icon={Building2} label="Safe houses in view" value={String(filteredSafehouses.length)} detail="Safe houses after search and status filters" />
+            <KpiCard icon={Users} label="Residents assigned" value={String(filteredSafehouses.reduce((sum, safehouse) => sum + workspace.residents.filter((resident) => resident.safehouse_id === safehouse.safehouse_id).length, 0))} detail="Current residents assigned to visible houses" />
+            <KpiCard icon={Home} label="Average occupancy" value={`${filteredSafehouses.length ? Math.round(filteredSafehouses.reduce((sum, safehouse) => sum + (toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1)) * 100, 0) / filteredSafehouses.length) : 0}%`} detail="Average occupancy rate across the visible houses" />
+            <KpiCard icon={HandCoins} label="Allocation history rows" value={String(safehouseAllocations.length)} detail="Allocation records tied to the current safe house scope" />
+          </div>
+
+          <Toolbar
+            defaultOpen={false}
+            searchValue={safehouseSearch}
+            onSearchChange={setSafehouseSearch}
+            searchPlaceholder="Search safe houses, regions, status, or city"
+            filters={
+              <>
+                <FilterCheckboxGroup title="Status" options={safehouseStatusOptions} selected={safehouseStatusFilter} onChange={setSafehouseStatusFilter} allLabel="All statuses" />
+                <FilterCheckboxGroup title="Region" options={safehouseRegionOptions} selected={safehouseRegionFilter} onChange={setSafehouseRegionFilter} allLabel="All regions" />
+              </>
+            }
+            onClearFilters={() => {
+              setSafehouseSearch("");
+              setSafehouseStatusFilter([]);
+              setSafehouseRegionFilter([]);
+              setParams({ safehouseId: null });
+            }}
+            sortValue={safehouseSort}
+            sortOptions={[
+              { value: "occupancy", label: "Highest occupancy first" },
+              { value: "name", label: "Name" },
+              { value: "recent", label: "Most recently opened" },
+            ]}
+            onSortChange={setSafehouseSort}
+            actionItems={[
+              { label: "Add safe house", onClick: () => openSafehouseForm() },
+              {
+                label: "Export current view as CSV",
+                onClick: () => exportRows("Safe Houses", filteredSafehouses as unknown as Array<Record<string, unknown>>),
+              },
+            ]}
+          />
+
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-warm">
+            <p className="text-sm font-medium text-foreground">Safe house filter:</p>
+            {selectedSafehouseId ? (
+              <button
+                type="button"
+                onClick={() => setParams({ safehouseId: null })}
+                className="inline-flex items-center gap-2 rounded-full border border-secondary/20 bg-secondary/10 px-3 py-1.5 text-sm font-medium text-secondary"
+              >
+                {safehouseMap.get(selectedSafehouseId)?.name ?? `Safe House ${selectedSafehouseId}`}
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <span className="text-sm text-muted-foreground">No safe house filter applied.</span>
+            )}
+          </div>
+
+          <Tabs value={safeHousesSubTab} onValueChange={(value) => setParams({ safeHousesSubTab: value })} className="space-y-6">
+            <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm">
+              {SAFEHOUSE_SUBTABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="rounded-xl px-4 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            <TabsContent value="safe-houses">
+              <SectionCard title="Safe houses" description="Click a safe house row to filter related allocations and monthly metrics.">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Region</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Capacity</TableHead>
+                      <TableHead>Occupancy</TableHead>
+                      <TableHead>Residents Assigned</TableHead>
+                      <TableHead>Donation Allocations</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {safehousesTablePage.visibleRows.map((safehouse) => {
+                      const residentsAssigned = workspace.residents.filter((resident) => resident.safehouse_id === safehouse.safehouse_id).length;
+                      const donationAllocations = workspace.allocations
+                        .filter((allocation) => allocation.safehouse_id === safehouse.safehouse_id)
+                        .reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0);
+                      return (
+                        <TableRow
+                          key={safehouse.safehouse_id}
+                          className="cursor-pointer"
+                          onClick={() => setParams({ safehouseId: String(safehouse.safehouse_id) })}
+                        >
+                          <TableCell className="font-medium text-foreground">{asText(safehouse.name)}</TableCell>
+                          <TableCell>{[safehouse.city, safehouse.region].filter(Boolean).join(", ")}</TableCell>
+                          <TableCell>
+                            <StatusBadge value={asText(safehouse.status, "Unknown")} tone={safehouse.status === "Active" ? "default" : "outline"} />
+                          </TableCell>
+                          <TableCell>{toNumber(safehouse.capacity_girls)}</TableCell>
+                          <TableCell>{`${toNumber(safehouse.current_occupancy)} / ${toNumber(safehouse.capacity_girls)}`}</TableCell>
+                          <TableCell>{residentsAssigned}</TableCell>
+                          <TableCell>{formatCurrency(donationAllocations)}</TableCell>
+                          <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openSafehouseForm(safehouse)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="rounded-xl text-destructive hover:text-destructive"
+                                onClick={() => confirmDelete("safehouses", safehouse.safehouse_id, safehouse.name ?? `safehouse #${safehouse.safehouse_id}`)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={safehousesTablePage.safePage}
+                  totalPages={safehousesTablePage.totalPages}
+                  totalRows={filteredSafehouses.length}
+                  start={safehousesTablePage.start}
+                  end={safehousesTablePage.end}
+                  perPage={getPageSize("safe-houses")}
+                  onPerPageChange={(size) => setPageSize("safe-houses", size)}
+                  onPageChange={(page) => setPage("safe-houses", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="allocation-history">
+              <SectionCard title="Allocation history" description="Filtered to the selected safe house when one is active.">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Safe House</TableHead>
+                      <TableHead>Donation</TableHead>
+                      <TableHead>Program Area</TableHead>
+                      <TableHead>Allocation Date</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allocationHistoryTablePage.visibleRows.map((allocation) => (
+                      <TableRow key={allocation.allocation_id}>
+                        <TableCell>{safehouseMap.get(allocation.safehouse_id ?? -1)?.name ?? "Unassigned"}</TableCell>
+                        <TableCell>#{allocation.donation_id}</TableCell>
+                        <TableCell>{asText(allocation.program_area)}</TableCell>
+                        <TableCell>{asDisplayDate(allocation.allocation_date)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(allocation.amount_allocated)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={allocationHistoryTablePage.safePage}
+                  totalPages={allocationHistoryTablePage.totalPages}
+                  totalRows={safehouseAllocations.length}
+                  start={allocationHistoryTablePage.start}
+                  end={allocationHistoryTablePage.end}
+                  perPage={getPageSize("allocation-history")}
+                  onPerPageChange={(size) => setPageSize("allocation-history", size)}
+                  onPageChange={(page) => setPage("allocation-history", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="monthly-metrics">
+              <SectionCard title="Monthly metrics" description="Occupancy, education, health, visitations, and incident snapshots by month.">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Safe House</TableHead>
+                      <TableHead>Month</TableHead>
+                      <TableHead>Active Residents</TableHead>
+                      <TableHead>Education Progress</TableHead>
+                      <TableHead>Health Score</TableHead>
+                      <TableHead>Visitations</TableHead>
+                      <TableHead>Incidents</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {monthlyMetricsTablePage.visibleRows.map((metric) => (
+                      <TableRow key={metric.metric_id}>
+                        <TableCell>{safehouseMap.get(metric.safehouse_id ?? -1)?.name ?? "Unassigned"}</TableCell>
+                        <TableCell>{asDisplayDate(metric.month_start)}</TableCell>
+                        <TableCell>{toNumber(metric.active_residents)}</TableCell>
+                        <TableCell>{toNumber(metric.avg_education_progress).toFixed(0)}%</TableCell>
+                        <TableCell>{toNumber(metric.avg_health_score).toFixed(1)}</TableCell>
+                        <TableCell>{toNumber(metric.home_visitation_count)}</TableCell>
+                        <TableCell>{toNumber(metric.incident_count)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={monthlyMetricsTablePage.safePage}
+                  totalPages={monthlyMetricsTablePage.totalPages}
+                  totalRows={safehouseMetrics.length}
+                  start={monthlyMetricsTablePage.start}
+                  end={monthlyMetricsTablePage.end}
+                  perPage={getPageSize("monthly-metrics")}
+                  onPerPageChange={(size) => setPageSize("monthly-metrics", size)}
+                  onPageChange={(page) => setPage("monthly-metrics", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <KpiCard icon={Download} label="Export reports" value="4 packs" detail="Resident, donation, occupancy, and incident exports ready" />
+            <KpiCard icon={HandCoins} label="Donation reports" value={String(filteredDonations.length)} detail="Donation records currently in scope" />
+            <KpiCard icon={Users} label="Resident trends" value={String(workspace.residents.length)} detail="Residents feeding the trend dashboards" />
+            <KpiCard icon={Home} label="Occupancy trends" value={String(workspace.monthlyMetrics.length)} detail="Monthly safe house snapshots available" />
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <SectionCard title="Report export cards" description="A modular placeholder section designed for future report generators.">
+              <div className="grid gap-3 md:grid-cols-2">
+                {[
+                  { title: "Donation report", detail: "Campaign, supporter, and allocation summaries." },
+                  { title: "Resident trends", detail: "Admissions, case status, and risk movement." },
+                  { title: "Occupancy trends", detail: "Utilization by house and by month." },
+                  { title: "Incidents trends", detail: "Incident volume, severity, and closure speed." },
+                ].map((card) => (
+                  <div key={card.title} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                    <p className="font-medium text-foreground">{card.title}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{card.detail}</p>
+                    <Button variant="outline" className="mt-4 rounded-xl">
+                      Prepare export
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Trend overview" description="A clean placeholder chart block for trend reporting expansion.">
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={reportsTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="incidents" stroke="hsl(var(--secondary))" strokeWidth={3} />
+                  <Line type="monotone" dataKey="occupancy" stroke="hsl(var(--primary))" strokeWidth={3} />
+                  <Line type="monotone" dataKey="donations" stroke="hsl(var(--accent-foreground))" strokeWidth={3} />
+                </LineChart>
+              </ResponsiveContainer>
+            </SectionCard>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="outreach" className="space-y-6">
+          <Tabs value={outreachSubTab} onValueChange={(value) => setParams({ outreachSubTab: value })} className="space-y-6">
+            <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm">
+              {OUTREACH_SUBTABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="rounded-xl px-4 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            <TabsContent value="social-media" className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <KpiCard icon={Share2} label="Impressions" value={outreachKpis.totalImpressions.toLocaleString()} detail="Total campaign impressions" />
+                <KpiCard icon={BarChart3} label="Avg. engagement" value={`${(outreachKpis.avgEngagementRate * 100).toFixed(1)}%`} detail="Average engagement rate across posts" />
+                <KpiCard icon={Heart} label="Donations from outreach" value={formatCurrency(outreachKpis.totalEstimatedValue)} detail="Estimated donation value from tracked social referrals" />
+                <KpiCard icon={Megaphone} label="Referrals" value={String(outreachKpis.totalReferrals)} detail="Donation referrals attributed to outreach content" />
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <SectionCard title="Campaign performance" description="Performance by platform across impressions and donation referrals.">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={outreachPlatformChart}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="platform" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                      <Tooltip />
+                      <Bar dataKey="impressions" radius={[8, 8, 0, 0]} fill="hsl(var(--primary))" />
+                      <Bar dataKey="referrals" radius={[8, 8, 0, 0]} fill="hsl(var(--secondary))" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </SectionCard>
+
+                <SectionCard title="Recent social activity" description="Newest social posts and their direct fundraising contribution.">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Platform</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Post Type</TableHead>
+                        <TableHead>Impressions</TableHead>
+                        <TableHead className="text-right">Estimated Value</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {outreachPostsTablePage.visibleRows.map((post) => (
+                          <TableRow key={post.post_id}>
+                            <TableCell>{asText(post.platform)}</TableCell>
+                            <TableCell>{asDisplayDate(post.created_at)}</TableCell>
+                            <TableCell>{asText(post.post_type)}</TableCell>
+                            <TableCell>{toNumber(post.impressions).toLocaleString()}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(post.estimated_donation_value_php)}</TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                  <TablePagination
+                    page={outreachPostsTablePage.safePage}
+                    totalPages={outreachPostsTablePage.totalPages}
+                    totalRows={workspace.socialPosts.length}
+                    start={outreachPostsTablePage.start}
+                    end={outreachPostsTablePage.end}
+                    perPage={getPageSize("social-posts")}
+                    onPerPageChange={(size) => setPageSize("social-posts", size)}
+                    onPageChange={(page) => setPage("social-posts", page)}
+                  />
+                </SectionCard>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="public-impact">
+              <div className="grid gap-6 xl:grid-cols-2">
+                <SectionCard title="Public impact publishing" description="Snapshot publication history and visibility trends.">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={publicImpactTimeline}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} allowDecimals={false} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="published" stroke="hsl(var(--primary))" strokeWidth={3} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </SectionCard>
+
+                <SectionCard title="Public impact snapshots" description="Impact headlines and summaries ready for reuse in future reporting flows.">
+                  <div className="space-y-3">
+                    {[...workspace.publicImpact]
+                      .sort((left, right) => compareDatesDescending(left.snapshot_date, right.snapshot_date))
+                      .slice(0, 8)
+                      .map((snapshot) => (
+                        <div key={snapshot.snapshot_id} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="font-medium text-foreground">{asText(snapshot.headline)}</p>
+                              <p className="mt-2 text-sm text-muted-foreground">{asText(snapshot.summary_text)}</p>
+                            </div>
+                            <StatusBadge
+                              value={String(snapshot.is_published).toLowerCase() === "true" ? "Published" : "Draft"}
+                              tone={String(snapshot.is_published).toLowerCase() === "true" ? "default" : "outline"}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </SectionCard>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <SectionCard
+            title="Settings"
+            description="This tab intentionally preserves the existing Settings page exactly as it is today."
+            action={
+              <Button asChild className="rounded-xl">
+                <Link to="/admin/settings">
+                  Open full settings console
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            }
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-border/70 bg-muted/30 p-5">
+                <p className="font-medium text-foreground">Why this stays separate</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  You asked to preserve the current settings page exactly. This tab acts as the same top-level entry
+                  point while handing off to the untouched settings console for all security, workflow, and integration controls.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-muted/30 p-5">
+                <p className="font-medium text-foreground">What remains consistent</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  The settings area still appears as one of the seven main admin tabs, but no styles or interaction
+                  patterns inside the original settings page were altered in this refactor.
+                </p>
+              </div>
+            </div>
+          </SectionCard>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={residentModalOpen} onOpenChange={setResidentModalOpen}>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl text-foreground">
+              {selectedResidentDetail ? residentLabel(selectedResidentDetail) : "Resident detail"}
+            </DialogTitle>
+            <DialogDescription>
+              Personal context, demographics, case status, safe house assignment, notes, and fast navigation into the resident record workstreams.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedResidentDetail ? (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {[
+                  { label: "Personal information", value: `${asText(selectedResidentDetail.sex)} • ${asText(selectedResidentDetail.present_age, "Age unavailable")}` },
+                  { label: "Demographics", value: `${asText(selectedResidentDetail.place_of_birth)} • ${asText(selectedResidentDetail.religion)}` },
+                  { label: "Case status", value: `${asText(selectedResidentDetail.case_status)} • ${asText(selectedResidentDetail.case_category)}` },
+                  { label: "Safe house", value: safehouseMap.get(selectedResidentDetail.safehouse_id ?? -1)?.name ?? "Unassigned" },
+                  { label: "Intake date", value: asDisplayDate(selectedResidentDetail.date_of_admission) },
+                  { label: "Emergency information", value: asText(selectedResidentDetail.referring_agency_person, "Referral contact not recorded") },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
+                    <p className="mt-2 text-sm font-medium text-foreground">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+              <SectionCard title="Notes" description="Restricted notes and resident-specific context.">
+                <p className="text-sm text-muted-foreground">{asText(selectedResidentDetail.notes_restricted, "No resident notes are recorded yet.")}</p>
+              </SectionCard>
+              <SectionCard title="Quick actions" description="Jump directly into the resident-related record areas and keep the resident filter applied.">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {[
+                    { label: "View Visitations", subtab: "visitations", icon: Home },
+                    { label: "View Process Records", subtab: "process-records", icon: FileHeart },
+                    { label: "View Education", subtab: "education", icon: ClipboardList },
+                    { label: "View Health", subtab: "health", icon: HeartPulse },
+                    { label: "View Interventions", subtab: "interventions", icon: Sparkles },
+                    { label: "View Incidents", subtab: "incidents", icon: AlertTriangle },
+                  ].map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <Button
+                        key={action.label}
+                        variant="outline"
+                        className="h-auto justify-start rounded-2xl border-border/80 px-4 py-4 text-left"
+                        onClick={() => goToResidentSubview(action.subtab as ResidentsSubTab, selectedResidentDetail.resident_id)}
+                      >
+                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <span>{action.label}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </SectionCard>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <EntityModal
+        open={residentFormOpen}
+        onOpenChange={setResidentFormOpen}
+        title={editingResidentId ? "Edit Resident" : "Add Resident"}
+        description="Use the same modal interaction pattern as the rest of the admin workspace."
+        fields={residentFields}
+        state={residentForm}
+        onChange={(key, value) => setResidentForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitResidentForm}
+        submitLabel={editingResidentId ? "Save resident" : "Create resident"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <EntityModal
+        open={supporterFormOpen}
+        onOpenChange={setSupporterFormOpen}
+        title={editingSupporterId ? "Edit Supporter" : "Add Supporter"}
+        description="Supporter add and edit flows now match the shared admin modal pattern."
+        fields={supporterFields}
+        state={supporterForm}
+        onChange={(key, value) => setSupporterForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitSupporterForm}
+        submitLabel={editingSupporterId ? "Save supporter" : "Create supporter"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <EntityModal
+        open={donationFormOpen}
+        onOpenChange={setDonationFormOpen}
+        title={editingDonationId ? "Edit Donation" : "Add Donation"}
+        description="Donation add and edit flows use the same shared modal and spacing language."
+        fields={donationFields}
+        state={donationForm}
+        onChange={(key, value) => setDonationForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitDonationForm}
+        submitLabel={editingDonationId ? "Save donation" : "Create donation"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <EntityModal
+        open={inKindFormOpen}
+        onOpenChange={setInKindFormOpen}
+        title={editingInKindId ? "Edit In-Kind Item" : "Add In-Kind Item"}
+        description="In-kind item maintenance follows the same consistent add, edit, and delete interaction model."
+        fields={inKindFields}
+        state={inKindForm}
+        onChange={(key, value) => setInKindForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitInKindForm}
+        submitLabel={editingInKindId ? "Save item" : "Create item"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <EntityModal
+        open={allocationFormOpen}
+        onOpenChange={setAllocationFormOpen}
+        title={editingAllocationId ? "Edit Allocation" : "Add Allocation"}
+        description="Allocation records use the same modal treatment as all other admin tables."
+        fields={allocationFields}
+        state={allocationForm}
+        onChange={(key, value) => setAllocationForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitAllocationForm}
+        submitLabel={editingAllocationId ? "Save allocation" : "Create allocation"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <EntityModal
+        open={safehouseFormOpen}
+        onOpenChange={setSafehouseFormOpen}
+        title={editingSafehouseId ? "Edit Safe House" : "Add Safe House"}
+        description="Safe house management now uses the same shared card, table, and modal flow as every other workspace."
+        fields={safehouseFields}
+        state={safehouseForm}
+        onChange={(key, value) => setSafehouseForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitSafehouseForm}
+        submitLabel={editingSafehouseId ? "Save safe house" : "Create safe house"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <EntityModal
+        open={processFormOpen}
+        onOpenChange={setProcessFormOpen}
+        title={editingProcessId ? "Edit Process Record" : "Add Process Record"}
+        description="Create, update, or document a resident process recording directly from the table workspace."
+        fields={processFields}
+        state={processForm}
+        onChange={(key, value) => setProcessForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitProcessForm}
+        submitLabel={editingProcessId ? "Save process record" : "Create process record"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <EntityModal
+        open={visitationFormOpen}
+        onOpenChange={setVisitationFormOpen}
+        title={editingVisitationId ? "Edit Visitation" : "Add Visitation"}
+        description="Manage visitations and conference-related records directly from the visitations table."
+        fields={visitationFields}
+        state={visitationForm}
+        onChange={(key, value) => setVisitationForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitVisitationForm}
+        submitLabel={editingVisitationId ? "Save visitation" : "Create visitation"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <EntityModal
+        open={educationFormOpen}
+        onOpenChange={setEducationFormOpen}
+        title={editingEducationId ? "Edit Education Record" : "Add Education Record"}
+        description="Create and maintain education records in the same modal workflow as the rest of the admin workspace."
+        fields={educationFields}
+        state={educationForm}
+        onChange={(key, value) => setEducationForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitEducationForm}
+        submitLabel={editingEducationId ? "Save education record" : "Create education record"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <EntityModal
+        open={healthFormOpen}
+        onOpenChange={setHealthFormOpen}
+        title={editingHealthId ? "Edit Health Record" : "Add Health Record"}
+        description="Create and maintain health and well-being records directly from the table section."
+        fields={healthFields}
+        state={healthForm}
+        onChange={(key, value) => setHealthForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitHealthForm}
+        submitLabel={editingHealthId ? "Save health record" : "Create health record"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <EntityModal
+        open={interventionFormOpen}
+        onOpenChange={setInterventionFormOpen}
+        title={editingInterventionId ? "Edit Intervention" : "Add Intervention"}
+        description="Manage intervention plans and conference targets from the intervention table."
+        fields={interventionFields}
+        state={interventionForm}
+        onChange={(key, value) => setInterventionForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitInterventionForm}
+        submitLabel={editingInterventionId ? "Save intervention" : "Create intervention"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <EntityModal
+        open={incidentFormOpen}
+        onOpenChange={setIncidentFormOpen}
+        title={editingIncidentId ? "Edit Incident" : "Add Incident"}
+        description="Create, update, or resolve incident records directly inside the incidents table view."
+        fields={incidentFields}
+        state={incidentForm}
+        onChange={(key, value) => setIncidentForm((current) => ({ ...current, [key]: value }))}
+        onSubmit={submitIncidentForm}
+        submitLabel={editingIncidentId ? "Save incident" : "Create incident"}
+        pending={createMutation.isPending || updateMutation.isPending}
+      />
+    </div>
+  );
+}
