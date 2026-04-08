@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  ArrowUpRight,
   BarChart3,
   Building2,
   CalendarDays,
@@ -34,8 +35,11 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -250,6 +254,26 @@ type WorkspaceData = {
   monthlyMetrics: MonthlyMetric[];
   socialPosts: SocialPost[];
   publicImpact: PublicImpactSnapshot[];
+};
+
+type AnalyticsDatum = Record<string, string | number | null>;
+
+type AnalyticsCardConfig = {
+  key: string;
+  title: string;
+  subtitle: string;
+  kpiLabel: string;
+  kpiValue: string;
+  kpiDetail: string;
+  data: AnalyticsDatum[];
+  xKey: string;
+  yKey: string;
+  type?: "bar" | "line" | "pie";
+  color?: string;
+  emptyMessage?: string;
+  modalOptions?: Array<{ value: string; label: string }>;
+  selectedOption?: string;
+  onOptionChange?: (value: string) => void;
 };
 
 type ResidentFormState = {
@@ -607,6 +631,10 @@ function formatCurrency(value: unknown, currency = "PHP") {
   }).format(toNumber(value));
 }
 
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
 function residentLabel(resident: Resident) {
   return resident.internal_code?.trim() || resident.case_control_no?.trim() || `Resident ${resident.resident_id}`;
 }
@@ -703,6 +731,173 @@ function exportRows(label: string, rows: Array<Record<string, unknown>>) {
   anchor.download = `${label.toLowerCase().replaceAll(/\s+/g, "-")}.csv`;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function buildCountChart(rows: Array<Record<string, unknown>>, key: string) {
+  return Array.from(
+    rows.reduce<Map<string, number>>((accumulator, row) => {
+      const label = asText(row[key], "Unknown");
+      accumulator.set(label, (accumulator.get(label) ?? 0) + 1);
+      return accumulator;
+    }, new Map()),
+  ).map(([label, value]) => ({ label, value }));
+}
+
+function buildAverageChart(definitions: Array<{ label: string; values: number[] }>) {
+  return definitions.map((definition) => ({
+    label: definition.label,
+    value: definition.values.length
+      ? Number((definition.values.reduce((sum, value) => sum + value, 0) / definition.values.length).toFixed(1))
+      : 0,
+  }));
+}
+
+function buildMonthlySumChart(
+  rows: Array<Record<string, unknown>>,
+  dateKey: string,
+  valueSelector: (row: Record<string, unknown>) => number,
+) {
+  const monthly = new Map<string, number>();
+  rows.forEach((row) => {
+    const raw = String(row[dateKey] ?? "");
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return;
+    const key = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+    monthly.set(key, (monthly.get(key) ?? 0) + valueSelector(row));
+  });
+  return Array.from(monthly.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([label, value]) => ({ label, value: Math.round(value) }));
+}
+
+function AnalyticsPreviewChart({ config, expanded = false }: { config: AnalyticsCardConfig; expanded?: boolean }) {
+  if (!config.data.length) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-3 text-center text-xs text-muted-foreground">
+        {config.emptyMessage ?? "No chart data yet"}
+      </div>
+    );
+  }
+
+  if (config.type === "line") {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={config.data}>
+          {expanded ? <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" /> : null}
+          <XAxis
+            dataKey={config.xKey}
+            hide={!expanded}
+            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+            angle={expanded ? -20 : 0}
+            textAnchor={expanded ? "end" : "middle"}
+            height={expanded ? 60 : undefined}
+          />
+          <YAxis hide={!expanded} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+          <Tooltip formatter={(value: number | string) => [value, config.title]} />
+          {expanded ? <Legend /> : null}
+          <Line
+            name={config.title}
+            type="monotone"
+            dataKey={config.yKey}
+            stroke={config.color ?? "hsl(var(--primary))"}
+            strokeWidth={expanded ? 3 : 2.5}
+            dot={expanded}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  if (config.type === "pie") {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={config.data}
+            dataKey={config.yKey}
+            nameKey={config.xKey}
+            innerRadius={expanded ? 70 : 24}
+            outerRadius={expanded ? 120 : 34}
+            paddingAngle={expanded ? 2 : 1}
+          >
+            {config.data.map((entry, index) => (
+              <Cell key={`${String(entry[config.xKey])}-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip formatter={(value: number | string, _name, item) => [value, String(item?.payload?.[config.xKey] ?? "")]} />
+          {expanded ? <Legend /> : null}
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={config.data}>
+        {expanded ? <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" /> : null}
+        <XAxis
+          dataKey={config.xKey}
+          hide={!expanded}
+          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+          angle={expanded ? -20 : 0}
+          textAnchor={expanded ? "end" : "middle"}
+          height={expanded ? 60 : undefined}
+        />
+        <YAxis hide={!expanded} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+        <Tooltip formatter={(value: number | string) => [value, config.title]} />
+        {expanded ? <Legend /> : null}
+        <Bar name={config.title} dataKey={config.yKey} fill={config.color ?? "hsl(var(--primary))"} radius={[8, 8, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function CompactAnalyticsCard({
+  config,
+  onClick,
+}: {
+  config: AnalyticsCardConfig;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative w-[258px] overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-warm transition duration-200 hover:scale-[1.02] hover:shadow-lg"
+    >
+      <span className="absolute right-2 top-2 z-10 rounded-full bg-background/90 p-1 text-muted-foreground shadow-sm transition-colors group-hover:text-foreground">
+        <ArrowUpRight className="h-3.5 w-3.5" />
+      </span>
+      <div className="h-[76px] bg-muted/20">
+        <AnalyticsPreviewChart config={config} />
+      </div>
+    </button>
+  );
+}
+
+function InsightRow({
+  config,
+  onChartClick,
+}: {
+  config: AnalyticsCardConfig;
+  onChartClick: () => void;
+}) {
+  return (
+    <div className="mb-1 rounded-2xl border border-border/70 bg-muted/20 px-4 py-2">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{config.kpiLabel}</p>
+          <div className="mt-0.5 flex items-end gap-2">
+            <p className="text-3xl font-semibold leading-none text-foreground">{config.kpiValue}</p>
+            <p className="pb-1 text-sm text-muted-foreground">{config.kpiDetail}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center">
+          <CompactAnalyticsCard config={config} onClick={onChartClick} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function EmptyState({
@@ -1667,6 +1862,9 @@ export function AdminWorkspace() {
     reported_by: "",
     follow_up_required: "false",
   });
+  const [expandedChartKey, setExpandedChartKey] = useState<string | null>(null);
+  const [healthChartMetric, setHealthChartMetric] = useState("general_health_score");
+  const [monthlyMetricsChartMetric, setMonthlyMetricsChartMetric] = useState("active_residents");
 
   const workspaceQuery = useQuery({
     queryKey: ["admin-workspace"],
@@ -2723,6 +2921,270 @@ export function AdminWorkspace() {
         donations: Math.round(values.donations / 1000),
       }));
   }, [workspace.donations, workspace.incidents, workspace.monthlyMetrics]);
+
+  const chartConfigs = useMemo(() => {
+    const donationsByMonth = buildMonthlySumChart(
+      filteredDonations as unknown as Array<Record<string, unknown>>,
+      "donation_date",
+      (row) => toNumber(row.amount ?? row.estimated_value),
+    );
+
+    const healthMetricDefinitions: Record<string, { label: string; extractor: (row: RecordRow) => number }> = {
+      general_health_score: { label: "General Health", extractor: (row) => toNumber(row.general_health_score) },
+      nutrition_score: { label: "Nutrition", extractor: (row) => toNumber(row.nutrition_score) },
+      sleep_quality_score: { label: "Sleep", extractor: (row) => toNumber(row.sleep_quality_score) },
+      energy_level_score: { label: "Energy", extractor: (row) => toNumber(row.energy_level_score) },
+    };
+
+    const currentHealthMetric = healthMetricDefinitions[healthChartMetric] ?? healthMetricDefinitions.general_health_score;
+    const monthlyMetricLabels: Record<string, string> = {
+      active_residents: "Active Residents",
+      avg_education_progress: "Education Progress",
+      avg_health_score: "Health Score",
+      home_visitation_count: "Visitations",
+      incident_count: "Incidents",
+    };
+
+    return {
+      "residents-all": {
+        key: "residents-all",
+        title: "Case status mix",
+        subtitle: "Resident case status distribution",
+        kpiLabel: "Visible Residents",
+        kpiValue: String(filteredResidentsTable.length),
+        kpiDetail: `${filteredResidentsTable.filter((resident) => (resident.case_status ?? "").toLowerCase() === "active").length} active in this view`,
+        data: buildCountChart(
+          filteredResidentsTable.map((resident) => ({ case_status: resident.case_status ?? "Unknown" })),
+          "case_status",
+        ),
+        xKey: "label",
+        yKey: "value",
+        type: "pie",
+      },
+      "residents-process": {
+        key: "residents-process",
+        title: "Session types",
+        subtitle: "Current process record mix",
+        kpiLabel: "Follow-Up Queue",
+        kpiValue: String(residentProcessSplit.currentAndPast.filter((row) => String(row.follow_up_actions ?? "").trim()).length),
+        kpiDetail: `${residentProcessSplit.currentAndPast.length} visible process records`,
+        data: buildCountChart(residentProcessSplit.currentAndPast, "session_type"),
+        xKey: "label",
+        yKey: "value",
+      },
+      "residents-visitations": {
+        key: "residents-visitations",
+        title: "Visit outcomes",
+        subtitle: "Outcome distribution for visible visitations",
+        kpiLabel: "Upcoming Events",
+        kpiValue: String(residentUpcomingEvents.length),
+        kpiDetail: `${residentVisitationSplit.currentAndPast.length} completed or current visit rows`,
+        data: buildCountChart(residentVisitationSplit.currentAndPast, "visit_outcome"),
+        xKey: "label",
+        yKey: "value",
+        type: "pie",
+      },
+      "residents-education": {
+        key: "residents-education",
+        title: "Education progress",
+        subtitle: "Average progress by education level",
+        kpiLabel: "Average Progress",
+        kpiValue: `${residentEducationSplit.currentAndPast.length ? Math.round(residentEducationSplit.currentAndPast.reduce((sum, row) => sum + toNumber(row.progress_percent), 0) / residentEducationSplit.currentAndPast.length) : 0}%`,
+        kpiDetail: `${residentEducationSplit.currentAndPast.length} visible education records`,
+        data: buildAverageChart(
+          educationLevelOptions.map((option) => ({
+            label: option,
+            values: residentEducationSplit.currentAndPast
+              .filter((row) => String(row.education_level ?? "") === option)
+              .map((row) => toNumber(row.progress_percent))
+              .filter((value) => value > 0),
+          })),
+        ).filter((entry) => entry.value > 0),
+        xKey: "label",
+        yKey: "value",
+      },
+      "residents-health": {
+        key: "residents-health",
+        title: currentHealthMetric.label,
+        subtitle: "Visible health records by resident",
+        kpiLabel: "Average Health",
+        kpiValue: `${residentHealthSplit.currentAndPast.length ? (residentHealthSplit.currentAndPast.reduce((sum, row) => sum + currentHealthMetric.extractor(row), 0) / residentHealthSplit.currentAndPast.length).toFixed(1) : "0.0"}`,
+        kpiDetail: `${residentHealthSplit.currentAndPast.length} visible health records`,
+        data: residentHealthSplit.currentAndPast
+          .map((row) => ({
+            label: residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident)),
+            value: currentHealthMetric.extractor(row),
+          }))
+          .filter((entry) => entry.value > 0)
+          .slice(0, 10),
+        xKey: "label",
+        yKey: "value",
+        modalOptions: Object.entries(healthMetricDefinitions).map(([value, meta]) => ({ value, label: meta.label })),
+        selectedOption: healthChartMetric,
+        onOptionChange: setHealthChartMetric,
+      },
+      "residents-interventions": {
+        key: "residents-interventions",
+        title: "Intervention status",
+        subtitle: "Plan status across visible interventions",
+        kpiLabel: "Overdue Plans",
+        kpiValue: String(
+          residentInterventionSplit.currentAndPast.filter((row) => {
+            const date = new Date(String(row.target_date ?? ""));
+            return !Number.isNaN(date.getTime()) && date < new Date() && String(row.status ?? "").toLowerCase() !== "completed";
+          }).length,
+        ),
+        kpiDetail: `${residentInterventionSplit.currentAndPast.length} visible intervention plans`,
+        data: buildCountChart(residentInterventionSplit.currentAndPast, "status"),
+        xKey: "label",
+        yKey: "value",
+        type: "pie",
+      },
+      "residents-incidents": {
+        key: "residents-incidents",
+        title: "Incident severity",
+        subtitle: "Severity mix for visible incidents",
+        kpiLabel: "Open Incidents",
+        kpiValue: String(residentIncidentSplit.currentAndPast.filter((row) => String(row.resolved ?? "").toLowerCase() !== "true").length),
+        kpiDetail: `${residentIncidentSplit.currentAndPast.length} visible incidents`,
+        data: buildCountChart(residentIncidentSplit.currentAndPast, "severity"),
+        xKey: "label",
+        yKey: "value",
+        color: "hsl(var(--secondary))",
+        type: "pie",
+      },
+      "donations-supporters": {
+        key: "donations-supporters",
+        title: "Supporter status",
+        subtitle: "Current visible supporter mix",
+        kpiLabel: "Active Supporters",
+        kpiValue: String(filteredSupporters.filter((supporter) => (supporter.status ?? "").toLowerCase() === "active").length),
+        kpiDetail: `${filteredSupporters.length} visible supporters`,
+        data: buildCountChart(filteredSupporters.map((supporter) => ({ status: supporter.status ?? "Unknown" })), "status"),
+        xKey: "label",
+        yKey: "value",
+        type: "pie",
+      },
+      "donations-donations": {
+        key: "donations-donations",
+        title: "Donation trend",
+        subtitle: "Monthly donation value in scope",
+        kpiLabel: "Recurring Share",
+        kpiValue: `${filteredDonations.length ? Math.round((filteredDonations.filter((donation) => String(donation.is_recurring).toLowerCase() === "true").length / filteredDonations.length) * 100) : 0}%`,
+        kpiDetail: `${formatCurrency(filteredDonations.reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0))} in current scope`,
+        data: donationsByMonth,
+        xKey: "label",
+        yKey: "value",
+        type: "line",
+      },
+      "donations-in-kind": {
+        key: "donations-in-kind",
+        title: "In-kind categories",
+        subtitle: "Visible in-kind item mix",
+        kpiLabel: "In-Kind Items",
+        kpiValue: String(filteredInKind.length),
+        kpiDetail: `${formatCompactNumber(filteredInKind.reduce((sum, item) => sum + toNumber(item.quantity), 0))} total units in view`,
+        data: buildCountChart(filteredInKind as unknown as Array<Record<string, unknown>>, "item_category"),
+        xKey: "label",
+        yKey: "value",
+        type: "pie",
+      },
+      "donations-allocations": {
+        key: "donations-allocations",
+        title: "Allocation areas",
+        subtitle: "Program area totals",
+        kpiLabel: "Allocated Value",
+        kpiValue: formatCurrency(filteredAllocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0)),
+        kpiDetail: `${filteredAllocations.length} visible allocation records`,
+        data: Array.from(
+          filteredAllocations.reduce<Map<string, number>>((accumulator, allocation) => {
+            const label = asText(allocation.program_area, "Unassigned");
+            accumulator.set(label, (accumulator.get(label) ?? 0) + toNumber(allocation.amount_allocated));
+            return accumulator;
+          }, new Map()),
+        ).map(([label, value]) => ({ label, value: Math.round(value) })),
+        xKey: "label",
+        yKey: "value",
+      },
+      "safehouses-overview": {
+        key: "safehouses-overview",
+        title: "Occupancy by house",
+        subtitle: "Current occupancy across visible houses",
+        kpiLabel: "Average Occupancy",
+        kpiValue: `${filteredSafehouses.length ? Math.round(filteredSafehouses.reduce((sum, safehouse) => sum + (toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1)) * 100, 0) / filteredSafehouses.length) : 0}%`,
+        kpiDetail: `${filteredSafehouses.length} visible safe houses`,
+        data: filteredSafehouses.map((safehouse) => ({
+          label: asText(safehouse.name, `House ${safehouse.safehouse_id}`),
+          value: Math.round((toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1)) * 100),
+        })),
+        xKey: "label",
+        yKey: "value",
+      },
+      "safehouses-allocations": {
+        key: "safehouses-allocations",
+        title: "Allocation areas",
+        subtitle: "Visible allocation history by program",
+        kpiLabel: "Allocated To Houses",
+        kpiValue: formatCurrency(safehouseAllocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0)),
+        kpiDetail: `${safehouseAllocations.length} visible allocation records`,
+        data: Array.from(
+          safehouseAllocations.reduce<Map<string, number>>((accumulator, allocation) => {
+            const label = asText(allocation.program_area, "Unassigned");
+            accumulator.set(label, (accumulator.get(label) ?? 0) + toNumber(allocation.amount_allocated));
+            return accumulator;
+          }, new Map()),
+        ).map(([label, value]) => ({ label, value: Math.round(value) })),
+        xKey: "label",
+        yKey: "value",
+      },
+      "safehouses-metrics": {
+        key: "safehouses-metrics",
+        title: monthlyMetricLabels[monthlyMetricsChartMetric] ?? "Monthly metrics",
+        subtitle: "Visible monthly metric trend",
+        kpiLabel: "Latest Snapshot",
+        kpiValue: String(
+          safehouseMetrics.length
+            ? toNumber(safehouseMetrics[0][monthlyMetricsChartMetric as keyof MonthlyMetric]).toFixed(
+                monthlyMetricsChartMetric.includes("avg_") ? 1 : 0,
+              )
+            : 0,
+        ),
+        kpiDetail: monthlyMetricLabels[monthlyMetricsChartMetric] ?? "Monthly metrics",
+        data: safehouseMetrics
+          .map((metric) => ({
+            label: String(metric.month_start ?? "").slice(0, 7) || asDisplayDate(metric.month_start),
+            value: toNumber(metric[monthlyMetricsChartMetric as keyof MonthlyMetric]),
+          }))
+          .filter((entry) => entry.label),
+        xKey: "label",
+        yKey: "value",
+        type: "line",
+        modalOptions: Object.entries(monthlyMetricLabels).map(([value, label]) => ({ value, label })),
+        selectedOption: monthlyMetricsChartMetric,
+        onOptionChange: setMonthlyMetricsChartMetric,
+      },
+    } as Record<string, AnalyticsCardConfig>;
+  }, [
+    educationLevelOptions,
+    filteredAllocations,
+    filteredDonations,
+    filteredInKind,
+    filteredResidentsTable,
+    filteredSafehouses,
+    filteredSupporters,
+    healthChartMetric,
+    monthlyMetricsChartMetric,
+    residentEducationSplit.currentAndPast,
+    residentHealthSplit.currentAndPast,
+    residentIncidentSplit.currentAndPast,
+    residentInterventionSplit.currentAndPast,
+    residentMap,
+    residentProcessSplit.currentAndPast,
+    residentUpcomingEvents,
+    residentVisitationSplit.currentAndPast,
+    safehouseAllocations,
+    safehouseMetrics,
+  ]);
 
   const residentsRowsSorted = useMemo(
     () =>
@@ -4570,6 +5032,45 @@ export function AdminWorkspace() {
     />
   );
 
+  const renderInsightRow = (chartKey: string) => {
+    const config = chartConfigs[chartKey];
+    if (!config) return null;
+    return <InsightRow config={config} onChartClick={() => setExpandedChartKey(chartKey)} />;
+  };
+
+  const residentInsightKey =
+    residentsSubTab === "all-residents"
+      ? "residents-all"
+      : residentsSubTab === "process-records"
+        ? "residents-process"
+        : residentsSubTab === "visitations"
+          ? "residents-visitations"
+          : residentsSubTab === "education"
+            ? "residents-education"
+            : residentsSubTab === "health"
+              ? "residents-health"
+              : residentsSubTab === "interventions"
+                ? "residents-interventions"
+                : "residents-incidents";
+
+  const donationsInsightKey =
+    donationsSubTab === "supporters"
+      ? "donations-supporters"
+      : donationsSubTab === "donations"
+        ? "donations-donations"
+        : donationsSubTab === "in-kind"
+          ? "donations-in-kind"
+          : "donations-allocations";
+
+  const safehousesInsightKey =
+    safeHousesSubTab === "allocation-history"
+      ? "safehouses-allocations"
+      : safeHousesSubTab === "monthly-metrics"
+        ? "safehouses-metrics"
+        : "safehouses-overview";
+
+  const expandedChart = expandedChartKey ? chartConfigs[expandedChartKey] ?? null : null;
+
   return (
     <div className="space-y-6">
       {workspaceQuery.isError ? (
@@ -4765,6 +5266,7 @@ export function AdminWorkspace() {
 
         <TabsContent value="residents" className="space-y-6">
           <Tabs value={residentsSubTab} onValueChange={(value) => setParams({ residentsSubTab: value })} className="space-y-6">
+            {renderInsightRow(residentInsightKey)}
             <TabsList
               aria-label="Resident record views"
               className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
@@ -5686,6 +6188,7 @@ export function AdminWorkspace() {
 
         <TabsContent value="donations" className="space-y-6">
           <Tabs value={donationsSubTab} onValueChange={(value) => setParams({ donationsSubTab: value })} className="space-y-6">
+            {renderInsightRow(donationsInsightKey)}
             <TabsList
               aria-label="Donation workspace sections"
               className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
@@ -6140,6 +6643,7 @@ export function AdminWorkspace() {
 
         <TabsContent value="safe-houses" className="space-y-6">
           <Tabs value={safeHousesSubTab} onValueChange={(value) => setParams({ safeHousesSubTab: value })} className="space-y-6">
+            {renderInsightRow(safehousesInsightKey)}
             <TabsList
               aria-label="Safe house workspace sections"
               className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
@@ -6681,6 +7185,40 @@ export function AdminWorkspace() {
           </SectionCard>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={Boolean(expandedChart)} onOpenChange={(open) => !open && setExpandedChartKey(null)}>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl text-foreground">{expandedChart?.title ?? "Chart"}</DialogTitle>
+            <DialogDescription>{expandedChart?.subtitle ?? "Filter-aware analytics for the current table view."}</DialogDescription>
+          </DialogHeader>
+          {expandedChart ? (
+            <div className="space-y-5">
+              {expandedChart.modalOptions?.length ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-medium text-foreground">View:</span>
+                  <select
+                    value={expandedChart.selectedOption}
+                    onChange={(event) => expandedChart.onOptionChange?.(event.target.value)}
+                    className="h-10 rounded-full border border-input bg-background px-4 text-sm text-foreground"
+                  >
+                    {expandedChart.modalOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-warm">
+                <div className="h-[360px]">
+                  <AnalyticsPreviewChart config={expandedChart} expanded />
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={residentModalOpen} onOpenChange={setResidentModalOpen}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
