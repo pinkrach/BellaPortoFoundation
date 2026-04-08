@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { buildApiUrl } from "@/lib/api";
+import { insertSupporterForNewUser } from "@/lib/supporterRecord";
 
 type UserRole = "admin" | "donor" | null;
 
@@ -280,6 +281,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return {
         ok: false,
         message: profileError.message || "Account created, but profile setup failed.",
+      };
+    }
+
+    const supporterResult = await insertSupporterForNewUser({
+      email: input.email,
+      first_name: input.first_name,
+      last_name: input.last_name,
+    });
+
+    if (supporterResult.error) {
+      return {
+        ok: false,
+        message: supporterResult.error.message || "Account created, but supporter profile setup failed.",
       };
     }
 

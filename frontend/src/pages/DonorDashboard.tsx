@@ -527,6 +527,9 @@ const DonorDashboard = () => {
         onOpenChange={setDonationModalOpen}
         onSuccess={async () => {
           await queryClient.invalidateQueries({ queryKey: donorDonationDataQueryKey(userEmail) });
+          await queryClient.invalidateQueries({ queryKey: ["donor-latest-safehouse"] });
+          await queryClient.refetchQueries({ queryKey: donorDonationDataQueryKey(userEmail) });
+          await queryClient.refetchQueries({ queryKey: ["donor-latest-safehouse"] });
         }}
       />
 

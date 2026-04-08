@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Sailboat } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
+import { insertSupporterForNewUser } from "@/lib/supporterRecord";
 import { useAuth } from "@/contexts/AuthContext";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import { PublicLayout } from "@/components/PublicLayout";
@@ -92,6 +93,17 @@ const SignUpPage = () => {
           "Profile insert failed. Check RLS policies on the profiles table.";
         alert(`Profile insert failed: ${message}`);
         setError(message);
+        return;
+      }
+
+      const supporterResult = await insertSupporterForNewUser({
+        email: trimmedEmail,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+      });
+
+      if (supporterResult.error) {
+        setError(supporterResult.error.message || "Supporter profile could not be created.");
         return;
       }
 
