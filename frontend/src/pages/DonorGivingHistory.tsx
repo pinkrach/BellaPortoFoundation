@@ -4,6 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { donorDonationDataQueryKey, fetchDonorDonationData, type DonationRow } from "@/lib/donorQueries";
 import { Link } from "react-router-dom";
 import { Gift } from "lucide-react";
+import { DonationDetailsModal } from "@/components/DonationDetailsModal";
+import { useState } from "react";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
@@ -36,6 +38,9 @@ const formatDate = (s: string | null) => {
  */
 const DonorGivingHistory = () => {
   const { userEmail } = useAuth();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedDonation, setSelectedDonation] = useState<DonationRow | null>(null);
+  const [filter, setFilter] = useState<"all" | "monetary" | "in_kind" | "service">("all");
   const { data, isPending, isError } = useQuery({
     queryKey: donorDonationDataQueryKey(userEmail),
     queryFn: () => fetchDonorDonationData(userEmail),
@@ -63,6 +68,13 @@ const DonorGivingHistory = () => {
   }
 
   const { donations } = data;
+  const filtered = donations.filter((d) => {
+    const t = (d.donation_type ?? "").trim();
+    if (filter === "all") return true;
+    if (filter === "monetary") return t === "Monetary";
+    if (filter === "in_kind") return t === "In-Kind" || t === "In-Kind Donation";
+    return t === "Time";
+  });
 
   if (donations.length === 0) {
     return (
@@ -92,9 +104,35 @@ const DonorGivingHistory = () => {
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between mb-4">
           <div>
             <h2 className="font-heading text-lg font-semibold text-foreground">Giving history</h2>
-            <p className="text-sm text-muted-foreground">Your recorded monetary donations ({donations.length}).</p>
+            <p className="text-sm text-muted-foreground">A full view of your contributions ({filtered.length}).</p>
           </div>
         </div>
+
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {[
+            { key: "all" as const, label: "All" },
+            { key: "monetary" as const, label: "Monetary" },
+            { key: "in_kind" as const, label: "In-Kind" },
+            { key: "service" as const, label: "Service" },
+          ].map((opt) => {
+            const active = filter === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setFilter(opt.key)}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  active
+                    ? "bg-primary text-primary-foreground shadow-warm"
+                    : "border border-border bg-background text-foreground hover:bg-muted/40"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -104,16 +142,42 @@ const DonorGivingHistory = () => {
               </tr>
             </thead>
             <tbody>
-              {donations.map((d, i) => (
-                <tr key={d.donation_id} className={`border-b border-border/50 ${i % 2 === 0 ? "bg-muted/30" : ""}`}>
+              {filtered.map((d, i) => (
+                <tr
+                  key={d.donation_id}
+                  className={`border-b border-border/50 cursor-pointer hover:bg-muted/40 transition-colors ${
+                    i % 2 === 0 ? "bg-muted/30" : ""
+                  }`}
+                  onClick={() => {
+                    setSelectedDonation(d);
+                    setDetailsOpen(true);
+                  }}
+                >
                   <td className="py-2.5 text-muted-foreground">{formatDate(d.donation_date)}</td>
                   <td className="py-2.5 font-semibold text-foreground">{formatEstimatedValue(d)}</td>
                 </tr>
               ))}
+
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={2} className="py-2.5 text-muted-foreground">
+                    No donations found for this filter.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
       </motion.div>
+
+      <DonationDetailsModal
+        open={detailsOpen}
+        onOpenChange={(open) => {
+          setDetailsOpen(open);
+          if (!open) setSelectedDonation(null);
+        }}
+        donation={selectedDonation}
+      />
     </div>
   );
 };

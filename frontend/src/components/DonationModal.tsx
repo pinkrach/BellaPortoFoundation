@@ -28,6 +28,7 @@ export function DonationModal({
   const [amount, setAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [message, setMessage] = useState<string>("");
+  const [isRecurring, setIsRecurring] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [didSucceed, setDidSucceed] = useState(false);
@@ -41,6 +42,7 @@ export function DonationModal({
     setAmount("");
     setPaymentMethod("card");
     setMessage("");
+    setIsRecurring(false);
     setErrorMessage(null);
     setIsProcessing(false);
     setDidSucceed(false);
@@ -73,10 +75,12 @@ export function DonationModal({
         throw new Error("We couldn’t find your supporter record. Please contact an admin.");
       }
 
-      const payload: Record<string, string | number | null> = {
+      const payload: Record<string, string | number | boolean | null> = {
         supporter_id: supporter.supporter_id,
         donation_type: "Monetary",
         donation_date: new Date().toISOString(),
+        channel_source: paymentMethod,
+        is_recurring: isRecurring,
         currency_code: "USD",
         amount: amountNumber,
         estimated_value: amountNumber,
@@ -142,7 +146,7 @@ export function DonationModal({
                 <input
                   type="number"
                   inputMode="decimal"
-                  step="0.01"
+                  step="1"
                   min={0}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -236,6 +240,24 @@ export function DonationModal({
               {isProcessing ? (
                 <div className="rounded-2xl bg-primary/5 p-4 text-sm text-primary">Processing Payment...</div>
               ) : null}
+
+              <label className="flex items-start gap-3 rounded-2xl border border-border/70 bg-background p-4">
+                <input
+                  type="checkbox"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  disabled={isProcessing}
+                  className="mt-1 h-5 w-5 accent-[hsl(var(--primary))] disabled:opacity-60"
+                />
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-foreground">Make this a monthly recurring donation</div>
+                  {isRecurring ? (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Your card will be charged this amount on the same day each month.
+                    </div>
+                  ) : null}
+                </div>
+              </label>
 
               <DialogFooter className="gap-2 sm:gap-2">
                 <button

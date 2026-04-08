@@ -7,6 +7,8 @@ export type DonationRow = {
   supporter_id: number | null;
   donation_type: string | null;
   donation_date: string | null;
+  channel_source: string | null;
+  is_recurring: boolean | null;
   estimated_value: number | string | null;
   amount: number | string | null;
   currency_code: string | null;
@@ -84,10 +86,9 @@ export async function fetchDonorDonationData(userEmail: string | null): Promise<
     const { data: donationRows, error: donErr } = await supabase
       .from("donations")
       .select(
-        "donation_id, supporter_id, donation_type, donation_date, estimated_value, amount, currency_code, campaign_name",
+        "donation_id, supporter_id, donation_type, donation_date, channel_source, is_recurring, estimated_value, amount, currency_code, campaign_name",
       )
       .eq("supporter_id", supporterId)
-      .eq("donation_type", "Monetary")
       .order("donation_date", { ascending: false });
 
     if (donErr) {

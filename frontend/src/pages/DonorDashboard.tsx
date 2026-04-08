@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Anchor,
-  Bell,
   Heart,
   History,
   LogOut,
@@ -14,13 +13,17 @@ import {
   Settings,
   Gift,
   ChevronDown,
+  Info,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import DonorGivingHistory from "@/pages/DonorGivingHistory";
 import DonorSettings from "@/pages/DonorSettings";
 import { DonationModal } from "@/components/DonationModal";
+import { DonationDetailsModal } from "@/components/DonationDetailsModal";
 import { donorDonationDataQueryKey, fetchDonorDonationData, type DonationRow } from "@/lib/donorQueries";
+import { supabase } from "@/lib/supabaseClient";
 import safehouseImage from "@/assets/hero/portofino-watercolor-hero.png";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 14 },
@@ -54,9 +57,11 @@ const DonorDashboard = () => {
   const [params, setParams] = useSearchParams();
   const tab = (params.get("tab") || "impact").toLowerCase();
 
-  const { userEmail, displayName, initials, logout } = useAuth();
+  const { userEmail, displayName, firstName, lastName, initials, logout } = useAuth();
   const queryClient = useQueryClient();
   const [donationModalOpen, setDonationModalOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedDonation, setSelectedDonation] = useState<DonationRow | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -84,11 +89,13 @@ const DonorDashboard = () => {
   });
 
   const donations = data?.donations ?? [];
-  const monetaryDonations = useMemo(
-    () => donations.filter((d) => (d.donation_type ?? "").trim() === "Monetary"),
+  const monetaryDonations = useMemo(() => donations.filter((d) => (d.donation_type ?? "").trim() === "Monetary"), [donations]);
+  const timeDonations = useMemo(() => donations.filter((d) => (d.donation_type ?? "").trim() === "Time"), [donations]);
+  const inKindDonations = useMemo(
+    () => donations.filter((d) => (d.donation_type ?? "").trim() === "In-Kind" || (d.donation_type ?? "").trim() === "In-Kind Donation"),
     [donations],
   );
-  const donationCount = monetaryDonations.length;
+  const donationCount = donations.length;
 
   const totalEstimatedImpact = useMemo(() => {
     let total = 0;
@@ -97,6 +104,67 @@ const DonorDashboard = () => {
   }, [monetaryDonations]);
 
   const nightsOfSafety = useMemo(() => Math.max(0, Math.floor(totalEstimatedImpact / 50)), [totalEstimatedImpact]);
+
+  const totalServiceValue = useMemo(() => {
+    let total = 0;
+    for (const d of timeDonations) total += donationEstimatedValue(d);
+    return total;
+  }, [timeDonations]);
+
+  // Service hours are derived from Time donations at $15/hr, rounded up.
+  const serviceHours = useMemo(() => Math.max(0, Math.ceil(totalServiceValue / 15)), [totalServiceValue]);
+
+  const inKindTotalValue = useMemo(() => {
+    let total = 0;
+    for (const d of inKindDonations) total += donationEstimatedValue(d);
+    return total;
+  }, [inKindDonations]);
+
+  const latestDonationId = monetaryDonations[0]?.donation_id ?? null;
+  const latestSafehouseQuery = useQuery({
+    queryKey: ["donor-latest-safehouse", latestDonationId],
+    enabled: latestDonationId != null && Boolean(supabase),
+    queryFn: async () => {
+      if (!supabase || latestDonationId == null) return null;
+      const { data: rows, error } = await supabase
+        .from("donation_allocations")
+        .select("amount_allocated, safehouses(*)")
+        .eq("donation_id", latestDonationId)
+        .order("amount_allocated", { ascending: false });
+      if (error || !rows?.length) return null;
+      const sh = (rows[0] as any)?.safehouses as any;
+      const name = typeof sh?.name === "string" ? sh.name.trim() : "";
+      const city = typeof sh?.city === "string" ? sh.city.trim() : "";
+      const region =
+        typeof sh?.region === "string"
+          ? sh.region.trim()
+          : typeof sh?.province === "string"
+            ? sh.province.trim()
+            : "";
+
+      const left = [region, city].filter(Boolean).join(", ");
+      const base = left || name || "Safehouse";
+      return `${base} Safehouse`;
+    },
+  });
+  const safehouseLabel = latestSafehouseQuery.data ?? "Safehouse";
+
+  const fullName = useMemo(() => {
+    const combined = [firstName, lastName].filter(Boolean).join(" ").trim();
+    if (combined) return combined;
+    return displayName?.trim() || null;
+  }, [displayName, firstName, lastName]);
+
+  const greetingName = fullName ?? "there";
+
+  const firstNameForCaption = useMemo(() => {
+    const fn = firstName?.trim();
+    if (fn) return fn;
+    const fromDisplay = (fullName || displayName || "").trim().split(/\s+/)[0] || "";
+    if (fromDisplay) return fromDisplay;
+    const fromEmail = (userEmail || "").split("@")[0] || "";
+    return fromEmail ? fromEmail : "Friend";
+  }, [displayName, firstName, fullName, userEmail]);
 
   const onSelectTab = (next: "impact" | "history" | "settings") => {
     const nextParams = new URLSearchParams(params);
@@ -221,15 +289,16 @@ const DonorDashboard = () => {
             </button>
             <div>
               <h1 className="font-heading text-lg font-semibold text-foreground">
-                {showHistory ? "Giving History" : showSettings ? "Settings" : "Donor Dashboard"}
+                {showImpact ? `Welcome back, ${greetingName}` : showHistory ? "Giving History" : "Settings"}
               </h1>
+              {showImpact ? (
+                <p className="mt-0.5 text-sm italic text-muted-foreground">
+                  Thank you for your ongoing commitment to our mission.
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="relative text-muted-foreground hover:text-foreground transition-colors" aria-label="Notifications">
-              <Bell className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-secondary rounded-full" />
-            </button>
             <div ref={userMenuRef} className="relative">
               <button
                 type="button"
@@ -294,7 +363,7 @@ const DonorDashboard = () => {
                   { label: "Giving Frequency", value: userEmail && data ? `${donationCount}` : "—", icon: History },
                   {
                     label: "Current Foundation Needs",
-                    value: userEmail && data ? "Safehouse #4 needs 20 new blankets" : "—",
+                    value: userEmail && data ? `${safehouseLabel} needs 20 new blankets` : "—",
                     icon: Gift,
                   },
                 ].map((kpi, i) => (
@@ -324,6 +393,48 @@ const DonorDashboard = () => {
                 ))}
               </div>
 
+              {/* Beyond the Dollar */}
+              <div className="bg-card rounded-2xl p-6 shadow-warm mb-8">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="font-heading text-lg font-semibold text-foreground">Service &amp; In-Kind Impact</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">Non-monetary contributions that extend your impact.</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 items-stretch">
+                  <div className="rounded-2xl border border-border/60 bg-background p-5 h-full flex flex-col justify-center text-center">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Volunteer service</p>
+                    <p className="mt-2 text-2xl font-bold text-foreground">
+                      <span className="text-primary">{serviceHours}</span> {serviceHours === 1 ? "Hour" : "Hours"} Donated
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-border/60 bg-background p-5 h-full flex flex-col justify-center text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">In-kind contributions</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                            aria-label="How in-kind contributions are counted"
+                          >
+                            <Info className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" align="start" className="max-w-xs">
+                          Reflects the total count of donation batches and their estimated fair market value. (e.g., One bulk food drop-off is counted as 1 donation batch).
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <p className="mt-2 text-2xl font-bold text-foreground">
+                      <span className="text-primary">{inKindDonations.length}</span> Batches · {formatUsd(inKindTotalValue)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Main content (match AdminDashboard structure) */}
               {!userEmail || isPending ? (
                 <div className="text-sm text-muted-foreground py-8 text-center">Loading your donor dashboard…</div>
@@ -347,9 +458,14 @@ const DonorDashboard = () => {
                         <div className="rounded-2xl border border-border/60 bg-background/55 backdrop-blur-md p-5 shadow-warm">
                           <p className="text-sm text-muted-foreground">Your impact</p>
                           <p className="mt-1 text-xl font-semibold text-foreground">
-                            Your contributions have helped provide{" "}
+                            {firstNameForCaption}, your contributions have helped provide{" "}
                             <span className="text-primary font-bold">{nightsOfSafety}</span> nights of safety.
                           </p>
+                          <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className="rounded-full border border-border/60 bg-background/60 px-2.5 py-1 text-xs">
+                              + <span className="font-semibold text-foreground">{serviceHours}</span> hours of direct service
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -370,7 +486,16 @@ const DonorDashboard = () => {
                           </thead>
                           <tbody>
                             {monetaryDonations.slice(0, 6).map((d, i) => (
-                              <tr key={d.donation_id} className={`border-b border-border/50 ${i % 2 === 0 ? "bg-muted/30" : ""}`}>
+                              <tr
+                                key={d.donation_id}
+                                className={`border-b border-border/50 cursor-pointer hover:bg-muted/40 transition-colors ${
+                                  i % 2 === 0 ? "bg-muted/30" : ""
+                                }`}
+                                onClick={() => {
+                                  setSelectedDonation(d);
+                                  setDetailsOpen(true);
+                                }}
+                              >
                                 <td className="py-2.5 font-semibold text-foreground">
                                   {formatUsd(d.amount ?? d.estimated_value)}
                                 </td>
@@ -403,6 +528,15 @@ const DonorDashboard = () => {
         onSuccess={async () => {
           await queryClient.invalidateQueries({ queryKey: donorDonationDataQueryKey(userEmail) });
         }}
+      />
+
+      <DonationDetailsModal
+        open={detailsOpen}
+        onOpenChange={(open) => {
+          setDetailsOpen(open);
+          if (!open) setSelectedDonation(null);
+        }}
+        donation={selectedDonation}
       />
     </div>
   );
