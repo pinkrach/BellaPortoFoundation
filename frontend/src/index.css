@@ -25,7 +25,8 @@
     --secondary-foreground: 40 50% 98%;
 
     --muted: 38 30% 92%;
-    --muted-foreground: 200 22% 32%;
+    /* Slightly darker than body text for WCAG contrast on cream/muted surfaces */
+    --muted-foreground: 200 26% 28%;
 
     /* Playful peach-coral — colorful houses & sunset in the hero */
     --accent: 18 72% 72%;

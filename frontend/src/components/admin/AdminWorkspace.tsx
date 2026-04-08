@@ -1,4 +1,4 @@
-import { startTransition, type ReactNode, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { startTransition, type ReactNode, useDeferredValue, useEffect, useId, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -46,7 +46,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -721,7 +721,7 @@ function SectionCard({
     <Card className="rounded-2xl border-border/70 bg-card shadow-warm">
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div>
-          <CardTitle className="font-heading text-xl text-foreground">{title}</CardTitle>
+          <h2 className="font-heading text-xl font-semibold leading-none tracking-tight text-foreground">{title}</h2>
           {description ? <CardDescription className="mt-1">{description}</CardDescription> : null}
         </div>
         {action}
@@ -743,7 +743,7 @@ function KpiCard({
   detail: string;
 }) {
   return (
-    <Card className="rounded-2xl border-border/70 bg-card shadow-warm transition-transform hover:-translate-y-0.5">
+    <Card className="rounded-2xl border-border/70 bg-card shadow-warm transition-transform hover:-translate-y-0.5" role="group" aria-label={label}>
       <CardContent className="p-5">
         <div className="mb-4 flex items-center justify-between">
           <div className="rounded-2xl bg-primary/10 p-3 text-primary">
@@ -802,8 +802,10 @@ function FilterCheckboxGroup({
   };
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-background p-4">
-      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{title}</p>
+    <fieldset className="rounded-2xl border border-border/70 bg-background p-4">
+      <legend className="mb-3 w-full text-left text-xs font-semibold uppercase tracking-[0.2em] text-foreground/80">
+        {title}
+      </legend>
       <div className="space-y-3 text-sm text-foreground">
         <label className="flex items-center gap-3 font-medium">
           <input
@@ -826,7 +828,7 @@ function FilterCheckboxGroup({
           </label>
         ))}
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -847,7 +849,7 @@ function CollapsibleSubsection({
         <CollapsibleTrigger asChild>
           <button type="button" className="flex w-full items-center justify-between px-4 py-3 text-left">
             <span className="font-medium text-foreground">{title}</span>
-            <span className="text-sm text-muted-foreground">{open ? "Hide" : "Show"}</span>
+            <span className="text-sm text-foreground/75">{open ? "Hide" : "Show"}</span>
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent className="border-t border-border/70 px-4 py-4">{children}</CollapsibleContent>
@@ -884,6 +886,7 @@ function Toolbar({
   actionItems?: Array<{ label: string; onClick: () => void }>;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const searchFieldId = useId();
   return (
     <Card className="mb-12 rounded-2xl border-border/70 bg-card shadow-warm">
       <Collapsible open={open} onOpenChange={setOpen}>
@@ -911,7 +914,7 @@ function Toolbar({
               </span>
               <span className={cn("flex shrink-0 items-center gap-2 font-medium text-muted-foreground", open ? "text-sm" : "text-xs")}>
                 {open ? "Hide" : "Show"}
-                {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {open ? <ChevronUp className="h-4 w-4 shrink-0" aria-hidden /> : <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />}
               </span>
             </button>
           </CollapsibleTrigger>
@@ -940,12 +943,17 @@ function Toolbar({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
                 <div className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <label htmlFor={searchFieldId} className="sr-only">
+                    {searchPlaceholder}
+                  </label>
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/60" aria-hidden />
                   <Input
+                    id={searchFieldId}
                     value={searchValue}
                     onChange={(event) => onSearchChange(event.target.value)}
                     placeholder={searchPlaceholder}
                     className="h-11 rounded-full border-border/80 bg-background pl-9"
+                    autoComplete="off"
                   />
                 </div>
                 {onClearFilters ? (
@@ -955,7 +963,11 @@ function Toolbar({
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-3">
+                <label htmlFor={`${searchFieldId}-sort`} className="sr-only">
+                  Sort {title}
+                </label>
                 <select
+                  id={`${searchFieldId}-sort`}
                   value={sortValue}
                   onChange={(event) => onSortChange(event.target.value)}
                   className="h-11 rounded-full border border-input bg-background px-4 text-sm text-foreground"
@@ -1025,10 +1037,10 @@ function TablePagination({
   return (
     <div className="mt-4 flex flex-col gap-3 border-t border-border/70 pt-4 md:flex-row md:items-center md:justify-between">
       <div className="flex flex-wrap items-center gap-4">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-foreground/80">
           Showing {Math.max(end - start + 1, 0)} of {totalRows}
         </p>
-        <label className="flex items-center gap-3 text-sm text-muted-foreground">
+        <label className="flex items-center gap-3 text-sm text-foreground/80">
           Rows per page
           <select
             value={String(perPage)}
@@ -3262,9 +3274,10 @@ export function AdminWorkspace() {
                       type="button"
                       onClick={() => toggleResidentSelection(resident.resident_id)}
                       className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
+                      aria-label={`Remove ${residentLabel(resident)} from resident filter`}
                     >
                       {residentLabel(resident)}
-                      <X className="h-3.5 w-3.5" />
+                      <X className="h-3.5 w-3.5 shrink-0" aria-hidden />
                     </button>
                   ))}
                 </div>
@@ -3823,7 +3836,10 @@ export function AdminWorkspace() {
 
         <TabsContent value="residents" className="space-y-6">
           <Tabs value={residentsSubTab} onValueChange={(value) => setParams({ residentsSubTab: value })} className="space-y-6">
-            <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm">
+            <TabsList
+              aria-label="Resident record views"
+              className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
+            >
               {RESIDENT_SUBTABS.map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -3868,6 +3884,7 @@ export function AdminWorkspace() {
                             checked={selectedResidentIdSet.has(resident.resident_id)}
                             onChange={() => toggleResidentSelection(resident.resident_id)}
                             className="h-4 w-4 rounded border-border text-primary"
+                            aria-label={`Select ${residentLabel(resident)} for cross-tab filters`}
                           />
                         </TableCell>
                         <TableCell className="font-medium text-foreground">{residentLabel(resident)}</TableCell>
@@ -3886,16 +3903,23 @@ export function AdminWorkspace() {
                         <TableCell>{asDisplayDate(resident.created_at)}</TableCell>
                         <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openResidentForm(resident)}>
-                              <Pencil className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl"
+                              onClick={() => openResidentForm(resident)}
+                              aria-label={`Edit ${residentLabel(resident)}`}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="rounded-xl text-destructive hover:text-destructive"
                               onClick={() => confirmDelete("residents", resident.resident_id, residentLabel(resident))}
+                              aria-label={`Delete ${residentLabel(resident)}`}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </Button>
                           </div>
                         </TableCell>
@@ -3969,11 +3993,23 @@ export function AdminWorkspace() {
                         <TableCell>{asText(row.follow_up_actions)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openProcessForm(row)}>
-                              <Pencil className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl"
+                              onClick={() => openProcessForm(row)}
+                              aria-label={`Edit process record for ${residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}`}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
                             </Button>
-                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("process_recordings", toNumber(row.recording_id), `process record #${row.recording_id}`)}>
-                              <Trash2 className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl text-destructive hover:text-destructive"
+                              onClick={() => confirmDelete("process_recordings", toNumber(row.recording_id), `process record #${row.recording_id}`)}
+                              aria-label={`Delete process record #${row.recording_id}`}
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </Button>
                           </div>
                         </TableCell>
@@ -4037,11 +4073,23 @@ export function AdminWorkspace() {
                         <TableCell>{asText(row.visit_outcome)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openVisitationForm(row)}>
-                              <Pencil className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl"
+                              onClick={() => openVisitationForm(row)}
+                              aria-label={`Edit visitation for ${residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}`}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
                             </Button>
-                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("home_visitations", toNumber(row.visitation_id), `visitation #${row.visitation_id}`)}>
-                              <Trash2 className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl text-destructive hover:text-destructive"
+                              onClick={() => confirmDelete("home_visitations", toNumber(row.visitation_id), `visitation #${row.visitation_id}`)}
+                              aria-label={`Delete visitation #${row.visitation_id}`}
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </Button>
                           </div>
                         </TableCell>
@@ -4105,11 +4153,23 @@ export function AdminWorkspace() {
                         <TableCell>{toNumber(row.progress_percent).toFixed(0)}%</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openEducationForm(row)}>
-                              <Pencil className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl"
+                              onClick={() => openEducationForm(row)}
+                              aria-label={`Edit education record for ${residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}`}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
                             </Button>
-                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("education_records", toNumber(row.education_record_id), `education record #${row.education_record_id}`)}>
-                              <Trash2 className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl text-destructive hover:text-destructive"
+                              onClick={() => confirmDelete("education_records", toNumber(row.education_record_id), `education record #${row.education_record_id}`)}
+                              aria-label={`Delete education record #${row.education_record_id}`}
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </Button>
                           </div>
                         </TableCell>
@@ -4173,11 +4233,23 @@ export function AdminWorkspace() {
                         <TableCell>{toNumber(row.bmi).toFixed(1)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openHealthForm(row)}>
-                              <Pencil className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl"
+                              onClick={() => openHealthForm(row)}
+                              aria-label={`Edit health record for ${residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}`}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
                             </Button>
-                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("health_wellbeing_records", toNumber(row.health_record_id), `health record #${row.health_record_id}`)}>
-                              <Trash2 className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl text-destructive hover:text-destructive"
+                              onClick={() => confirmDelete("health_wellbeing_records", toNumber(row.health_record_id), `health record #${row.health_record_id}`)}
+                              aria-label={`Delete health record #${row.health_record_id}`}
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </Button>
                           </div>
                         </TableCell>
@@ -4241,11 +4313,23 @@ export function AdminWorkspace() {
                         <TableCell>{asText(row.services_provided)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openInterventionForm(row)}>
-                              <Pencil className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl"
+                              onClick={() => openInterventionForm(row)}
+                              aria-label={`Edit intervention for ${residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}`}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
                             </Button>
-                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("intervention_plans", toNumber(row.plan_id), `intervention #${row.plan_id}`)}>
-                              <Trash2 className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl text-destructive hover:text-destructive"
+                              onClick={() => confirmDelete("intervention_plans", toNumber(row.plan_id), `intervention #${row.plan_id}`)}
+                              aria-label={`Delete intervention #${row.plan_id}`}
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </Button>
                           </div>
                         </TableCell>
@@ -4309,11 +4393,23 @@ export function AdminWorkspace() {
                         <TableCell>{String(row.resolved).toLowerCase() === "true" ? "Yes" : "No"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openIncidentForm(row)}>
-                              <Pencil className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl"
+                              onClick={() => openIncidentForm(row)}
+                              aria-label={`Edit incident for ${residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident))}`}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
                             </Button>
-                            <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive" onClick={() => confirmDelete("incident_reports", toNumber(row.incident_id), `incident #${row.incident_id}`)}>
-                              <Trash2 className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl text-destructive hover:text-destructive"
+                              onClick={() => confirmDelete("incident_reports", toNumber(row.incident_id), `incident #${row.incident_id}`)}
+                              aria-label={`Delete incident #${row.incident_id}`}
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </Button>
                           </div>
                         </TableCell>
@@ -4338,7 +4434,10 @@ export function AdminWorkspace() {
 
         <TabsContent value="donations" className="space-y-6">
           <Tabs value={donationsSubTab} onValueChange={(value) => setParams({ donationsSubTab: value })} className="space-y-6">
-            <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm">
+            <TabsList
+              aria-label="Donation workspace sections"
+              className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
+            >
               {DONATION_SUBTABS.map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -4382,16 +4481,23 @@ export function AdminWorkspace() {
                         <TableCell>{asText(supporter.acquisition_channel)}</TableCell>
                         <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openSupporterForm(supporter)}>
-                              <Pencil className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl"
+                              onClick={() => openSupporterForm(supporter)}
+                              aria-label={`Edit ${supporterLabel(supporter)}`}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="rounded-xl text-destructive hover:text-destructive"
                               onClick={() => confirmDelete("supporters", supporter.supporter_id, supporterLabel(supporter))}
+                              aria-label={`Delete ${supporterLabel(supporter)}`}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </Button>
                           </div>
                         </TableCell>
@@ -4441,16 +4547,23 @@ export function AdminWorkspace() {
                         <TableCell className="text-right">{formatCurrency(donation.amount ?? donation.estimated_value, donation.currency_code ?? "PHP")}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openDonationForm(donation)}>
-                              <Pencil className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl"
+                              onClick={() => openDonationForm(donation)}
+                              aria-label={`Edit donation #${donation.donation_id}`}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="rounded-xl text-destructive hover:text-destructive"
                               onClick={() => confirmDelete("donations", donation.donation_id, `donation #${donation.donation_id}`)}
+                              aria-label={`Delete donation #${donation.donation_id}`}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </Button>
                           </div>
                         </TableCell>
@@ -4500,16 +4613,23 @@ export function AdminWorkspace() {
                         <TableCell>{asText(item.received_condition)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openInKindForm(item)}>
-                              <Pencil className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl"
+                              onClick={() => openInKindForm(item)}
+                              aria-label={`Edit in-kind item ${asText(item.item_name, `#${item.item_id}`)}`}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="rounded-xl text-destructive hover:text-destructive"
                               onClick={() => confirmDelete("in_kind_donation_items", item.item_id, item.item_name ?? `item #${item.item_id}`)}
+                              aria-label={`Delete in-kind item ${asText(item.item_name, `#${item.item_id}`)}`}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </Button>
                           </div>
                         </TableCell>
@@ -4557,16 +4677,23 @@ export function AdminWorkspace() {
                         <TableCell className="text-right">{formatCurrency(allocation.amount_allocated)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openAllocationForm(allocation)}>
-                              <Pencil className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-xl"
+                              onClick={() => openAllocationForm(allocation)}
+                              aria-label={`Edit allocation #${allocation.allocation_id}`}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="rounded-xl text-destructive hover:text-destructive"
                               onClick={() => confirmDelete("donation_allocations", allocation.allocation_id, `allocation #${allocation.allocation_id}`)}
+                              aria-label={`Delete allocation #${allocation.allocation_id}`}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </Button>
                           </div>
                         </TableCell>
@@ -4591,7 +4718,10 @@ export function AdminWorkspace() {
 
         <TabsContent value="safe-houses" className="space-y-6">
           <Tabs value={safeHousesSubTab} onValueChange={(value) => setParams({ safeHousesSubTab: value })} className="space-y-6">
-            <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm">
+            <TabsList
+              aria-label="Safe house workspace sections"
+              className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
+            >
               {SAFEHOUSE_SUBTABS.map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -4642,16 +4772,23 @@ export function AdminWorkspace() {
                           <TableCell>{formatCurrency(donationAllocations)}</TableCell>
                           <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                             <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => openSafehouseForm(safehouse)}>
-                                <Pencil className="h-4 w-4" />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="rounded-xl"
+                                onClick={() => openSafehouseForm(safehouse)}
+                                aria-label={`Edit safe house ${asText(safehouse.name, `#${safehouse.safehouse_id}`)}`}
+                              >
+                                <Pencil className="h-4 w-4" aria-hidden />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="rounded-xl text-destructive hover:text-destructive"
                                 onClick={() => confirmDelete("safehouses", safehouse.safehouse_id, safehouse.name ?? `safehouse #${safehouse.safehouse_id}`)}
+                                aria-label={`Delete safe house ${asText(safehouse.name, `#${safehouse.safehouse_id}`)}`}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4" aria-hidden />
                               </Button>
                             </div>
                           </TableCell>
@@ -4775,9 +4912,9 @@ export function AdminWorkspace() {
                   <div key={card.title} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
                     <p className="font-medium text-foreground">{card.title}</p>
                     <p className="mt-2 text-sm text-muted-foreground">{card.detail}</p>
-                    <Button variant="outline" className="mt-4 rounded-xl">
+                    <Button variant="outline" className="mt-4 rounded-xl" aria-label={`Prepare export: ${card.title}`}>
                       Prepare export
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight className="h-4 w-4" aria-hidden />
                     </Button>
                   </div>
                 ))}
@@ -4802,7 +4939,10 @@ export function AdminWorkspace() {
 
         <TabsContent value="outreach" className="space-y-6">
           <Tabs value={outreachSubTab} onValueChange={(value) => setParams({ outreachSubTab: value })} className="space-y-6">
-            <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm">
+            <TabsList
+              aria-label="Outreach workspace sections"
+              className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
+            >
               {OUTREACH_SUBTABS.map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -4968,7 +5108,7 @@ export function AdminWorkspace() {
                   { label: "Emergency information", value: asText(selectedResidentDetail.referring_agency_person, "Referral contact not recorded") },
                 ].map((item) => (
                   <div key={item.label} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{item.label}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/75">{item.label}</p>
                     <p className="mt-2 text-sm font-medium text-foreground">{item.value}</p>
                   </div>
                 ))}

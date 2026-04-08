@@ -5,7 +5,7 @@ import { insertSupporterForNewUser } from "@/lib/supporterRecord";
 
 type UserRole = "admin" | "donor" | null;
 
-type AuthOkResult = { ok: true; role: Exclude<UserRole, null> | null };
+export type AuthOkResult = { ok: true; role: Exclude<UserRole, null> | null; needsMfa?: boolean };
 type AuthErrResult = { ok: false; message: string };
 
 interface AuthContextType {
@@ -19,6 +19,8 @@ interface AuthContextType {
   initials: string;
   role: UserRole;
   login: (email: string, password: string) => Promise<AuthOkResult | AuthErrResult>;
+  /** Re-load role/name from the current session (e.g. after MFA verify). */
+  refreshProfileAfterMfa: () => Promise<void>;
   setAuthFromProfile: (input: {
     userId: string;
     email: string | null;
@@ -223,6 +225,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  const refreshProfileAfterMfa: AuthContextType["refreshProfileAfterMfa"] = async () => {
+    if (!supabase) return;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const accessToken = session?.access_token ?? null;
+    if (!accessToken) return;
+    setIsLoading(true);
+    const profile = await loadProfile(accessToken);
+    setRole(profile?.role ?? null);
+    setFirstName(profile?.firstName ?? null);
+    setLastName(profile?.lastName ?? null);
+    setIsLoading(false);
+  };
+
   const login: AuthContextType["login"] = async (email, password) => {
     if (!isSupabaseConfigured || !supabase) {
       return { ok: false, message: "Login is unavailable: Supabase is not configured." };
@@ -236,7 +253,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { ok: false, message: error.message || "Unable to sign in. Please try again." };
     }
 
-    const accessToken = data.session?.access_token ?? null;
+    const session = data.session ?? null;
+    const accessToken = session?.access_token ?? null;
+    setIsAuthenticated(Boolean(session));
+    setUserEmail(session?.user?.email ?? null);
+    setUserId(session?.user?.id ?? null);
+
     if (accessToken) {
       setIsLoading(true);
       const profile = await loadProfile(accessToken);
@@ -244,6 +266,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setFirstName(profile?.firstName ?? null);
       setLastName(profile?.lastName ?? null);
       setIsLoading(false);
+
+      const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (!aalError && aal?.nextLevel === "aal2") {
+        return { ok: true, needsMfa: true, role: profile?.role ?? null };
+      }
+
       return { ok: true, role: profile?.role ?? null };
     }
 
@@ -334,6 +362,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       initials,
       role,
       login,
+      refreshProfileAfterMfa,
       setAuthFromProfile,
       signUp,
       logout,
