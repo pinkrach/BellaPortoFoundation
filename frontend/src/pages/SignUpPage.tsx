@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Anchor, Leaf } from "lucide-react";
+import { Leaf } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
+import houseLogo from "@/assets/icons/houseIcon.svg";
+import { PublicLayout } from "@/components/PublicLayout";
 
 const SignUpPage = () => {
   const [firstName, setFirstName] = useState("");
@@ -112,27 +114,42 @@ const SignUpPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-10 right-10 text-accent/20">
-        <Leaf className="h-32 w-32 rotate-45" />
-      </div>
-      <div className="absolute bottom-10 left-10 text-lavender/20">
-        <Leaf className="h-24 w-24 -rotate-12" />
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-card rounded-2xl shadow-warm-lg p-8"
+    <PublicLayout hideFooter hideNavbar>
+      <Link
+        to="/"
+        className="fixed left-4 top-4 z-50 inline-flex items-center gap-2 rounded-sm bg-background/70 px-2.5 py-1.5 text-[#1E2933] backdrop-blur-sm transition-colors hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        aria-label="Return to home page"
       >
-        <div className="flex flex-col items-center mt-2 mb-10">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-6">
-            <Anchor className="h-7 w-7 text-accent" />
-          </div>
-          <h1 className="font-heading text-2xl font-bold text-foreground">Create account</h1>
+        <img src={houseLogo} alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
+        <span className="font-heading text-lg font-semibold tracking-tight md:text-xl">
+          Bella Bay Foundation
+        </span>
+      </Link>
+
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+        <div className="pointer-events-none absolute top-10 right-10 text-accent/20">
+          <Leaf className="h-32 w-32 rotate-45" />
+        </div>
+        <div className="pointer-events-none absolute bottom-10 left-10 text-lavender/20">
+          <Leaf className="h-24 w-24 -rotate-12" />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md rounded-2xl bg-card p-8 shadow-warm-lg"
+        >
+          <div className="mt-2 mb-8 flex flex-col items-center">
+            <img
+              src={houseLogo}
+              alt=""
+              aria-hidden="true"
+              className="mb-4 h-24 w-24 object-contain"
+            />
+            <h1 className="font-heading text-2xl font-bold text-foreground">Create account</h1>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">{error}</div>
           )}
@@ -232,7 +249,7 @@ const SignUpPage = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none"
+            className="w-full rounded-full bg-[#6E8F6B] py-3 font-semibold text-[hsl(40_44%_99%)] shadow-warm transition-transform hover:scale-[1.02] disabled:pointer-events-none disabled:opacity-60"
           >
             {isSubmitting ? "Creating account..." : "Sign Up"}
           </button>
@@ -245,7 +262,8 @@ const SignUpPage = () => {
           </div>
         </form>
       </motion.div>
-    </div>
+      </div>
+    </PublicLayout>
   );
 };
 

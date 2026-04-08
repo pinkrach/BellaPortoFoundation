@@ -1,58 +1,63 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import footerHouses from "@/assets/hero/newHouses.png";
 import { WaveDivider } from "@/components/WaveDivider";
 
-/**
- * Public footer: compact sand band + full-bleed houses art.
- * Keeps the site’s watercolor ending and avoids heavy “bar” styling.
- */
-export const Footer = () => (
-  <footer className="mt-auto w-full">
-    {/* Sand wave — transitions cream content into the sand footer band */}
-    <WaveDivider className="text-muted" />
+export const Footer = () => {
+  const location = useLocation();
+  const hideIllustration = location.pathname === "/about" || location.pathname === "/impact";
 
-    {/* Houses illustration — full width, anchored at page end */}
-    <div className="w-full overflow-hidden bg-muted -mt-1">
-      <img
-        src={footerHouses}
-        alt="Watercolor illustration of coastal houses along a shoreline."
-        className="w-full h-auto object-contain max-h-[320px] md:max-h-[420px]"
-        loading="eager"
-        decoding="async"
-      />
-    </div>
+  return (
+    <footer className="mt-auto w-full">
+      {/* Sand wave — transitions cream content into the sand footer band */}
+      <WaveDivider className="text-muted" />
 
-    {/* Footer content — minimal, calm, consistent */}
-    <div className="w-full bg-muted">
-      <div className="container mx-auto px-4 py-6 md:py-8">
-        <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between">
-          <Link
-            to="/"
-            className="flex items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-muted"
-          >
-            <img src={houseLogo} alt="" aria-hidden="true" className="h-7 w-7 object-contain" />
-            <span className="font-heading text-base font-semibold text-foreground">Bella Bay Foundation</span>
-          </Link>
+      {/* Houses illustration — full width, anchored at page end (hidden on About page) */}
+      {!hideIllustration && (
+        <div className="w-full overflow-hidden bg-muted -mt-1">
+          <img
+            src={footerHouses}
+            alt="Watercolor illustration of coastal houses along a shoreline."
+            className="w-full h-auto object-contain max-h-[320px] md:max-h-[420px]"
+            loading="eager"
+            decoding="async"
+          />
+        </div>
+      )}
 
-          <div className="flex items-center gap-6 text-sm text-foreground/70">
+      {/* Footer content — minimal, calm, consistent */}
+      <div className="w-full bg-muted">
+        <div className="container mx-auto px-4 py-6 md:py-8">
+          <div className="flex flex-col items-center gap-4 md:flex-row md:justify-between">
             <Link
-              to="/privacy"
-              className="rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2"
+              to="/"
+              className="flex items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-muted"
             >
-              Privacy Policy
+              <img src={houseLogo} alt="" aria-hidden="true" className="h-7 w-7 object-contain" />
+              <span className="font-heading text-base font-semibold text-foreground">Bella Bay Foundation</span>
             </Link>
-            <a
-              href="mailto:contact@bellaporto.org"
-              className="rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2"
-            >
-              contact@bellaporto.org
-            </a>
-          </div>
 
-          <p className="text-xs text-foreground/50">© {new Date().getFullYear()} Bella Bay Foundation. All rights reserved.</p>
+            <div className="flex items-center gap-6 text-sm text-foreground/70">
+              <Link
+                to="/privacy"
+                className="rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2"
+              >
+                Privacy Policy
+              </Link>
+              <a
+                href="mailto:contact@bellaporto.org"
+                className="rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2"
+              >
+                contact@bellaporto.org
+              </a>
+            </div>
+
+            <p className="text-xs text-foreground/50">
+              © {new Date().getFullYear()} Bella Bay Foundation. All rights reserved.
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-  </footer>
-);
+    </footer>
+  );
+}

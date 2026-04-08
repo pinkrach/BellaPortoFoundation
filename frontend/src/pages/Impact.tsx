@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
 import { PublicLayout } from "@/components/PublicLayout";
 import { WaveDivider } from "@/components/WaveDivider";
-import { impactStats, fundraisingGoal, donationsOverTime, donationTypes, safehouseImpact, donationUsage, impactStories } from "@/data/mockData";
-import { Heart, MapPin, DollarSign, Share2, User } from "lucide-react";
+import { impactStats, fundraisingGoal, donationsOverTime, donationTypes, safehouseImpact, donationUsage } from "@/data/mockData";
+import { Heart, MapPin, DollarSign } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -146,35 +146,6 @@ const Impact = () => {
           </Accordion>
         </div>
 
-        {/* Impact stories */}
-        <div>
-          <h2 className="font-heading text-2xl font-bold text-foreground mb-6">Anonymous Impact Stories</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* PRIVACY: Never display full names, photos, or identifying details of residents. */}
-            {impactStories.map((story, i) => (
-              <motion.div
-                key={i}
-                custom={i}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={fadeUp}
-                className="bg-gradient-to-br from-lavender/20 to-coral/10 rounded-2xl p-6 shadow-warm"
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                    <User className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <span className="text-sm text-muted-foreground">Survivor, age {story.age}</span>
-                </div>
-                <p className="text-foreground italic leading-relaxed">"{story.quote}"</p>
-                <button className="mt-4 text-primary text-sm flex items-center gap-1 hover:text-primary/80 transition-colors">
-                  <Share2 className="h-4 w-4" /> Share this story
-                </button>
-              </motion.div>
-            ))}
-          </div>
-        </div>
       </div>
     </PublicLayout>
   );

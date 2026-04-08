@@ -80,8 +80,18 @@ const Login = () => {
   };
 
   return (
-    <PublicLayout hideFooter>
-      <div className="flex flex-1 items-center justify-center p-4 relative overflow-hidden bg-background">
+    <PublicLayout hideFooter hideNavbar>
+      <Link
+        to="/"
+        className="fixed left-4 top-4 z-50 inline-flex items-center gap-2 rounded-sm bg-background/70 px-2.5 py-1.5 text-[#1E2933] backdrop-blur-sm transition-colors hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        aria-label="Return to home page"
+      >
+        <img src={houseLogo} alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
+        <span className="font-heading text-lg font-semibold tracking-tight md:text-xl">
+          Bella Bay Foundation
+        </span>
+      </Link>
+      <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
         {/* Decorative background */}
         <div className="absolute top-10 right-10 text-accent/20">
           <Leaf className="h-32 w-32 rotate-45" />
@@ -95,12 +105,12 @@ const Login = () => {
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md bg-card rounded-2xl shadow-warm-lg p-8"
         >
-          <div className="flex flex-col items-center mt-2 mb-10">
+          <div className="flex flex-col items-center mt-2 mb-8">
             <img
               src={houseLogo}
               alt=""
               aria-hidden="true"
-              className="mb-6 h-12 w-12 object-contain"
+              className="mb-4 h-24 w-24 object-contain"
             />
             <h1 className="font-heading text-2xl font-bold text-foreground">Welcome back</h1>
           </div>

@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 
 const navLinks = [
   { label: "Home", to: "/" },
-  { label: "About Us", to: "/about" },
-  { label: "Our Impact", to: "/impact" },
+  { label: "About", to: "/about" },
+  { label: "Impact", to: "/impact" },
   { label: "Login", to: "/login" },
 ];
 
@@ -57,6 +57,8 @@ export const Navbar = () => {
   const navFocusRing =
     "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white focus-visible:ring-offset-transparent";
 
+  const activeUnderlineClass = isHeroMode ? "after:bg-white/80" : "after:bg-[#1E2933]";
+
   return (
     <nav
       aria-label="Primary"
@@ -99,7 +101,7 @@ export const Navbar = () => {
             aria-hidden="true"
             className={cn(
               "object-contain transition-[filter] duration-300",
-              isHome ? "h-9 w-9 md:h-10 md:w-10" : isCreamNav ? "h-8 w-8" : "h-8 w-8 brightness-0 invert",
+              isHome ? "h-10 w-10 md:h-11 md:w-11" : isCreamNav ? "h-9 w-9" : "h-9 w-9 brightness-0 invert",
               /* Invert icon to white in hero mode */
               isHeroMode && "brightness-0 invert",
             )}
@@ -125,11 +127,10 @@ export const Navbar = () => {
                   to={l.to}
                   className={cn(
                     navFocusRing,
-                    "inline-block py-1 text-sm",
+                    "relative inline-block py-1 text-sm after:absolute after:-bottom-[2px] after:left-0 after:h-[2px] after:w-full after:bg-transparent",
                     navLinkClass,
-                    active && isHeroMode && "font-semibold text-white",
-                    active && isHome && !isHeroMode && "font-semibold text-[#0f1419]",
-                    active && !isHome && "font-semibold text-primary-foreground",
+                    active && "font-semibold",
+                    active && activeUnderlineClass,
                   )}
                   aria-current={active ? "page" : undefined}
                 >
@@ -184,11 +185,10 @@ export const Navbar = () => {
                       onClick={() => setOpen(false)}
                       className={cn(
                         navFocusRing,
-                        "inline-block text-lg tracking-wide",
+                        "relative inline-block text-lg tracking-wide after:absolute after:-bottom-[2px] after:left-0 after:h-[2px] after:w-full after:bg-transparent",
                         navLinkClass,
-                        active && isHeroMode && "font-semibold text-white",
-                        active && isHome && !isHeroMode && "font-semibold text-[#0f1419]",
-                        active && !isHome && "font-semibold text-primary-foreground",
+                        active && "font-semibold",
+                        active && activeUnderlineClass,
                       )}
                       aria-current={active ? "page" : undefined}
                     >
