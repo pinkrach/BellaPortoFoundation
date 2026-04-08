@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
-import { fetchJson } from "@/lib/api";
+import { buildApiUrl } from "@/lib/api";
 import { Anchor, Leaf } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -40,11 +40,16 @@ const Login = () => {
         // If role isn't available yet, re-check once through the backend profile endpoint.
         let role = result.role;
         if (!role && supabase) {
-          const { data: userData } = await supabase.auth.getUser();
-          const userId = userData.user?.id;
-          if (userId) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData.session?.access_token;
+          if (accessToken) {
             try {
-              const profile = await fetchJson<{ role?: string | null }>(`/api/profiles/${userId}`);
+              const response = await fetch(buildApiUrl("/api/profiles/me"), {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              });
+              const profile = response.ok ? ((await response.json()) as { role?: string | null }) : null;
               if (profile?.role === "admin" || profile?.role === "donor") role = profile.role;
             } catch {
               // Let the redirect logic fall through to the safe fallback below.

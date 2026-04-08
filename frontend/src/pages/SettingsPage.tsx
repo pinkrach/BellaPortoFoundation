@@ -2,10 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminLayout } from "@/components/AdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/sonner";
-import { fetchJson, buildApiUrl } from "@/lib/api";
+import { fetchJsonWithAuth } from "@/lib/api";
 import {
   Activity,
   Bell,
@@ -216,6 +215,7 @@ const SettingsPage = () => {
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [profileAdminMessage, setProfileAdminMessage] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -244,11 +244,19 @@ const SettingsPage = () => {
   useEffect(() => {
     const loadProfiles = async () => {
       setLoadingProfiles(true);
+      setProfileAdminMessage(null);
       try {
-        const data = await fetchJson<ProfileRecord[]>("/api/profiles");
+        const data = await fetchJsonWithAuth<ProfileRecord[]>("/api/profiles");
         setProfiles(data ?? []);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Unable to load users right now.");
+        const message = error instanceof Error ? error.message : "Unable to load users right now.";
+        if (message.includes("SUPABASE_SERVICE_ROLE_KEY")) {
+          setProfileAdminMessage(
+            "User management needs the backend SUPABASE_SERVICE_ROLE_KEY before it can list all users or change roles securely.",
+          );
+        } else {
+          toast.error(message);
+        }
         setProfiles([]);
       } finally {
         setLoadingProfiles(false);
@@ -314,7 +322,7 @@ const SettingsPage = () => {
 
     setUpdatingUserId(profile.id);
     try {
-      await fetchJson<ProfileRecord>(`/api/profiles/${profile.id}/role`, {
+      await fetchJsonWithAuth<ProfileRecord>(`/api/profiles/${profile.id}/role`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -332,6 +340,8 @@ const SettingsPage = () => {
         target: profileLabel(profile),
       });
       toast.success(`Updated ${profileLabel(profile)} to ${nextRole}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to update that role right now.");
     } finally {
       setUpdatingUserId(null);
     }
@@ -555,6 +565,11 @@ const SettingsPage = () => {
           <TabsContent value="access" className="space-y-6">
             <section className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
               <Card title="User and access management" description="View accounts and change who is an admin or donor.">
+                {profileAdminMessage ? (
+                  <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    {profileAdminMessage}
+                  </div>
+                ) : null}
                 <div className="mb-4 grid gap-4 sm:grid-cols-3">
                   <MiniStat label="Total accounts" value={String(profiles.length)} />
                   <MiniStat label="Admins" value={String(totalAdmins)} />

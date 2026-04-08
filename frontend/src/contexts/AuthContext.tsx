@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
-import { fetchJson } from "@/lib/api";
+import { buildApiUrl } from "@/lib/api";
 
 type UserRole = "admin" | "donor" | null;
 
@@ -45,13 +45,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [lastName, setLastName] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole>(null);
 
-  const loadProfile = async (profileUserId: string) => {
+  const loadProfile = async (accessToken: string) => {
     try {
-      const data = await fetchJson<{
+      const response = await fetch(buildApiUrl("/api/profiles/me"), {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as {
         role?: string | null;
         first_name?: string | null;
         last_name?: string | null;
-      }>(`/api/profiles/${profileUserId}`);
+      };
       const normalizedRole: UserRole = data?.role === "admin" || data?.role === "donor" ? data.role : null;
 
       return {
@@ -112,11 +119,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const session = data.session ?? null;
         const email = session?.user?.email ?? null;
         const id = session?.user?.id ?? null;
+        const accessToken = session?.access_token ?? null;
         setIsAuthenticated(Boolean(session));
         setUserEmail(email);
         setUserId(id);
-        if (id) {
-          const profile = await loadProfile(id);
+        if (accessToken) {
+          const profile = await loadProfile(accessToken);
           if (!mounted) return;
           setRole(profile?.role ?? null);
           setFirstName(profile?.firstName ?? null);
@@ -153,15 +161,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthenticated(Boolean(session));
       setUserEmail(session?.user?.email ?? null);
       const id = session?.user?.id ?? null;
+      const accessToken = session?.access_token ?? null;
       setUserId(id);
-      if (!id) {
+      if (!id || !accessToken) {
         setRole(null);
         setFirstName(null);
         setLastName(null);
         setIsLoading(false);
         return;
       }
-      loadProfile(id)
+      loadProfile(accessToken)
         .then((profile) => {
           if (!mounted) return;
           setRole(profile?.role ?? null);
@@ -197,10 +206,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { ok: false, message: error.message || "Unable to sign in. Please try again." };
     }
 
-    const id = data.user?.id ?? null;
-    if (id) {
+    const accessToken = data.session?.access_token ?? null;
+    if (accessToken) {
       setIsLoading(true);
-      const profile = await loadProfile(id);
+      const profile = await loadProfile(accessToken);
       setRole(profile?.role ?? null);
       setFirstName(profile?.firstName ?? null);
       setLastName(profile?.lastName ?? null);
