@@ -1,4 +1,4 @@
-import { startTransition, type ReactNode, useDeferredValue, useMemo, useState } from "react";
+import { startTransition, type ReactNode, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -37,8 +37,6 @@ import {
   Cell,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -100,7 +98,7 @@ import {
 
 type MainTab = "dashboard" | "residents" | "donations" | "safe-houses" | "reports" | "outreach" | "settings";
 type ResidentsSubTab = "all-residents" | "process-records" | "visitations" | "education" | "health" | "interventions" | "incidents";
-type DonationsSubTab = "summary-statistics" | "supporters" | "donations" | "in-kind" | "allocations";
+type DonationsSubTab = "supporters" | "donations" | "in-kind" | "allocations";
 type SafeHousesSubTab = "safe-houses" | "allocation-history" | "monthly-metrics";
 type OutreachSubTab = "social-media" | "public-impact";
 
@@ -440,12 +438,13 @@ const RESIDENT_SUBTABS: Array<{ value: ResidentsSubTab; label: string }> = [
 ];
 
 const DONATION_SUBTABS: Array<{ value: DonationsSubTab; label: string }> = [
-  { value: "summary-statistics", label: "Summary Statistics" },
   { value: "supporters", label: "Supporters" },
   { value: "donations", label: "Donations" },
   { value: "in-kind", label: "In-Kind" },
   { value: "allocations", label: "Allocations" },
 ];
+
+const DEFAULT_DONATIONS_SUBTAB: DonationsSubTab = "supporters";
 
 const SAFEHOUSE_SUBTABS: Array<{ value: SafeHousesSubTab; label: string }> = [
   { value: "safe-houses", label: "Safe Houses" },
@@ -782,12 +781,15 @@ function FilterCheckboxGroup({
   selected,
   onChange,
   allLabel,
+  getOptionLabel,
 }: {
   title: string;
   options: string[];
   selected: string[];
   onChange: (next: string[]) => void;
   allLabel: string;
+  /** When set, shown in the list instead of the raw option value (e.g. safe house id → name). */
+  getOptionLabel?: (value: string) => string;
 }) {
   const allSelected = options.length > 0 && selected.length === options.length;
 
@@ -820,7 +822,7 @@ function FilterCheckboxGroup({
               onChange={() => toggleValue(option)}
               className="h-4 w-4 rounded border-border"
             />
-            {option}
+            {getOptionLabel ? getOptionLabel(option) : option}
           </label>
         ))}
       </div>
@@ -883,42 +885,56 @@ function Toolbar({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <Card className="rounded-2xl border-border/70 bg-card shadow-warm">
+    <Card className="mb-12 rounded-2xl border-border/70 bg-card shadow-warm">
       <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className={cn(
-              "flex w-full items-center justify-between gap-3 text-left",
-              open ? "border-b border-border/70 px-4 py-4" : "px-4 py-1.5",
-            )}
-          >
-            <span className={cn("font-semibold text-foreground", open ? "text-2xl" : "text-xl")}>{title}</span>
-            <div className="flex items-center gap-3">
-              <span className={cn("flex items-center gap-2 font-medium text-muted-foreground", open ? "text-sm" : "text-xs")}>
+        <div
+          className={cn(
+            "flex w-full items-center gap-2",
+            open ? "border-b border-border/70" : "",
+          )}
+        >
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "flex min-w-0 flex-1 items-center justify-between gap-3 text-left",
+                open ? "px-4 py-4" : "px-4 py-1.5",
+              )}
+            >
+              <span
+                className={cn(
+                  "text-foreground",
+                  open ? "text-base font-semibold tracking-tight" : "text-xs font-medium tracking-wide text-muted-foreground",
+                )}
+              >
+                {title}
+              </span>
+              <span className={cn("flex shrink-0 items-center gap-2 font-medium text-muted-foreground", open ? "text-sm" : "text-xs")}>
                 {open ? "Hide" : "Show"}
                 {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </span>
-              {actionItems?.length ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
-                    <Button variant="outline" className={cn("rounded-full px-4", open ? "h-10" : "h-8 text-xs")}>
-                      <MoreHorizontal className="h-4 w-4" />
-                      Actions
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 rounded-xl">
-                    {actionItems.map((item) => (
-                      <DropdownMenuItem key={item.label} onClick={item.onClick}>
-                        {item.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
+            </button>
+          </CollapsibleTrigger>
+          {actionItems?.length ? (
+            <div className={cn("shrink-0 pr-4", open ? "py-4" : "py-1.5")}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className={cn("rounded-full px-4", open ? "h-10" : "h-8 text-xs")}>
+                    <MoreHorizontal className="h-4 w-4" />
+                    Actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 rounded-xl">
+                  {actionItems.map((item) => (
+                    <DropdownMenuItem key={item.label} onClick={item.onClick}>
+                      {item.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          </button>
-        </CollapsibleTrigger>
+          ) : null}
+        </div>
         <CollapsibleContent>
           <CardContent className="p-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1074,7 +1090,24 @@ type FormField = {
   label: string;
   type?: "text" | "date" | "number" | "textarea" | "select" | "email";
   options?: Array<{ value: string; label: string }>;
+  /** Show a red star and block submit when empty / invalid for this field type */
+  required?: boolean;
 };
+
+const REQUIRED_FIELDS_MESSAGE = "Please fill in all required fields marked with a red star (*).";
+
+function isRequiredFieldValueMissing(value: string, field: FormField): boolean {
+  const trimmed = value.trim();
+  if (trimmed === "") return true;
+  if (field.type === "number") {
+    const n = Number(trimmed);
+    return !Number.isFinite(n);
+  }
+  if (field.type === "email") {
+    return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+  }
+  return false;
+}
 
 function EntityModal<T extends Record<string, string>>({
   open,
@@ -1087,6 +1120,7 @@ function EntityModal<T extends Record<string, string>>({
   onSubmit,
   submitLabel,
   pending,
+  extraValidate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1098,7 +1132,27 @@ function EntityModal<T extends Record<string, string>>({
   onSubmit: () => void;
   submitLabel: string;
   pending: boolean;
+  /** Return an error message to block submit, or null when OK (runs after required-field checks) */
+  extraValidate?: (state: T) => string | null;
 }) {
+  const handleSubmit = () => {
+    const missingRequired = fields.some((field) => {
+      if (!field.required) return false;
+      const raw = state[field.key as keyof T];
+      return isRequiredFieldValueMissing(String(raw ?? ""), field);
+    });
+    if (missingRequired) {
+      toast.error(REQUIRED_FIELDS_MESSAGE);
+      return;
+    }
+    const extra = extraValidate?.(state);
+    if (extra) {
+      toast.error(extra);
+      return;
+    }
+    onSubmit();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-2xl border-border/80 bg-background">
@@ -1108,19 +1162,34 @@ function EntityModal<T extends Record<string, string>>({
         </DialogHeader>
         <div className="grid gap-4 md:grid-cols-2">
           {fields.map((field) => (
-            <label key={field.key} className={cn("grid gap-2 text-sm", field.type === "textarea" ? "md:col-span-2" : "")}>
-              <span className="font-medium text-foreground">{field.label}</span>
+            <label
+              key={field.key}
+              className={cn("grid gap-2 text-sm", field.type === "textarea" ? "md:col-span-2" : "")}
+            >
+              <span className="font-medium text-foreground">
+                {field.label}
+                {field.required ? (
+                  <span className="text-destructive" aria-hidden>
+                    {" "}
+                    *
+                  </span>
+                ) : null}
+              </span>
               {field.type === "textarea" ? (
                 <Textarea
                   value={state[field.key as keyof T]}
                   onChange={(event) => onChange(field.key as keyof T, event.target.value)}
                   className="min-h-28 rounded-xl border-border/80 bg-background"
+                  required={field.required}
+                  aria-required={field.required}
                 />
               ) : field.type === "select" ? (
                 <select
                   value={state[field.key as keyof T]}
                   onChange={(event) => onChange(field.key as keyof T, event.target.value)}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm text-foreground"
+                  required={field.required}
+                  aria-required={field.required}
                 >
                   <option value="">Select…</option>
                   {field.options?.map((option) => (
@@ -1135,6 +1204,8 @@ function EntityModal<T extends Record<string, string>>({
                   value={state[field.key as keyof T]}
                   onChange={(event) => onChange(field.key as keyof T, event.target.value)}
                   className="h-11 rounded-xl border-border/80 bg-background"
+                  required={field.required}
+                  aria-required={field.required}
                 />
               )}
             </label>
@@ -1144,7 +1215,7 @@ function EntityModal<T extends Record<string, string>>({
           <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
             Cancel
           </Button>
-          <Button onClick={onSubmit} disabled={pending} className="rounded-xl">
+          <Button type="button" onClick={handleSubmit} disabled={pending} className="rounded-xl">
             {pending ? "Saving..." : submitLabel}
           </Button>
         </DialogFooter>
@@ -1160,7 +1231,14 @@ export function AdminWorkspace() {
 
   const currentTab = (searchParams.get("tab") as MainTab | null) ?? "dashboard";
   const residentsSubTab = (searchParams.get("residentsSubTab") as ResidentsSubTab | null) ?? "all-residents";
-  const donationsSubTab = (searchParams.get("donationsSubTab") as DonationsSubTab | null) ?? "summary-statistics";
+  const donationsSubTabRaw = searchParams.get("donationsSubTab") as DonationsSubTab | null;
+  const donationsSubTab: DonationsSubTab =
+    donationsSubTabRaw === "supporters" ||
+    donationsSubTabRaw === "donations" ||
+    donationsSubTabRaw === "in-kind" ||
+    donationsSubTabRaw === "allocations"
+      ? donationsSubTabRaw
+      : DEFAULT_DONATIONS_SUBTAB;
   const safeHousesSubTab = (searchParams.get("safeHousesSubTab") as SafeHousesSubTab | null) ?? "safe-houses";
   const outreachSubTab = (searchParams.get("outreachSubTab") as OutreachSubTab | null) ?? "social-media";
   const selectedResidentIds = parseIds(searchParams.get("residentIds"));
@@ -1186,13 +1264,35 @@ export function AdminWorkspace() {
   const [incidentSeverityFilter, setIncidentSeverityFilter] = useState<string[]>([]);
 
   const [donationSearch, setDonationSearch] = useState("");
+  /** Supporters table: filter by linked supporter profile fields */
   const [donationTypeFilter, setDonationTypeFilter] = useState<string[]>([]);
   const [donationRelationshipFilter, setDonationRelationshipFilter] = useState<string[]>([]);
   const [donationStatusFilter, setDonationStatusFilter] = useState<string[]>([]);
   const [donationRegionFilter, setDonationRegionFilter] = useState<string[]>([]);
   const [donationCountryFilter, setDonationCountryFilter] = useState<string[]>([]);
+  /** Donations table: filter by gift row fields */
+  const [donationGiftTypeFilter, setDonationGiftTypeFilter] = useState<string[]>([]);
+  const [donationGiftRecurringFilter, setDonationGiftRecurringFilter] = useState<string[]>([]);
+  const [donationGiftCampaignFilter, setDonationGiftCampaignFilter] = useState<string[]>([]);
+  const [donationGiftChannelFilter, setDonationGiftChannelFilter] = useState<string[]>([]);
+  const [donationGiftCurrencyFilter, setDonationGiftCurrencyFilter] = useState<string[]>([]);
+  /** In-kind table */
+  const [inKindCategoryFilter, setInKindCategoryFilter] = useState<string[]>([]);
+  const [inKindConditionFilter, setInKindConditionFilter] = useState<string[]>([]);
+  const [inKindUnitFilter, setInKindUnitFilter] = useState<string[]>([]);
+  /** Allocations table */
+  const [allocationProgramFilter, setAllocationProgramFilter] = useState<string[]>([]);
+  const [allocationSafehouseFilter, setAllocationSafehouseFilter] = useState<string[]>([]);
   const [donationSort, setDonationSort] = useState("recent");
+  const [inKindSort, setInKindSort] = useState("recent");
+  const [allocationSort, setAllocationSort] = useState("recent");
   const deferredDonationSearch = useDeferredValue(donationSearch);
+
+  useEffect(() => {
+    if (donationsSubTab === "supporters" && donationSort === "amount") {
+      setDonationSort("recent");
+    }
+  }, [donationSort, donationsSubTab]);
 
   const [safehouseSearch, setSafehouseSearch] = useState("");
   const [safehouseStatusFilter, setSafehouseStatusFilter] = useState<string[]>([]);
@@ -1450,6 +1550,45 @@ export function AdminWorkspace() {
   const donationCountryOptions = useMemo(
     () => Array.from(new Set(workspace.supporters.map((supporter) => supporter.country).filter(Boolean) as string[])).sort(),
     [workspace.supporters],
+  );
+  const donationGiftTypeOptions = useMemo(
+    () => Array.from(new Set(workspace.donations.map((d) => d.donation_type).filter(Boolean) as string[])).sort(),
+    [workspace.donations],
+  );
+  const donationGiftCampaignOptions = useMemo(
+    () => Array.from(new Set(workspace.donations.map((d) => d.campaign_name).filter(Boolean) as string[])).sort(),
+    [workspace.donations],
+  );
+  const donationGiftChannelOptions = useMemo(
+    () => Array.from(new Set(workspace.donations.map((d) => d.channel_source).filter(Boolean) as string[])).sort(),
+    [workspace.donations],
+  );
+  const donationGiftCurrencyOptions = useMemo(
+    () => Array.from(new Set(workspace.donations.map((d) => d.currency_code).filter(Boolean) as string[])).sort(),
+    [workspace.donations],
+  );
+  const inKindCategoryOptions = useMemo(
+    () => Array.from(new Set(workspace.inKind.map((row) => row.item_category).filter(Boolean) as string[])).sort(),
+    [workspace.inKind],
+  );
+  const inKindConditionOptions = useMemo(
+    () => Array.from(new Set(workspace.inKind.map((row) => row.received_condition).filter(Boolean) as string[])).sort(),
+    [workspace.inKind],
+  );
+  const inKindUnitOptions = useMemo(
+    () => Array.from(new Set(workspace.inKind.map((row) => row.unit_of_measure).filter(Boolean) as string[])).sort(),
+    [workspace.inKind],
+  );
+  const allocationProgramOptions = useMemo(
+    () => Array.from(new Set(workspace.allocations.map((row) => row.program_area).filter(Boolean) as string[])).sort(),
+    [workspace.allocations],
+  );
+  const allocationSafehouseIdOptions = useMemo(
+    () =>
+      [...workspace.safehouses]
+        .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
+        .map((sh) => String(sh.safehouse_id)),
+    [workspace.safehouses],
   );
   const safehouseStatusOptions = useMemo(
     () => Array.from(new Set(workspace.safehouses.map((safehouse) => safehouse.status).filter(Boolean) as string[])).sort(),
@@ -1844,60 +1983,153 @@ export function AdminWorkspace() {
             donation.donation_type,
             donation.campaign_name,
             donation.channel_source,
+            donation.currency_code,
+            String(donation.donation_id ?? ""),
+            donation.is_recurring == null ? "" : String(donation.is_recurring),
           ]
             .filter(Boolean)
             .join(" ")
             .toLowerCase()
             .includes(query);
-        const matchesType = donationTypeFilter.length === 0 || donationTypeFilter.includes(supporter?.supporter_type ?? "");
-        const matchesRelationship =
-          donationRelationshipFilter.length === 0 || donationRelationshipFilter.includes(supporter?.relationship_type ?? "");
-        const matchesStatus = donationStatusFilter.length === 0 || donationStatusFilter.includes(supporter?.status ?? "");
-        const matchesRegion = donationRegionFilter.length === 0 || donationRegionFilter.includes(supporter?.region ?? "");
-        const matchesCountry = donationCountryFilter.length === 0 || donationCountryFilter.includes(supporter?.country ?? "");
+        const recurringStr = donation.is_recurring == null ? "" : String(donation.is_recurring);
+        const matchesGiftType =
+          donationGiftTypeFilter.length === 0 || donationGiftTypeFilter.includes(donation.donation_type ?? "");
+        const matchesRecurring =
+          donationGiftRecurringFilter.length === 0 || donationGiftRecurringFilter.includes(recurringStr);
+        const matchesCampaign =
+          donationGiftCampaignFilter.length === 0 || donationGiftCampaignFilter.includes(donation.campaign_name ?? "");
+        const matchesChannel =
+          donationGiftChannelFilter.length === 0 || donationGiftChannelFilter.includes(donation.channel_source ?? "");
+        const matchesCurrency =
+          donationGiftCurrencyFilter.length === 0 || donationGiftCurrencyFilter.includes(donation.currency_code ?? "");
         const matchesSupporter = !selectedSupporterId || donation.supporter_id === selectedSupporterId;
-        return matchesSearch && matchesType && matchesRelationship && matchesStatus && matchesRegion && matchesCountry && matchesSupporter;
+        return (
+          matchesSearch &&
+          matchesGiftType &&
+          matchesRecurring &&
+          matchesCampaign &&
+          matchesChannel &&
+          matchesCurrency &&
+          matchesSupporter
+        );
       })
       .sort((left, right) => {
         if (donationSort === "amount") {
           return toNumber(right.amount ?? right.estimated_value) - toNumber(left.amount ?? left.estimated_value);
         }
+        if (donationSort === "name") {
+          const leftS = left.supporter_id ? supporterMap.get(left.supporter_id) : null;
+          const rightS = right.supporter_id ? supporterMap.get(right.supporter_id) : null;
+          return supporterLabel(leftS ?? ({} as Supporter)).localeCompare(supporterLabel(rightS ?? ({} as Supporter)));
+        }
         return compareDatesDescending(left.donation_date, right.donation_date);
       });
   }, [
     deferredDonationSearch,
-    donationCountryFilter,
-    donationRegionFilter,
-    donationRelationshipFilter,
+    donationGiftCampaignFilter,
+    donationGiftChannelFilter,
+    donationGiftCurrencyFilter,
+    donationGiftRecurringFilter,
+    donationGiftTypeFilter,
     donationSort,
-    donationStatusFilter,
-    donationTypeFilter,
     selectedSupporterId,
     supporterMap,
     workspace.donations,
   ]);
 
-  const filteredInKind = useMemo(
-    () =>
-      workspace.inKind.filter((item) => {
-        if (!selectedSupporterId) return true;
-        const donation = item.donation_id ? donationMap.get(item.donation_id) ?? null : null;
-        return donation?.supporter_id === selectedSupporterId;
-      }),
-    [donationMap, selectedSupporterId, workspace.inKind],
-  );
+  const filteredInKind = useMemo(() => {
+    const query = deferredDonationSearch.trim().toLowerCase();
+    return workspace.inKind
+      .filter((item) => {
+        if (selectedSupporterId) {
+          const donation = item.donation_id ? donationMap.get(item.donation_id) ?? null : null;
+          if (donation?.supporter_id !== selectedSupporterId) return false;
+        }
+        const matchesCategory =
+          inKindCategoryFilter.length === 0 || inKindCategoryFilter.includes(item.item_category ?? "");
+        const matchesCondition =
+          inKindConditionFilter.length === 0 || inKindConditionFilter.includes(item.received_condition ?? "");
+        const matchesUnit = inKindUnitFilter.length === 0 || inKindUnitFilter.includes(item.unit_of_measure ?? "");
+        const matchesSearch =
+          !query ||
+          [
+            item.item_name,
+            item.item_category,
+            item.intended_use,
+            item.received_condition,
+            String(item.donation_id ?? ""),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query);
+        return matchesCategory && matchesCondition && matchesUnit && matchesSearch;
+      })
+      .sort((left, right) => {
+        if (inKindSort === "name") {
+          return (left.item_name ?? "").localeCompare(right.item_name ?? "");
+        }
+        if (inKindSort === "donation") {
+          return toNumber(left.donation_id) - toNumber(right.donation_id);
+        }
+        return toNumber(right.item_id) - toNumber(left.item_id);
+      });
+  }, [
+    deferredDonationSearch,
+    donationMap,
+    inKindCategoryFilter,
+    inKindConditionFilter,
+    inKindSort,
+    inKindUnitFilter,
+    selectedSupporterId,
+    workspace.inKind,
+  ]);
 
-  const filteredAllocations = useMemo(
-    () =>
-      [...workspace.allocations]
-        .filter((allocation) => {
-          if (!selectedSupporterId) return true;
+  const filteredAllocations = useMemo(() => {
+    const query = deferredDonationSearch.trim().toLowerCase();
+    return [...workspace.allocations]
+      .filter((allocation) => {
+        if (selectedSupporterId) {
           const donation = allocation.donation_id ? donationMap.get(allocation.donation_id) ?? null : null;
-          return donation?.supporter_id === selectedSupporterId;
-        })
-        .sort((left, right) => compareDatesDescending(left.allocation_date, right.allocation_date)),
-    [donationMap, selectedSupporterId, workspace.allocations],
-  );
+          if (donation?.supporter_id !== selectedSupporterId) return false;
+        }
+        const shName = safehouseMap.get(allocation.safehouse_id ?? -1)?.name ?? "";
+        const matchesProgram =
+          allocationProgramFilter.length === 0 || allocationProgramFilter.includes(allocation.program_area ?? "");
+        const matchesSafehouse =
+          allocationSafehouseFilter.length === 0 ||
+          allocationSafehouseFilter.includes(String(allocation.safehouse_id ?? ""));
+        const matchesSearch =
+          !query ||
+          [
+            allocation.program_area,
+            allocation.allocation_notes,
+            String(allocation.donation_id ?? ""),
+            String(allocation.allocation_id ?? ""),
+            shName,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query);
+        return matchesProgram && matchesSafehouse && matchesSearch;
+      })
+      .sort((left, right) => {
+        if (allocationSort === "amount") {
+          return toNumber(right.amount_allocated) - toNumber(left.amount_allocated);
+        }
+        return compareDatesDescending(left.allocation_date, right.allocation_date);
+      });
+  }, [
+    allocationProgramFilter,
+    allocationSafehouseFilter,
+    allocationSort,
+    deferredDonationSearch,
+    donationMap,
+    safehouseMap,
+    selectedSupporterId,
+    workspace.allocations,
+  ]);
 
   const filteredSafehouses = useMemo(() => {
     const query = deferredSafehouseSearch.trim().toLowerCase();
@@ -2045,32 +2277,6 @@ export function AdminWorkspace() {
       .slice(0, 8);
   }, [residentMap, supporterMap, workspace.donations, workspace.incidents]);
 
-  const donationSummary = useMemo(() => {
-    const total = filteredDonations.reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0);
-    const recurring = filteredDonations.filter((donation) => donation.is_recurring).length;
-    const inKindValue = filteredInKind.reduce(
-      (sum, item) => sum + toNumber(item.quantity) * toNumber(item.estimated_unit_value),
-      0,
-    );
-    const allocated = filteredAllocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0);
-    return { total, recurring, inKindValue, allocated };
-  }, [filteredAllocations, filteredDonations, filteredInKind]);
-
-  const supporterDonationTotals = useMemo(() => {
-    const totals = new Map<number, number>();
-    filteredDonations.forEach((donation) => {
-      if (!donation.supporter_id) return;
-      totals.set(donation.supporter_id, (totals.get(donation.supporter_id) ?? 0) + toNumber(donation.amount ?? donation.estimated_value));
-    });
-    return Array.from(totals.entries())
-      .map(([supporterId, value]) => ({
-        name: supporterLabel(supporterMap.get(supporterId) ?? ({} as Supporter)),
-        value,
-      }))
-      .sort((left, right) => right.value - left.value)
-      .slice(0, 6);
-  }, [filteredDonations, supporterMap]);
-
   const outreachKpis = useMemo(() => {
     const totalImpressions = workspace.socialPosts.reduce((sum, post) => sum + toNumber(post.impressions), 0);
     const totalReferrals = workspace.socialPosts.reduce((sum, post) => sum + toNumber(post.donation_referrals), 0);
@@ -2188,6 +2394,7 @@ export function AdminWorkspace() {
       key: "safehouse_id",
       label: "Safe House",
       type: "select",
+      required: true,
       options: workspace.safehouses.map((safehouse) => ({
         value: String(safehouse.safehouse_id),
         label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
@@ -2197,24 +2404,27 @@ export function AdminWorkspace() {
       key: "case_status",
       label: "Case Status",
       type: "select",
+      required: true,
       options: ["Active", "Open", "Closed", "Transferred"].map((entry) => ({ value: entry, label: entry })),
     },
     {
       key: "sex",
       label: "Sex",
       type: "select",
+      required: true,
       options: ["F", "M"].map((entry) => ({ value: entry, label: entry })),
     },
     { key: "date_of_birth", label: "Date of Birth", type: "date" },
     { key: "place_of_birth", label: "Place of Birth" },
     { key: "religion", label: "Religion" },
-    { key: "case_category", label: "Case Category" },
-    { key: "date_of_admission", label: "Intake Date", type: "date" },
-    { key: "assigned_social_worker", label: "Assigned Social Worker" },
+    { key: "case_category", label: "Case Category", required: true },
+    { key: "date_of_admission", label: "Intake Date", type: "date", required: true },
+    { key: "assigned_social_worker", label: "Assigned Social Worker", required: true },
     {
       key: "current_risk_level",
       label: "Risk Status",
       type: "select",
+      required: true,
       options: ["Low", "Medium", "High", "Critical"].map((entry) => ({ value: entry, label: entry })),
     },
     { key: "notes_restricted", label: "Notes", type: "textarea" },
@@ -2225,6 +2435,7 @@ export function AdminWorkspace() {
       key: "supporter_type",
       label: "Supporter Type",
       type: "select",
+      required: true,
       options: [
         "MonetaryDonor",
         "InKindDonor",
@@ -2239,63 +2450,86 @@ export function AdminWorkspace() {
     { key: "last_name", label: "Last Name" },
     { key: "relationship_type", label: "Relationship Type" },
     { key: "region", label: "Region" },
-    { key: "country", label: "Country" },
+    { key: "country", label: "Country", required: true },
     { key: "email", label: "Email", type: "email" },
     { key: "phone", label: "Phone" },
-    { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"].map((entry) => ({ value: entry, label: entry })) },
+    {
+      key: "status",
+      label: "Status",
+      type: "select",
+      required: true,
+      options: ["Active", "Inactive"].map((entry) => ({ value: entry, label: entry })),
+    },
     { key: "first_donation_date", label: "First Donation Date", type: "date" },
     { key: "acquisition_channel", label: "Acquisition Channel" },
   ];
 
-  const donationFields: FormField[] = [
-    {
-      key: "supporter_id",
-      label: "Supporter",
-      type: "select",
-      options: workspace.supporters.map((supporter) => ({
-        value: String(supporter.supporter_id),
-        label: supporterLabel(supporter),
-      })),
-    },
-    {
-      key: "donation_type",
-      label: "Donation Type",
-      type: "select",
-      options: ["Monetary", "InKind"].map((entry) => ({ value: entry, label: entry })),
-    },
-    { key: "donation_date", label: "Donation Date", type: "date" },
-    {
-      key: "is_recurring",
-      label: "Recurring",
-      type: "select",
-      options: [
-        { value: "true", label: "Yes" },
-        { value: "false", label: "No" },
-      ],
-    },
-    { key: "campaign_name", label: "Campaign Name" },
-    { key: "channel_source", label: "Channel Source" },
-    { key: "currency_code", label: "Currency Code" },
-    { key: "amount", label: "Amount", type: "number" },
-    { key: "estimated_value", label: "Estimated Value", type: "number" },
-    { key: "impact_unit", label: "Impact Unit" },
-    { key: "notes", label: "Notes", type: "textarea" },
-    { key: "referral_post_id", label: "Referral Post ID" },
-  ];
+  const donationFields: FormField[] = useMemo(
+    () => [
+      {
+        key: "supporter_id",
+        label: "Supporter",
+        type: "select" as const,
+        required: true,
+        options: workspace.supporters.map((supporter) => ({
+          value: String(supporter.supporter_id),
+          label: supporterLabel(supporter),
+        })),
+      },
+      {
+        key: "donation_type",
+        label: "Donation Type",
+        type: "select" as const,
+        required: true,
+        options: ["Monetary", "InKind"].map((entry) => ({ value: entry, label: entry })),
+      },
+      { key: "donation_date", label: "Donation Date", type: "date" as const, required: true },
+      {
+        key: "is_recurring",
+        label: "Recurring",
+        type: "select" as const,
+        required: true,
+        options: [
+          { value: "true", label: "Yes" },
+          { value: "false", label: "No" },
+        ],
+      },
+      { key: "campaign_name", label: "Campaign Name" },
+      { key: "channel_source", label: "Channel Source" },
+      { key: "currency_code", label: "Currency Code", required: true },
+      {
+        key: "amount",
+        label: "Amount",
+        type: "number" as const,
+        required: donationForm.donation_type === "Monetary",
+      },
+      {
+        key: "estimated_value",
+        label: "Estimated Value",
+        type: "number" as const,
+        required: donationForm.donation_type === "InKind",
+      },
+      { key: "impact_unit", label: "Impact Unit" },
+      { key: "notes", label: "Notes", type: "textarea" as const },
+      { key: "referral_post_id", label: "Referral Post ID" },
+    ],
+    [donationForm.donation_type, workspace.supporters],
+  );
 
   const inKindFields: FormField[] = [
     {
       key: "donation_id",
       label: "Donation",
       type: "select",
+      required: true,
       options: workspace.donations.map((donation) => ({
         value: String(donation.donation_id),
         label: `Donation #${donation.donation_id}`,
       })),
     },
-    { key: "item_name", label: "Item Name" },
-    { key: "item_category", label: "Category" },
-    { key: "quantity", label: "Quantity", type: "number" },
+    { key: "item_name", label: "Item Name", required: true },
+    { key: "item_category", label: "Category", required: true },
+    { key: "quantity", label: "Quantity", type: "number", required: true },
     { key: "unit_of_measure", label: "Unit of Measure" },
     { key: "estimated_unit_value", label: "Estimated Unit Value", type: "number" },
     { key: "intended_use", label: "Intended Use" },
@@ -2307,6 +2541,7 @@ export function AdminWorkspace() {
       key: "donation_id",
       label: "Donation",
       type: "select",
+      required: true,
       options: workspace.donations.map((donation) => ({
         value: String(donation.donation_id),
         label: `Donation #${donation.donation_id}`,
@@ -2316,29 +2551,36 @@ export function AdminWorkspace() {
       key: "safehouse_id",
       label: "Safe House",
       type: "select",
+      required: true,
       options: workspace.safehouses.map((safehouse) => ({
         value: String(safehouse.safehouse_id),
         label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
       })),
     },
-    { key: "program_area", label: "Program Area" },
-    { key: "amount_allocated", label: "Amount Allocated", type: "number" },
-    { key: "allocation_date", label: "Allocation Date", type: "date" },
+    { key: "program_area", label: "Program Area", required: true },
+    { key: "amount_allocated", label: "Amount Allocated", type: "number", required: true },
+    { key: "allocation_date", label: "Allocation Date", type: "date", required: true },
     { key: "allocation_notes", label: "Allocation Notes", type: "textarea" },
   ];
 
   const safehouseFields: FormField[] = [
-    { key: "safehouse_code", label: "Safe House Code" },
-    { key: "name", label: "Name" },
-    { key: "region", label: "Region" },
-    { key: "city", label: "City" },
+    { key: "safehouse_code", label: "Safe House Code", required: true },
+    { key: "name", label: "Name", required: true },
+    { key: "region", label: "Region", required: true },
+    { key: "city", label: "City", required: true },
     { key: "province", label: "Province" },
-    { key: "country", label: "Country" },
+    { key: "country", label: "Country", required: true },
     { key: "open_date", label: "Open Date", type: "date" },
-    { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"].map((entry) => ({ value: entry, label: entry })) },
-    { key: "capacity_girls", label: "Capacity Girls", type: "number" },
-    { key: "capacity_staff", label: "Capacity Staff", type: "number" },
-    { key: "current_occupancy", label: "Current Occupancy", type: "number" },
+    {
+      key: "status",
+      label: "Status",
+      type: "select",
+      required: true,
+      options: ["Active", "Inactive"].map((entry) => ({ value: entry, label: entry })),
+    },
+    { key: "capacity_girls", label: "Capacity Girls", type: "number", required: true },
+    { key: "capacity_staff", label: "Capacity Staff", type: "number", required: true },
+    { key: "current_occupancy", label: "Current Occupancy", type: "number", required: true },
     { key: "notes", label: "Notes", type: "textarea" },
   ];
   const residentSelectOptions = workspace.residents.map((resident) => ({
@@ -2346,10 +2588,10 @@ export function AdminWorkspace() {
     label: residentLabel(resident),
   }));
   const processFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "session_date", label: "Session Date", type: "date" },
-    { key: "social_worker", label: "Social Worker" },
-    { key: "session_type", label: "Session Type" },
+    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+    { key: "session_date", label: "Session Date", type: "date", required: true },
+    { key: "social_worker", label: "Social Worker", required: true },
+    { key: "session_type", label: "Session Type", required: true },
     { key: "session_duration_minutes", label: "Duration (minutes)", type: "number" },
     { key: "emotional_state_observed", label: "Emotional State Observed" },
     { key: "emotional_state_end", label: "Emotional State End" },
@@ -2362,11 +2604,11 @@ export function AdminWorkspace() {
     { key: "notes_restricted", label: "Notes", type: "textarea" },
   ];
   const visitationFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "visit_date", label: "Visit Date", type: "date" },
-    { key: "social_worker", label: "Social Worker" },
-    { key: "visit_type", label: "Visit Type" },
-    { key: "location_visited", label: "Location Visited" },
+    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+    { key: "visit_date", label: "Visit Date", type: "date", required: true },
+    { key: "social_worker", label: "Social Worker", required: true },
+    { key: "visit_type", label: "Visit Type", required: true },
+    { key: "location_visited", label: "Location Visited", required: true },
     { key: "family_members_present", label: "Family Members Present" },
     { key: "purpose", label: "Purpose", type: "textarea" },
     { key: "observations", label: "Observations", type: "textarea" },
@@ -2377,22 +2619,22 @@ export function AdminWorkspace() {
     { key: "visit_outcome", label: "Visit Outcome" },
   ];
   const educationFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "record_date", label: "Record Date", type: "date" },
-    { key: "education_level", label: "Education Level" },
-    { key: "school_name", label: "School Name" },
-    { key: "enrollment_status", label: "Enrollment Status" },
+    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+    { key: "record_date", label: "Record Date", type: "date", required: true },
+    { key: "education_level", label: "Education Level", required: true },
+    { key: "school_name", label: "School Name", required: true },
+    { key: "enrollment_status", label: "Enrollment Status", required: true },
     { key: "attendance_rate", label: "Attendance Rate", type: "number" },
     { key: "progress_percent", label: "Progress Percent", type: "number" },
     { key: "completion_status", label: "Completion Status" },
     { key: "notes", label: "Notes", type: "textarea" },
   ];
   const healthFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "record_date", label: "Record Date", type: "date" },
-    { key: "general_health_score", label: "General Health Score", type: "number" },
-    { key: "nutrition_score", label: "Nutrition Score", type: "number" },
-    { key: "sleep_quality_score", label: "Sleep Quality Score", type: "number" },
+    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+    { key: "record_date", label: "Record Date", type: "date", required: true },
+    { key: "general_health_score", label: "General Health Score", type: "number", required: true },
+    { key: "nutrition_score", label: "Nutrition Score", type: "number", required: true },
+    { key: "sleep_quality_score", label: "Sleep Quality Score", type: "number", required: true },
     { key: "energy_level_score", label: "Energy Score", type: "number" },
     { key: "height_cm", label: "Height (cm)", type: "number" },
     { key: "weight_kg", label: "Weight (kg)", type: "number" },
@@ -2403,28 +2645,76 @@ export function AdminWorkspace() {
     { key: "notes", label: "Notes", type: "textarea" },
   ];
   const interventionFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "plan_category", label: "Plan Category" },
-    { key: "plan_description", label: "Plan Description", type: "textarea" },
+    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+    { key: "plan_category", label: "Plan Category", required: true },
+    { key: "plan_description", label: "Plan Description", type: "textarea", required: true },
     { key: "services_provided", label: "Services Provided" },
     { key: "target_value", label: "Target Value", type: "number" },
-    { key: "target_date", label: "Target Date", type: "date" },
-    { key: "status", label: "Status" },
+    { key: "target_date", label: "Target Date", type: "date", required: true },
+    { key: "status", label: "Status", required: true },
     { key: "case_conference_date", label: "Case Conference Date", type: "date" },
   ];
   const incidentFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "safehouse_id", label: "Safe House", type: "select", options: workspace.safehouses.map((safehouse) => ({ value: String(safehouse.safehouse_id), label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}` })) },
-    { key: "incident_date", label: "Incident Date", type: "date" },
-    { key: "incident_type", label: "Incident Type" },
-    { key: "severity", label: "Severity" },
-    { key: "description", label: "Description", type: "textarea" },
+    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+    {
+      key: "safehouse_id",
+      label: "Safe House",
+      type: "select",
+      required: true,
+      options: workspace.safehouses.map((safehouse) => ({
+        value: String(safehouse.safehouse_id),
+        label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
+      })),
+    },
+    { key: "incident_date", label: "Incident Date", type: "date", required: true },
+    { key: "incident_type", label: "Incident Type", required: true },
+    { key: "severity", label: "Severity", required: true },
+    { key: "description", label: "Description", type: "textarea", required: true },
     { key: "response_taken", label: "Response Taken", type: "textarea" },
     { key: "resolved", label: "Resolved", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
     { key: "resolution_date", label: "Resolution Date", type: "date" },
-    { key: "reported_by", label: "Reported By" },
+    { key: "reported_by", label: "Reported By", required: true },
     { key: "follow_up_required", label: "Follow-up Required", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
   ];
+
+  const validateResidentIdentifiers = (s: ResidentFormState): string | null => {
+    if (!s.case_control_no.trim() && !s.internal_code.trim()) {
+      return "Enter either a case control number or an internal code.";
+    }
+    return null;
+  };
+
+  const validateSupporterIdentity = (s: SupporterFormState): string | null => {
+    const hasDisplay = s.display_name.trim().length > 0;
+    const hasOrg = s.organization_name.trim().length > 0;
+    const hasBothNames = s.first_name.trim().length > 0 && s.last_name.trim().length > 0;
+    if (!hasDisplay && !hasOrg && !hasBothNames) {
+      return "Enter a display name, organization name, or both first and last name.";
+    }
+    if (s.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email.trim())) {
+      return "Enter a valid email address or leave email blank.";
+    }
+    return null;
+  };
+
+  const validateDonationAmounts = (s: DonationFormState): string | null => {
+    if (s.donation_type === "Monetary") {
+      const raw = s.amount.trim();
+      if (!raw || !Number.isFinite(Number(raw))) {
+        return "Enter a valid amount for monetary donations.";
+      }
+    } else if (s.donation_type === "InKind") {
+      const raw = s.estimated_value.trim();
+      if (!raw || !Number.isFinite(Number(raw))) {
+        return "Enter a valid estimated value for in-kind donations.";
+      }
+    }
+    const ref = s.referral_post_id.trim();
+    if (ref && !Number.isFinite(Number(ref))) {
+      return "Referral post ID must be a valid number or left blank.";
+    }
+    return null;
+  };
 
   const openResidentForm = (resident?: Resident) => {
     setEditingResidentId(resident?.resident_id ?? null);
@@ -3049,6 +3339,358 @@ export function AdminWorkspace() {
       />
     );
   };
+
+  const renderDonationsToolbar = () => {
+    const supporterFilters = (
+      <>
+        <FilterCheckboxGroup
+          title="Supporter type"
+          options={donationTypeOptions}
+          selected={donationTypeFilter}
+          onChange={setDonationTypeFilter}
+          allLabel="All supporter types"
+        />
+        <FilterCheckboxGroup
+          title="Relationship"
+          options={donationRelationshipOptions}
+          selected={donationRelationshipFilter}
+          onChange={setDonationRelationshipFilter}
+          allLabel="All relationships"
+        />
+        <FilterCheckboxGroup
+          title="Status"
+          options={donationStatusOptions}
+          selected={donationStatusFilter}
+          onChange={setDonationStatusFilter}
+          allLabel="All statuses"
+        />
+        <FilterCheckboxGroup
+          title="Region"
+          options={donationRegionOptions}
+          selected={donationRegionFilter}
+          onChange={setDonationRegionFilter}
+          allLabel="All regions"
+        />
+        <FilterCheckboxGroup
+          title="Country"
+          options={donationCountryOptions}
+          selected={donationCountryFilter}
+          onChange={setDonationCountryFilter}
+          allLabel="All countries"
+        />
+      </>
+    );
+
+    const donationRowFilters = (
+      <>
+        <FilterCheckboxGroup
+          title="Gift type"
+          options={donationGiftTypeOptions}
+          selected={donationGiftTypeFilter}
+          onChange={setDonationGiftTypeFilter}
+          allLabel="All gift types"
+        />
+        <FilterCheckboxGroup
+          title="Recurring"
+          options={["true", "false"]}
+          selected={donationGiftRecurringFilter}
+          onChange={setDonationGiftRecurringFilter}
+          allLabel="All"
+          getOptionLabel={(v) => (v === "true" ? "Yes" : "No")}
+        />
+        <FilterCheckboxGroup
+          title="Campaign"
+          options={donationGiftCampaignOptions}
+          selected={donationGiftCampaignFilter}
+          onChange={setDonationGiftCampaignFilter}
+          allLabel="All campaigns"
+        />
+        <FilterCheckboxGroup
+          title="Channel"
+          options={donationGiftChannelOptions}
+          selected={donationGiftChannelFilter}
+          onChange={setDonationGiftChannelFilter}
+          allLabel="All channels"
+        />
+        <FilterCheckboxGroup
+          title="Currency"
+          options={donationGiftCurrencyOptions}
+          selected={donationGiftCurrencyFilter}
+          onChange={setDonationGiftCurrencyFilter}
+          allLabel="All currencies"
+        />
+      </>
+    );
+
+    const inKindRowFilters = (
+      <>
+        <FilterCheckboxGroup
+          title="Category"
+          options={inKindCategoryOptions}
+          selected={inKindCategoryFilter}
+          onChange={setInKindCategoryFilter}
+          allLabel="All categories"
+        />
+        <FilterCheckboxGroup
+          title="Condition"
+          options={inKindConditionOptions}
+          selected={inKindConditionFilter}
+          onChange={setInKindConditionFilter}
+          allLabel="All conditions"
+        />
+        <FilterCheckboxGroup
+          title="Unit"
+          options={inKindUnitOptions}
+          selected={inKindUnitFilter}
+          onChange={setInKindUnitFilter}
+          allLabel="All units"
+        />
+      </>
+    );
+
+    const allocationRowFilters = (
+      <>
+        <FilterCheckboxGroup
+          title="Program area"
+          options={allocationProgramOptions}
+          selected={allocationProgramFilter}
+          onChange={setAllocationProgramFilter}
+          allLabel="All program areas"
+        />
+        <FilterCheckboxGroup
+          title="Safe house"
+          options={allocationSafehouseIdOptions}
+          selected={allocationSafehouseFilter}
+          onChange={setAllocationSafehouseFilter}
+          allLabel="All safe houses"
+          getOptionLabel={(id) => safehouseMap.get(Number(id))?.name ?? `House #${id}`}
+        />
+      </>
+    );
+
+    const searchPlaceholder =
+      donationsSubTab === "supporters"
+        ? "Search supporter name, type, region, status, or channel"
+        : donationsSubTab === "donations"
+          ? "Search supporter, campaign, channel, currency, or donation id"
+          : donationsSubTab === "in-kind"
+            ? "Search item name, category, donation id, or intended use"
+            : "Search program area, safe house, donation id, or notes";
+
+    const filtersForTab =
+      donationsSubTab === "supporters"
+        ? supporterFilters
+        : donationsSubTab === "donations"
+          ? donationRowFilters
+          : donationsSubTab === "in-kind"
+            ? inKindRowFilters
+            : allocationRowFilters;
+
+    const clearFiltersForTab = () => {
+      setDonationSearch("");
+      if (donationsSubTab === "supporters") {
+        setDonationTypeFilter([]);
+        setDonationRelationshipFilter([]);
+        setDonationStatusFilter([]);
+        setDonationRegionFilter([]);
+        setDonationCountryFilter([]);
+      } else if (donationsSubTab === "donations") {
+        setDonationGiftTypeFilter([]);
+        setDonationGiftRecurringFilter([]);
+        setDonationGiftCampaignFilter([]);
+        setDonationGiftChannelFilter([]);
+        setDonationGiftCurrencyFilter([]);
+      } else if (donationsSubTab === "in-kind") {
+        setInKindCategoryFilter([]);
+        setInKindConditionFilter([]);
+        setInKindUnitFilter([]);
+      } else {
+        setAllocationProgramFilter([]);
+        setAllocationSafehouseFilter([]);
+      }
+      setParams({ supporterId: null });
+    };
+
+    const sortValue =
+      donationsSubTab === "in-kind" ? inKindSort : donationsSubTab === "allocations" ? allocationSort : donationSort;
+    const sortOptions =
+      donationsSubTab === "supporters"
+        ? [
+            { value: "recent", label: "Newest supporters first" },
+            { value: "name", label: "Name (A–Z)" },
+          ]
+        : donationsSubTab === "donations"
+          ? [
+              { value: "recent", label: "Most recent gift date" },
+              { value: "amount", label: "Highest value first" },
+              { value: "name", label: "Supporter name (A–Z)" },
+            ]
+          : donationsSubTab === "in-kind"
+            ? [
+                { value: "recent", label: "Newest items first" },
+                { value: "name", label: "Item name (A–Z)" },
+                { value: "donation", label: "Donation id (low to high)" },
+              ]
+            : [
+                { value: "recent", label: "Most recent allocation date" },
+                { value: "amount", label: "Largest amount first" },
+              ];
+    const onSortChange = (value: string) => {
+      if (donationsSubTab === "in-kind") setInKindSort(value);
+      else if (donationsSubTab === "allocations") setAllocationSort(value);
+      else setDonationSort(value);
+    };
+
+    return (
+      <Toolbar
+        defaultOpen={false}
+        searchValue={donationSearch}
+        onSearchChange={setDonationSearch}
+        searchPlaceholder={searchPlaceholder}
+        filters={filtersForTab}
+        onClearFilters={clearFiltersForTab}
+        bottomContent={
+          donationsSubTab === "supporters" ? null : (
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 flex-col gap-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <HandCoins className="h-4 w-4 text-primary" />
+                  Active supporter:
+                </div>
+                {selectedSupporterId ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setParams({ supporterId: null })}
+                      className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
+                    >
+                      {supporterLabel(supporterMap.get(selectedSupporterId) ?? ({} as Supporter))}
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No supporter filter applied. Click a supporter row to narrow this table to one donor.
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <StatusBadge value={selectedSupporterId ? "Filter active" : "All supporters"} tone={selectedSupporterId ? "default" : "outline"} />
+                <Button variant="outline" className="rounded-xl" onClick={() => setParams({ supporterId: null })} disabled={!selectedSupporterId}>
+                  Clear supporter filter
+                </Button>
+              </div>
+            </div>
+          )
+        }
+        sortValue={sortValue}
+        sortOptions={sortOptions}
+        onSortChange={onSortChange}
+        actionItems={[
+          {
+            label:
+              donationsSubTab === "supporters"
+                ? "Add supporter"
+                : donationsSubTab === "in-kind"
+                  ? "Add in-kind item"
+                  : donationsSubTab === "allocations"
+                    ? "Add allocation"
+                    : "Add donation",
+            onClick: () => {
+              if (donationsSubTab === "supporters") openSupporterForm();
+              else if (donationsSubTab === "donations") openDonationForm();
+              else if (donationsSubTab === "in-kind") openInKindForm();
+              else if (donationsSubTab === "allocations") openAllocationForm();
+            },
+          },
+          {
+            label: "Export current view as CSV",
+            onClick: () => {
+              if (donationsSubTab === "supporters") exportRows("Supporters", filteredSupporters as unknown as Array<Record<string, unknown>>);
+              else if (donationsSubTab === "donations") exportRows("Donations", filteredDonations as unknown as Array<Record<string, unknown>>);
+              else if (donationsSubTab === "in-kind") exportRows("In Kind", filteredInKind as unknown as Array<Record<string, unknown>>);
+              else exportRows("Allocations", filteredAllocations as unknown as Array<Record<string, unknown>>);
+            },
+          },
+        ]}
+      />
+    );
+  };
+
+  const renderSafehousesToolbar = () => (
+    <Toolbar
+      defaultOpen={false}
+      searchValue={safehouseSearch}
+      onSearchChange={setSafehouseSearch}
+      searchPlaceholder="Search safe houses, regions, status, or city"
+      filters={
+        <>
+          <FilterCheckboxGroup title="Status" options={safehouseStatusOptions} selected={safehouseStatusFilter} onChange={setSafehouseStatusFilter} allLabel="All statuses" />
+          <FilterCheckboxGroup title="Region" options={safehouseRegionOptions} selected={safehouseRegionFilter} onChange={setSafehouseRegionFilter} allLabel="All regions" />
+        </>
+      }
+      onClearFilters={() => {
+        setSafehouseSearch("");
+        setSafehouseStatusFilter([]);
+        setSafehouseRegionFilter([]);
+        setParams({ safehouseId: null });
+      }}
+      bottomContent={
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-1 flex-col gap-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Building2 className="h-4 w-4 text-primary" />
+              Active safe house:
+            </div>
+            {selectedSafehouseId ? (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setParams({ safehouseId: null })}
+                  className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
+                >
+                  {safehouseMap.get(selectedSafehouseId)?.name ?? `Safe House ${selectedSafehouseId}`}
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No safe house filter applied. Click a safe house row to narrow allocation history and monthly metrics to that location.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusBadge value={selectedSafehouseId ? "Filter active" : "All safe houses"} tone={selectedSafehouseId ? "default" : "outline"} />
+            <Button variant="outline" className="rounded-xl" onClick={() => setParams({ safehouseId: null })} disabled={!selectedSafehouseId}>
+              Clear safe house filter
+            </Button>
+          </div>
+        </div>
+      }
+      sortValue={safehouseSort}
+      sortOptions={[
+        { value: "occupancy", label: "Highest occupancy first" },
+        { value: "name", label: "Name" },
+        { value: "recent", label: "Most recently opened" },
+      ]}
+      onSortChange={setSafehouseSort}
+      actionItems={[
+        ...(safeHousesSubTab === "safe-houses" ? [{ label: "Add safe house", onClick: () => openSafehouseForm() }] : []),
+        {
+          label: "Export current view as CSV",
+          onClick: () => {
+            if (safeHousesSubTab === "safe-houses") {
+              exportRows("Safe Houses", filteredSafehouses as unknown as Array<Record<string, unknown>>);
+            } else if (safeHousesSubTab === "allocation-history") {
+              exportRows("Allocation History", safehouseAllocations as unknown as Array<Record<string, unknown>>);
+            } else {
+              exportRows("Monthly Metrics", safehouseMetrics as unknown as Array<Record<string, unknown>>);
+            }
+          },
+        },
+      ]}
+    />
+  );
 
   return (
     <div className="space-y-6">
@@ -3695,83 +4337,6 @@ export function AdminWorkspace() {
         </TabsContent>
 
         <TabsContent value="donations" className="space-y-6">
-          <Toolbar
-            defaultOpen={false}
-            searchValue={donationSearch}
-            onSearchChange={setDonationSearch}
-            searchPlaceholder="Search supporters, donations, channels, or campaigns"
-            filters={
-              <>
-                <FilterCheckboxGroup title="Type" options={donationTypeOptions} selected={donationTypeFilter} onChange={setDonationTypeFilter} allLabel="All types" />
-                <FilterCheckboxGroup title="Relationship" options={donationRelationshipOptions} selected={donationRelationshipFilter} onChange={setDonationRelationshipFilter} allLabel="All relationships" />
-                <FilterCheckboxGroup title="Status" options={donationStatusOptions} selected={donationStatusFilter} onChange={setDonationStatusFilter} allLabel="All statuses" />
-                <FilterCheckboxGroup title="Region" options={donationRegionOptions} selected={donationRegionFilter} onChange={setDonationRegionFilter} allLabel="All regions" />
-                <FilterCheckboxGroup title="Country" options={donationCountryOptions} selected={donationCountryFilter} onChange={setDonationCountryFilter} allLabel="All countries" />
-              </>
-            }
-            onClearFilters={() => {
-              setDonationSearch("");
-              setDonationTypeFilter([]);
-              setDonationRelationshipFilter([]);
-              setDonationStatusFilter([]);
-              setDonationRegionFilter([]);
-              setDonationCountryFilter([]);
-              setParams({ supporterId: null });
-            }}
-            sortValue={donationSort}
-            sortOptions={[
-              { value: "recent", label: "Most recent first" },
-              { value: "amount", label: "Highest amount first" },
-              { value: "name", label: "Supporter name" },
-            ]}
-            onSortChange={setDonationSort}
-            actionItems={[
-              {
-                label:
-                  donationsSubTab === "supporters"
-                    ? "Add supporter"
-                    : donationsSubTab === "in-kind"
-                      ? "Add in-kind item"
-                      : donationsSubTab === "allocations"
-                        ? "Add allocation"
-                        : "Add donation",
-                onClick: () => {
-                  if (donationsSubTab === "supporters") openSupporterForm();
-                  else if (donationsSubTab === "donations") openDonationForm();
-                  else if (donationsSubTab === "in-kind") openInKindForm();
-                  else if (donationsSubTab === "allocations") openAllocationForm();
-                  else openDonationForm();
-                },
-              },
-              {
-                label: "Export current view as CSV",
-                onClick: () => {
-                  if (donationsSubTab === "supporters") exportRows("Supporters", filteredSupporters as unknown as Array<Record<string, unknown>>);
-                  else if (donationsSubTab === "donations") exportRows("Donations", filteredDonations as unknown as Array<Record<string, unknown>>);
-                  else if (donationsSubTab === "in-kind") exportRows("In Kind", filteredInKind as unknown as Array<Record<string, unknown>>);
-                  else if (donationsSubTab === "allocations") exportRows("Allocations", filteredAllocations as unknown as Array<Record<string, unknown>>);
-                  else exportRows("Donations Summary", filteredDonations as unknown as Array<Record<string, unknown>>);
-                },
-              },
-            ]}
-          />
-
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-warm">
-            <p className="text-sm font-medium text-foreground">Supporter filter:</p>
-            {selectedSupporterId ? (
-              <button
-                type="button"
-                onClick={() => setParams({ supporterId: null })}
-                className="inline-flex items-center gap-2 rounded-full border border-secondary/20 bg-secondary/10 px-3 py-1.5 text-sm font-medium text-secondary"
-              >
-                {supporterLabel(supporterMap.get(selectedSupporterId) ?? ({} as Supporter))}
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : (
-              <span className="text-sm text-muted-foreground">No supporter filter applied.</span>
-            )}
-          </div>
-
           <Tabs value={donationsSubTab} onValueChange={(value) => setParams({ donationsSubTab: value })} className="space-y-6">
             <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm">
               {DONATION_SUBTABS.map((tab) => (
@@ -3785,56 +4350,9 @@ export function AdminWorkspace() {
               ))}
             </TabsList>
 
-            <TabsContent value="summary-statistics" className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <KpiCard icon={HandCoins} label="Total donation value" value={formatCurrency(donationSummary.total)} detail="Current filtered donation value" />
-                <KpiCard icon={Heart} label="Recurring gifts" value={String(donationSummary.recurring)} detail="Recurring donation records" />
-                <KpiCard icon={ClipboardList} label="In-kind estimated value" value={formatCurrency(donationSummary.inKindValue)} detail="Estimated total from in-kind items" />
-                <KpiCard icon={Building2} label="Allocated value" value={formatCurrency(donationSummary.allocated)} detail="Donation value already assigned to programs" />
-              </div>
-              <div className="grid gap-6 xl:grid-cols-2">
-                <SectionCard title="Top supporter value" description="Supporters currently contributing the most value in this filtered view.">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={supporterDonationTotals}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" hide />
-                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                      <Bar dataKey="value" radius={[8, 8, 0, 0]} fill="hsl(var(--primary))" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </SectionCard>
-                <SectionCard title="Donation mix" description="Monetary versus in-kind donation composition in the current view.">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
-                      <Pie
-                        data={[
-                          {
-                            name: "Monetary",
-                            value: filteredDonations.filter((donation) => donation.donation_type === "Monetary").length,
-                          },
-                          {
-                            name: "In-Kind",
-                            value: filteredDonations.filter((donation) => donation.donation_type === "InKind").length,
-                          },
-                        ]}
-                        dataKey="value"
-                        innerRadius={60}
-                        outerRadius={100}
-                      >
-                        {CHART_COLORS.slice(0, 2).map((color) => (
-                          <Cell key={color} fill={color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </SectionCard>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="supporters">
+            <TabsContent value="supporters" className="space-y-6">
               <SectionCard title="Supporters" description="Click a supporter row to filter all donation subtabs to that supporter.">
+                {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -3894,8 +4412,12 @@ export function AdminWorkspace() {
               </SectionCard>
             </TabsContent>
 
-            <TabsContent value="donations">
-              <SectionCard title="Donations" description="The same table and action pattern used elsewhere in the admin workspace.">
+            <TabsContent value="donations" className="space-y-6">
+              <SectionCard
+                title="Donations"
+                description="Every monetary and in-kind gift: date, supporter, campaign, channel, and value. Filter with the toolbar above; when a supporter is selected, only their donations appear."
+              >
+                {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -3949,8 +4471,12 @@ export function AdminWorkspace() {
               </SectionCard>
             </TabsContent>
 
-            <TabsContent value="in-kind">
-              <SectionCard title="In-kind items" description="Itemized in-kind inventory remains in the same add, edit, delete flow.">
+            <TabsContent value="in-kind" className="space-y-6">
+              <SectionCard
+                title="In-kind items"
+                description="Line items tied to donation records—what was received, quantity, condition, and estimated value. Scoped to the active supporter filter when one is chosen."
+              >
+                {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -4004,8 +4530,12 @@ export function AdminWorkspace() {
               </SectionCard>
             </TabsContent>
 
-            <TabsContent value="allocations">
-              <SectionCard title="Allocations" description="Donation allocations stay in the same action pattern and inherit the active supporter filter.">
+            <TabsContent value="allocations" className="space-y-6">
+              <SectionCard
+                title="Allocations"
+                description="How donation funds are assigned to safe houses and program areas, with amounts and dates. Rows respect the supporter filter so you see allocations for that donor’s gifts only."
+              >
+                {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -4060,62 +4590,6 @@ export function AdminWorkspace() {
         </TabsContent>
 
         <TabsContent value="safe-houses" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <KpiCard icon={Building2} label="Safe houses in view" value={String(filteredSafehouses.length)} detail="Safe houses after search and status filters" />
-            <KpiCard icon={Users} label="Residents assigned" value={String(filteredSafehouses.reduce((sum, safehouse) => sum + workspace.residents.filter((resident) => resident.safehouse_id === safehouse.safehouse_id).length, 0))} detail="Current residents assigned to visible houses" />
-            <KpiCard icon={Home} label="Average occupancy" value={`${filteredSafehouses.length ? Math.round(filteredSafehouses.reduce((sum, safehouse) => sum + (toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1)) * 100, 0) / filteredSafehouses.length) : 0}%`} detail="Average occupancy rate across the visible houses" />
-            <KpiCard icon={HandCoins} label="Allocation history rows" value={String(safehouseAllocations.length)} detail="Allocation records tied to the current safe house scope" />
-          </div>
-
-          <Toolbar
-            defaultOpen={false}
-            searchValue={safehouseSearch}
-            onSearchChange={setSafehouseSearch}
-            searchPlaceholder="Search safe houses, regions, status, or city"
-            filters={
-              <>
-                <FilterCheckboxGroup title="Status" options={safehouseStatusOptions} selected={safehouseStatusFilter} onChange={setSafehouseStatusFilter} allLabel="All statuses" />
-                <FilterCheckboxGroup title="Region" options={safehouseRegionOptions} selected={safehouseRegionFilter} onChange={setSafehouseRegionFilter} allLabel="All regions" />
-              </>
-            }
-            onClearFilters={() => {
-              setSafehouseSearch("");
-              setSafehouseStatusFilter([]);
-              setSafehouseRegionFilter([]);
-              setParams({ safehouseId: null });
-            }}
-            sortValue={safehouseSort}
-            sortOptions={[
-              { value: "occupancy", label: "Highest occupancy first" },
-              { value: "name", label: "Name" },
-              { value: "recent", label: "Most recently opened" },
-            ]}
-            onSortChange={setSafehouseSort}
-            actionItems={[
-              { label: "Add safe house", onClick: () => openSafehouseForm() },
-              {
-                label: "Export current view as CSV",
-                onClick: () => exportRows("Safe Houses", filteredSafehouses as unknown as Array<Record<string, unknown>>),
-              },
-            ]}
-          />
-
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-warm">
-            <p className="text-sm font-medium text-foreground">Safe house filter:</p>
-            {selectedSafehouseId ? (
-              <button
-                type="button"
-                onClick={() => setParams({ safehouseId: null })}
-                className="inline-flex items-center gap-2 rounded-full border border-secondary/20 bg-secondary/10 px-3 py-1.5 text-sm font-medium text-secondary"
-              >
-                {safehouseMap.get(selectedSafehouseId)?.name ?? `Safe House ${selectedSafehouseId}`}
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : (
-              <span className="text-sm text-muted-foreground">No safe house filter applied.</span>
-            )}
-          </div>
-
           <Tabs value={safeHousesSubTab} onValueChange={(value) => setParams({ safeHousesSubTab: value })} className="space-y-6">
             <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm">
               {SAFEHOUSE_SUBTABS.map((tab) => (
@@ -4129,8 +4603,9 @@ export function AdminWorkspace() {
               ))}
             </TabsList>
 
-            <TabsContent value="safe-houses">
+            <TabsContent value="safe-houses" className="space-y-6">
               <SectionCard title="Safe houses" description="Click a safe house row to filter related allocations and monthly metrics.">
+                {renderSafehousesToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -4198,8 +4673,9 @@ export function AdminWorkspace() {
               </SectionCard>
             </TabsContent>
 
-            <TabsContent value="allocation-history">
+            <TabsContent value="allocation-history" className="space-y-6">
               <SectionCard title="Allocation history" description="Filtered to the selected safe house when one is active.">
+                {renderSafehousesToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -4235,8 +4711,9 @@ export function AdminWorkspace() {
               </SectionCard>
             </TabsContent>
 
-            <TabsContent value="monthly-metrics">
+            <TabsContent value="monthly-metrics" className="space-y-6">
               <SectionCard title="Monthly metrics" description="Occupancy, education, health, visitations, and incident snapshots by month.">
+                {renderSafehousesToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -4540,6 +5017,7 @@ export function AdminWorkspace() {
         onSubmit={submitResidentForm}
         submitLabel={editingResidentId ? "Save resident" : "Create resident"}
         pending={createMutation.isPending || updateMutation.isPending}
+        extraValidate={validateResidentIdentifiers}
       />
 
       <EntityModal
@@ -4553,6 +5031,7 @@ export function AdminWorkspace() {
         onSubmit={submitSupporterForm}
         submitLabel={editingSupporterId ? "Save supporter" : "Create supporter"}
         pending={createMutation.isPending || updateMutation.isPending}
+        extraValidate={validateSupporterIdentity}
       />
 
       <EntityModal
@@ -4566,6 +5045,7 @@ export function AdminWorkspace() {
         onSubmit={submitDonationForm}
         submitLabel={editingDonationId ? "Save donation" : "Create donation"}
         pending={createMutation.isPending || updateMutation.isPending}
+        extraValidate={validateDonationAmounts}
       />
 
       <EntityModal

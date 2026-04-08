@@ -951,6 +951,17 @@ app.MapPost("/api/db/{table}", async (
         }
 
         var config = GetTableConfig(table);
+        if (row.TryGetValue(config.PrimaryKey, out var pkOnInsert))
+        {
+            var omitPk =
+                pkOnInsert is null
+                || (pkOnInsert is JsonElement jsonPk && jsonPk.ValueKind == JsonValueKind.Null);
+            if (omitPk)
+            {
+                row.Remove(config.PrimaryKey);
+            }
+        }
+
         var inserted = await InsertTableRowAsync(
             client,
             settings.Url!,
@@ -1902,9 +1913,13 @@ static async Task<List<Dictionary<string, object?>>> InsertTableRowAsync(
     request.Content = new StringContent(JsonSerializer.Serialize(row), Encoding.UTF8, "application/json");
 
     using var response = await client.SendAsync(request);
-    response.EnsureSuccessStatusCode();
-
     var body = await response.Content.ReadAsStringAsync();
+    if (!response.IsSuccessStatusCode)
+    {
+        throw new InvalidOperationException(
+            $"Supabase insert into \"{table}\" failed: {(int)response.StatusCode} {response.ReasonPhrase}. {body}");
+    }
+
     return JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
 }
 
