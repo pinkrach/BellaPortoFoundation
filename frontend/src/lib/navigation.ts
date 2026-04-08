@@ -1,12 +1,11 @@
 import {
   BarChart3,
-  FileText,
-  Heart,
-  Home,
+  Building2,
+  HandCoins,
   LayoutDashboard,
-  Settings,
-  Share2,
+  Megaphone,
   Users,
+  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -16,6 +15,7 @@ export interface AppNavItem {
   label: string;
   to: string;
   icon?: LucideIcon;
+  matchTab?: string;
 }
 
 export const publicNavItems: AppNavItem[] = [
@@ -25,14 +25,13 @@ export const publicNavItems: AppNavItem[] = [
 ];
 
 export const adminSidebarItems: AppNavItem[] = [
-  { label: "Dashboard", to: "/admin", icon: LayoutDashboard },
-  { label: "Caseload Inventory", to: "/admin/caseload", icon: Users },
-  { label: "Process Recordings", to: "/recordings", icon: FileText },
-  { label: "Visitations & Conferences", to: "/visitations", icon: Home },
-  { label: "Donors & Contributions", to: "/admin/donors", icon: Heart },
-  { label: "Reports & Analytics", to: "/admin/reports", icon: BarChart3 },
-  { label: "Social Media", to: "/media", icon: Share2 },
-  { label: "Settings", to: "/admin/settings", icon: Settings },
+  { label: "Dashboard", to: "/admin?tab=dashboard", icon: LayoutDashboard, matchTab: "dashboard" },
+  { label: "Residents", to: "/admin?tab=residents", icon: Users, matchTab: "residents" },
+  { label: "Donations", to: "/admin?tab=donations", icon: HandCoins, matchTab: "donations" },
+  { label: "Safe Houses", to: "/admin?tab=safe-houses", icon: Building2, matchTab: "safe-houses" },
+  { label: "Reports", to: "/admin?tab=reports", icon: BarChart3, matchTab: "reports" },
+  { label: "Outreach", to: "/admin?tab=outreach", icon: Megaphone, matchTab: "outreach" },
+  { label: "Settings", to: "/admin/settings", icon: Settings, matchTab: "settings" },
 ];
 
 export const donorMenuItems: AppNavItem[] = [

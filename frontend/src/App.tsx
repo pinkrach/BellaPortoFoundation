@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,15 +20,6 @@ import NotFound from "./pages/NotFound";
 import DonorDashboard from "./pages/DonorDashboard";
 
 import AdminDashboard from "./pages/AdminDashboard";
-import AdminDonors from "./pages/AdminDonors";
-import AddDonationPage from "./pages/AddDonationPage";
-import AddAllocationPage from "./pages/AddAllocationPage";
-import AddSupporterPage from "./pages/AddSupporterPage";
-import CaseloadInventory from "./pages/CaseloadInventory";
-import ProcessRecordingsPage from "./pages/ProcessRecordingsPage";
-import HomeVisitationsPage from "./pages/HomeVisitationsPage";
-import SocialMediaDashboard from "./pages/SocialMediaDashboard";
-import Reports from "./pages/Reports";
 import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient();
@@ -73,7 +64,7 @@ const App = () => (
                 path="/admin/donors"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <AdminDonors />
+                    <Navigate to="/admin?tab=donations" replace />
                   </ProtectedRoute>
                 }
               />
@@ -81,7 +72,7 @@ const App = () => (
                 path="/admin/donors/new-supporter"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <AddSupporterPage />
+                    <Navigate to="/admin?tab=donations&donationsSubTab=supporters" replace />
                   </ProtectedRoute>
                 }
               />
@@ -89,7 +80,7 @@ const App = () => (
                 path="/admin/donors/new-donation"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <AddDonationPage />
+                    <Navigate to="/admin?tab=donations&donationsSubTab=donations" replace />
                   </ProtectedRoute>
                 }
               />
@@ -97,7 +88,7 @@ const App = () => (
                 path="/admin/donors/new-allocation"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <AddAllocationPage />
+                    <Navigate to="/admin?tab=donations&donationsSubTab=allocations" replace />
                   </ProtectedRoute>
                 }
               />
@@ -105,7 +96,7 @@ const App = () => (
                 path="/admin/caseload"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <CaseloadInventory />
+                    <Navigate to="/admin?tab=residents" replace />
                   </ProtectedRoute>
                 }
               />
@@ -113,7 +104,7 @@ const App = () => (
                 path="/admin/recordings"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <ProcessRecordingsPage />
+                    <Navigate to="/admin?tab=residents&residentsSubTab=process-records" replace />
                   </ProtectedRoute>
                 }
               />
@@ -121,7 +112,7 @@ const App = () => (
                 path="/recordings"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <ProcessRecordingsPage />
+                    <Navigate to="/admin?tab=residents&residentsSubTab=process-records" replace />
                   </ProtectedRoute>
                 }
               />
@@ -129,7 +120,7 @@ const App = () => (
                 path="/admin/visitations"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <HomeVisitationsPage />
+                    <Navigate to="/admin?tab=residents&residentsSubTab=visitations" replace />
                   </ProtectedRoute>
                 }
               />
@@ -137,7 +128,7 @@ const App = () => (
                 path="/visitations"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <HomeVisitationsPage />
+                    <Navigate to="/admin?tab=residents&residentsSubTab=visitations" replace />
                   </ProtectedRoute>
                 }
               />
@@ -145,7 +136,7 @@ const App = () => (
                 path="/admin/social"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <SocialMediaDashboard />
+                    <Navigate to="/admin?tab=outreach&outreachSubTab=social-media" replace />
                   </ProtectedRoute>
                 }
               />
@@ -153,7 +144,7 @@ const App = () => (
                 path="/media"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <SocialMediaDashboard />
+                    <Navigate to="/admin?tab=outreach&outreachSubTab=social-media" replace />
                   </ProtectedRoute>
                 }
               />
@@ -161,7 +152,7 @@ const App = () => (
                 path="/admin/reports"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <Reports />
+                    <Navigate to="/admin?tab=reports" replace />
                   </ProtectedRoute>
                 }
               />
