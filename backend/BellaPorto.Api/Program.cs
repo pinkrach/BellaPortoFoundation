@@ -50,6 +50,87 @@ app.UseHttpsRedirection();
 
 app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
 
+app.MapGet("/api/profiles", async (
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var profiles = await FetchProfilesAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+        return Results.Ok(profiles);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/profiles/{userId}", async (
+    string userId,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var profile = await FetchProfileByUserIdAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!, userId);
+        return profile is null
+            ? Results.NotFound(new { message = $"Profile {userId} was not found." })
+            : Results.Ok(profile);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapPut("/api/profiles/{userId}/role", async (
+    string userId,
+    ProfileRoleUpdateRequest requestBody,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(requestBody.Role))
+        {
+            return Results.BadRequest(new { message = "A role is required." });
+        }
+
+        var normalizedRole = requestBody.Role.Trim().ToLowerInvariant();
+        if (normalizedRole is not ("admin" or "donor"))
+        {
+            return Results.BadRequest(new { message = "Role must be either admin or donor." });
+        }
+
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var updated = await UpdateProfileRoleAsync(
+            httpClientFactory.CreateClient(),
+            settings.Url!,
+            settings.Key!,
+            userId,
+            normalizedRole);
+
+        return updated is null
+            ? Results.NotFound(new { message = $"Profile {userId} was not found." })
+            : Results.Ok(updated);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.MapGet("/api/supporters", async (
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
@@ -752,6 +833,61 @@ static async Task<List<Dictionary<string, object?>>> FetchResidentsAsync(HttpCli
     }).ToList();
 }
 
+static async Task<List<Dictionary<string, object?>>> FetchProfilesAsync(HttpClient client, string supabaseUrl, string apiKey)
+{
+    return await FetchPagedTableAsync(
+        client,
+        supabaseUrl,
+        apiKey,
+        "profiles",
+        select: "id,email,first_name,last_name,role",
+        orderBy: "first_name.asc");
+}
+
+static async Task<Dictionary<string, object?>?> FetchProfileByUserIdAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    string userId)
+{
+    var rows = await FetchPagedTableAsync(
+        client,
+        supabaseUrl,
+        apiKey,
+        "profiles",
+        select: "id,email,first_name,last_name,role",
+        filters: [$"id=eq.{Uri.EscapeDataString(userId)}"]);
+
+    return rows.FirstOrDefault();
+}
+
+static async Task<Dictionary<string, object?>?> UpdateProfileRoleAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    string userId,
+    string role)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Patch,
+        $"{baseUrl}/rest/v1/profiles?id=eq.{Uri.EscapeDataString(userId)}&select=id,email,first_name,last_name,role");
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+    request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
+    request.Content = new StringContent(
+        JsonSerializer.Serialize(new Dictionary<string, object?> { ["role"] = role }),
+        Encoding.UTF8,
+        "application/json");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
+
+    var body = await response.Content.ReadAsStringAsync();
+    var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+    return rows.FirstOrDefault();
+}
+
 static async Task<Dictionary<string, object?>?> FetchResidentProfileBundleAsync(
     HttpClient client,
     string supabaseUrl,
@@ -1155,4 +1291,9 @@ sealed class TableConfig
 sealed class SocialAnalyticsRefreshRequest
 {
     public List<Dictionary<string, object?>> Posts { get; set; } = [];
+}
+
+sealed class ProfileRoleUpdateRequest
+{
+    public string Role { get; set; } = string.Empty;
 }

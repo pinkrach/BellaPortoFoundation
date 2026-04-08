@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import { fetchJson } from "@/lib/api";
 
 type UserRole = "admin" | "donor" | null;
 
@@ -45,18 +46,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<UserRole>(null);
 
   const loadProfile = async (profileUserId: string) => {
-    if (!supabase) return null;
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("role, first_name, last_name")
-      .eq("id", profileUserId)
-      .maybeSingle();
-    if (error) return null;
-    return {
-      role: data?.role === "admin" || data?.role === "donor" ? data.role : null,
-      firstName: data?.first_name ?? null,
-      lastName: data?.last_name ?? null,
-    };
+    try {
+      const data = await fetchJson<{
+        role?: string | null;
+        first_name?: string | null;
+        last_name?: string | null;
+      }>(`/api/profiles/${profileUserId}`);
+      const normalizedRole: UserRole = data?.role === "admin" || data?.role === "donor" ? data.role : null;
+
+      return {
+        role: normalizedRole,
+        firstName: data?.first_name ?? null,
+        lastName: data?.last_name ?? null,
+      };
+    } catch {
+      return null;
+    }
   };
 
   const setAuthFromProfile: AuthContextType["setAuthFromProfile"] = (input) => {

@@ -20,6 +20,7 @@ export const Navbar = () => {
   const { displayName, initials, isAuthenticated, isLoading, logout, role } = useAuth();
   const profileMenuItems = getRoleMenuItems(role);
   const profileLabel = displayName ?? "Profile";
+  const roleLabel = role === "admin" ? "Administrator" : role === "donor" ? "Donor" : "Access pending";
 
   const handleLogout = async () => {
     await logout();
@@ -82,7 +83,7 @@ export const Navbar = () => {
                   </Avatar>
                   <div className="min-w-0">
                     <div className="truncate font-medium">{profileLabel}</div>
-                    <div className="truncate text-xs font-normal text-muted-foreground">{role === "admin" ? "Administrator" : "Donor"}</div>
+                    <div className="truncate text-xs font-normal text-muted-foreground">{roleLabel}</div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -149,7 +150,7 @@ export const Navbar = () => {
                     </Avatar>
                     <div className="min-w-0">
                       <p className="truncate text-base font-semibold text-primary-foreground">{profileLabel}</p>
-                      <p className="text-sm text-primary-foreground/70">{role === "admin" ? "Administrator" : "Donor"}</p>
+                      <p className="text-sm text-primary-foreground/70">{roleLabel}</p>
                     </div>
                   </div>
 

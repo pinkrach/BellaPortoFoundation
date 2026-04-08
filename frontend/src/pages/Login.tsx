@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
+import { fetchJson } from "@/lib/api";
 import { Anchor, Leaf } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -36,23 +37,31 @@ const Login = () => {
     try {
       const result = await login(trimmedEmail, password);
       if (result.ok) {
-        // If role isn't available yet (e.g., profile row missing/slow), re-check once directly.
+        // If role isn't available yet, re-check once through the backend profile endpoint.
         let role = result.role;
         if (!role && supabase) {
           const { data: userData } = await supabase.auth.getUser();
           const userId = userData.user?.id;
           if (userId) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("role")
-              .eq("id", userId)
-              .maybeSingle();
-            if (profile?.role === "admin" || profile?.role === "donor") role = profile.role;
+            try {
+              const profile = await fetchJson<{ role?: string | null }>(`/api/profiles/${userId}`);
+              if (profile?.role === "admin" || profile?.role === "donor") role = profile.role;
+            } catch {
+              // Let the redirect logic fall through to the safe fallback below.
+            }
           }
         }
 
-        if (role === "admin") navigate("/admin");
-        else navigate("/dashboard");
+        if (role === "admin") {
+          navigate("/admin");
+          return;
+        }
+        if (role === "donor") {
+          navigate("/dashboard");
+          return;
+        }
+
+        setError("Your account signed in, but the website could not confirm your access role. Please contact an admin.");
         return;
       }
       setError(result.message || "Incorrect email or password.");
