@@ -8,14 +8,41 @@ export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (isLocalHost ? "h
 
 export const buildApiUrl = (path: string) => (apiBaseUrl ? `${apiBaseUrl}${path}` : path);
 
+const authRoutesNoRedirect = new Set(["/login", "/signup", "/forgot-password", "/reset-password"]);
+
+/**
+ * When the backend rejects the session (401), clear Supabase and send the user to login.
+ * Skips redirect on auth-related routes to avoid loops while signing in.
+ */
+export async function redirectToLoginOnUnauthorizedResponse(response: Response): Promise<void> {
+  if (response.status !== 401) {
+    return;
+  }
+  if (typeof window === "undefined") {
+    return;
+  }
+  const path = (window.location.pathname.replace(/\/$/, "") || "/").toLowerCase();
+  if (authRoutesNoRedirect.has(path)) {
+    return;
+  }
+  try {
+    await supabase?.auth.signOut();
+  } finally {
+    window.location.assign("/login");
+  }
+}
+
 type ProblemDetails = {
   title?: string;
   detail?: string;
   message?: string;
 };
 
-export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(buildApiUrl(path), init);
+async function readJsonOrThrow<T>(response: Response): Promise<T> {
+  if (response.status === 401) {
+    await redirectToLoginOnUnauthorizedResponse(response);
+    throw new Error("Your session expired. Redirecting to sign in.");
+  }
   if (!response.ok) {
     const body = await response.text();
     try {
@@ -29,6 +56,11 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
   return response.json() as Promise<T>;
 }
 
+export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(buildApiUrl(path), init);
+  return readJsonOrThrow<T>(response);
+}
+
 export async function fetchJsonWithAuth<T>(path: string, init?: RequestInit): Promise<T> {
   const token = (await supabase?.auth.getSession())?.data.session?.access_token ?? null;
   if (!token) {
@@ -38,10 +70,11 @@ export async function fetchJsonWithAuth<T>(path: string, init?: RequestInit): Pr
   const headers = new Headers(init?.headers);
   headers.set("Authorization", `Bearer ${token}`);
 
-  return fetchJson<T>(path, {
+  const response = await fetch(buildApiUrl(path), {
     ...init,
     headers,
   });
+  return readJsonOrThrow<T>(response);
 }
 
 export async function buildAuthHeaders(initHeaders?: HeadersInit): Promise<Headers> {
@@ -57,8 +90,10 @@ export async function buildAuthHeaders(initHeaders?: HeadersInit): Promise<Heade
 
 export async function fetchWithAuth(path: string, init?: RequestInit): Promise<Response> {
   const headers = await buildAuthHeaders(init?.headers);
-  return fetch(buildApiUrl(path), {
+  const response = await fetch(buildApiUrl(path), {
     ...init,
     headers,
   });
+  await redirectToLoginOnUnauthorizedResponse(response);
+  return response;
 }

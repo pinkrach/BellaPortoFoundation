@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
-import { buildApiUrl } from "@/lib/api";
+import { buildApiUrl, redirectToLoginOnUnauthorizedResponse } from "@/lib/api";
 import { insertSupporterForNewUser } from "@/lib/supporterRecord";
 
 type UserRole = "admin" | "donor" | null;
@@ -56,6 +56,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       });
       if (!response.ok) {
+        if (response.status === 401) {
+          await redirectToLoginOnUnauthorizedResponse(response);
+          return null;
+        }
         // Local dev can have backend misconfig/redirect issues. If the user is signed into Supabase,
         // fall back to reading their own profile row directly (subject to RLS).
         if (supabase) {
