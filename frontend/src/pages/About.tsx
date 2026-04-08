@@ -68,62 +68,41 @@ const timeline = [
 
 const About = () => (
   <PublicLayout>
-    <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-lavender">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.16),transparent_32%),radial-gradient(circle_at_78%_22%,rgba(255,255,255,0.14),transparent_22%),linear-gradient(135deg,transparent,rgba(255,255,255,0.06))]" />
-      <div className="absolute top-12 right-8 hidden lg:block text-primary-foreground/15">
-        <Waves className="h-40 w-40 animate-wave" />
-      </div>
-      <div className="container relative z-10 mx-auto px-4 py-24 md:py-32">
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65 }} className="max-w-4xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary-foreground/25 bg-primary-foreground/10 px-4 py-2 text-sm text-primary-foreground/90">
-            <Sparkles className="h-4 w-4" />
+    <section className="bg-background py-20 md:py-28">
+      <div className="container mx-auto px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto max-w-4xl text-center"
+        >
+          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-border/60 bg-[hsl(40_42%_99%_/_0.45)] px-4 py-2 text-sm text-[hsl(200_14%_36%)]">
+            <Sparkles className="h-4 w-4 text-[hsl(272_18%_48%)]" />
             About Bella Bay Foundation
           </div>
-          <h1 className="max-w-3xl font-heading text-4xl font-bold leading-tight text-primary-foreground md:text-6xl">
+          <h1 className="mt-6 font-heading text-4xl font-semibold leading-tight text-[hsl(200_26%_18%)] md:text-6xl">
             We believe healing begins when a girl is finally met with safety, tenderness, and room to dream again.
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-primary-foreground/82 md:text-xl">
-            Bella Bay Foundation exists to create a beautiful harbor for girls recovering from abuse and trafficking,
-            pairing immediate protection with the long, careful work of restoration.
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[hsl(200_14%_38%)] md:text-xl">
+            Bella Bay Foundation exists to create a calm harbor for girls recovering from abuse and trafficking—pairing
+            immediate protection with the long, careful work of restoration.
           </p>
-          <div className="mt-8 flex flex-wrap gap-4">
+
+          <div className="mt-9 flex flex-wrap justify-center gap-4">
             <Link
               to="/impact"
-              className="inline-flex items-center gap-2 rounded-full bg-coral px-8 py-3 font-semibold text-foreground shadow-warm transition-transform hover:scale-105"
+              className="inline-flex items-center gap-2 rounded-full bg-[#6E8F6B] px-8 py-3 text-base font-semibold text-[hsl(40_44%_99%)] shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6E8F6B]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Explore Our Impact <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               to="/privacy"
-              className="inline-flex items-center gap-2 rounded-full border border-primary-foreground/40 px-8 py-3 font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/10"
+              className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/0 px-8 py-3 text-base font-semibold text-[hsl(200_22%_22%)] transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2"
             >
               Our Privacy Commitment
             </Link>
           </div>
         </motion.div>
-
-        <div className="mt-14 grid gap-5 md:grid-cols-3">
-          {[
-            { number: "24/7", label: "Care-centered support model" },
-            { number: "3", label: "Core stages of restoration" },
-            { number: "100%", label: "Mission-driven nonprofit focus" },
-          ].map((item, index) => (
-            <motion.div
-              key={item.label}
-              custom={index}
-              initial="hidden"
-              animate="visible"
-              variants={fadeUp}
-              className="rounded-2xl border border-primary-foreground/18 bg-primary-foreground/10 p-6 backdrop-blur-sm"
-            >
-              <p className="font-heading text-4xl font-bold text-primary-foreground">{item.number}</p>
-              <p className="mt-2 text-sm uppercase tracking-[0.24em] text-primary-foreground/72">{item.label}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden">
-        <WaveDivider className="text-background" />
       </div>
     </section>
 
@@ -131,11 +110,11 @@ const About = () => (
       <div className="container mx-auto px-4">
         <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} custom={0} variants={fadeUp}>
-            <p className="text-sm font-semibold uppercase tracking-[0.26em] text-secondary">Our Story</p>
-            <h2 className="mt-4 font-heading text-3xl font-bold text-foreground md:text-5xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.26em] text-[hsl(200_12%_42%)]">Our Story</p>
+            <h2 className="mt-4 font-heading text-3xl font-semibold text-[hsl(200_24%_18%)] md:text-5xl">
               A foundation shaped by rescue, restoration, and lasting dignity.
             </h2>
-            <div className="mt-6 space-y-5 text-lg leading-relaxed text-muted-foreground">
+            <div className="mt-6 space-y-5 text-lg leading-relaxed text-[hsl(200_14%_38%)]">
               <p>
                 Bella Bay means beautiful harbor. That image guides our work: a place of refuge after chaos, a place
                 where frightened girls are welcomed with gentleness rather than urgency.
@@ -159,16 +138,16 @@ const About = () => (
             variants={fadeUp}
             className="relative"
           >
-            <div className="rounded-[2rem] bg-gradient-to-br from-lavender/25 via-card to-coral/10 p-5 shadow-warm-lg">
-              <div className="rounded-[1.6rem] border border-border/70 bg-card/95 p-8">
+            <div className="rounded-[2rem] bg-[hsl(40_42%_99%_/_0.45)] p-5 shadow-warm">
+              <div className="rounded-[1.6rem] border border-border/70 bg-background/80 p-8">
                 <div className="grid gap-4 sm:grid-cols-2">
                   {pillars.map((pillar) => (
-                    <div key={pillar.title} className={`rounded-2xl bg-gradient-to-br ${pillar.accent} p-5 shadow-warm`}>
-                      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-card/80">
-                        <pillar.icon className="h-6 w-6 text-primary" />
+                    <div key={pillar.title} className="rounded-2xl border border-border/60 bg-background/60 p-5">
+                      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-muted/40">
+                        <pillar.icon className="h-6 w-6 text-[hsl(205_22%_40%)]" />
                       </div>
-                      <h3 className="font-heading text-xl font-semibold text-foreground">{pillar.title}</h3>
-                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{pillar.description}</p>
+                      <h3 className="font-heading text-xl font-semibold text-[hsl(200_24%_18%)]">{pillar.title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-[hsl(200_14%_38%)]">{pillar.description}</p>
                     </div>
                   ))}
                 </div>
@@ -184,8 +163,8 @@ const About = () => (
       <div className="-mt-px bg-muted py-16 md:py-20">
         <div className="container mx-auto px-4">
           <div className="mb-10 max-w-2xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.26em] text-primary">What Shapes Our Work</p>
-            <h2 className="mt-4 font-heading text-3xl font-bold text-foreground md:text-4xl">The values we return to every day.</h2>
+            <p className="text-sm font-semibold uppercase tracking-[0.26em] text-[hsl(200_12%_42%)]">What Shapes Our Work</p>
+            <h2 className="mt-4 font-heading text-3xl font-semibold text-[hsl(200_24%_18%)] md:text-4xl">The values we return to every day.</h2>
           </div>
 
           <div className="grid gap-6 md:grid-cols-3">
@@ -197,13 +176,13 @@ const About = () => (
                 whileInView="visible"
                 viewport={{ once: true }}
                 variants={fadeUp}
-                className="rounded-2xl bg-card p-7 shadow-warm transition-all hover:-translate-y-1 hover:shadow-warm-hover"
+                className="rounded-2xl border border-border/60 bg-background/60 p-7"
               >
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-                  <value.icon className="h-7 w-7 text-primary" />
+                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-background/70">
+                  <value.icon className="h-7 w-7 text-[hsl(272_18%_48%)]" />
                 </div>
-                <h3 className="font-heading text-2xl font-semibold text-foreground">{value.title}</h3>
-                <p className="mt-3 leading-relaxed text-muted-foreground">{value.text}</p>
+                <h3 className="font-heading text-2xl font-semibold text-[hsl(200_24%_18%)]">{value.title}</h3>
+                <p className="mt-3 leading-relaxed text-[hsl(200_14%_38%)]">{value.text}</p>
               </motion.div>
             ))}
           </div>

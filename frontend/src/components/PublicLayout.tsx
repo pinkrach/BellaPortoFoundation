@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 
-export const PublicLayout = ({ children }: { children: ReactNode }) => (
+export const PublicLayout = ({ children, hideFooter = false }: { children: ReactNode; hideFooter?: boolean }) => (
   <div className="flex w-full flex-1 flex-col min-h-dvh">
     <a
       href="#main-content"
@@ -14,6 +14,6 @@ export const PublicLayout = ({ children }: { children: ReactNode }) => (
     <main id="main-content" className="min-h-0 flex-1 pb-0" tabIndex={-1}>
       {children}
     </main>
-    <Footer />
+    {!hideFooter && <Footer />}
   </div>
 );

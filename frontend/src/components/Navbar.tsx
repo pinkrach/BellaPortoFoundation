@@ -23,8 +23,10 @@ export const Navbar = () => {
   const [homeScrolled, setHomeScrolled] = useState(false);
   const location = useLocation();
   const isHome = location.pathname === "/";
+  const isCreamNavRoute = location.pathname === "/about" || location.pathname === "/impact" || location.pathname === "/login";
+  const isCreamNav = !isHome && isCreamNavRoute;
 
-  const brandName = isHome ? "Bella Bay Foundation" : "Bella Porto Foundation";
+  const brandName = isHome ? "Bella Bay Foundation" : isCreamNav ? "Bella Bay Foundation" : "Bella Porto Foundation";
 
   useEffect(() => {
     if (!isHome) {
@@ -43,10 +45,12 @@ export const Navbar = () => {
   /** Derived text + link colours */
   const heroText   = "text-white";
   const scrolledText = "text-[#1E2933]";
-  const navTextClass = isHeroMode ? heroText : isHome ? scrolledText : "text-primary-foreground";
+  const navTextClass = isHeroMode ? heroText : isHome ? scrolledText : isCreamNav ? "text-[#1E2933]" : "text-primary-foreground";
   const navLinkClass = isHeroMode
     ? cn(baseNavLink, "text-white hover:text-white/80")
     : isHome
+    ? cn(baseNavLink, "text-[#1E2933] hover:text-[#0f1419]")
+    : isCreamNav
     ? cn(baseNavLink, "text-[#1E2933] hover:text-[#0f1419]")
     : "font-medium text-primary-foreground/90 hover:text-primary-foreground transition-colors";
 
@@ -63,6 +67,8 @@ export const Navbar = () => {
               "fixed top-0 left-0 right-0",
               homeScrolled ? "bg-background" : "bg-transparent",
             )
+          : isCreamNav
+          ? "sticky top-0 bg-background"
           : "sticky top-0 bg-primary",
       )}
     >
@@ -93,7 +99,7 @@ export const Navbar = () => {
             aria-hidden="true"
             className={cn(
               "object-contain transition-[filter] duration-300",
-              isHome ? "h-9 w-9 md:h-10 md:w-10" : "h-8 w-8 brightness-0 invert",
+              isHome ? "h-9 w-9 md:h-10 md:w-10" : isCreamNav ? "h-8 w-8" : "h-8 w-8 brightness-0 invert",
               /* Invert icon to white in hero mode */
               isHeroMode && "brightness-0 invert",
             )}
@@ -102,7 +108,7 @@ export const Navbar = () => {
             className={cn(
               "font-heading font-semibold tracking-tight transition-colors",
               isHome && cn(navTextClass, "text-lg md:text-xl"),
-              !isHome && "text-xl font-bold text-primary-foreground",
+              !isHome && (isCreamNav ? "text-xl font-bold text-[#1E2933]" : "text-xl font-bold text-primary-foreground"),
             )}
           >
             {brandName}
@@ -132,20 +138,6 @@ export const Navbar = () => {
               </li>
             );
           })}
-          {isHome && (
-            <li className="md:flex md:items-center">
-              <Link
-                to="/impact"
-                className={cn(
-                  navFocusRing,
-                  "inline-block py-1 text-sm font-semibold tracking-[0.02em] transition-colors",
-                  isHeroMode ? "text-white hover:text-white/80" : "text-[#1E2933] hover:text-[#0f1419]",
-                )}
-              >
-                Give
-              </Link>
-            </li>
-          )}
         </ul>
 
         <button
@@ -171,7 +163,7 @@ export const Navbar = () => {
             exit={{ height: 0, opacity: 0 }}
             className={cn(
               "relative overflow-hidden md:hidden",
-              !isHome && "bg-primary",
+              !isHome && (isCreamNav ? "bg-background" : "bg-primary"),
               isHome && homeScrolled && "bg-background",
             )}
           >
@@ -205,21 +197,6 @@ export const Navbar = () => {
                   </li>
                 );
               })}
-              {isHome && (
-                <li>
-                  <Link
-                    to="/impact"
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      navFocusRing,
-                      "inline-block text-lg font-semibold tracking-[0.02em] transition-colors",
-                      isHeroMode ? "text-white hover:text-white/80" : "text-[#1E2933] hover:text-[#0f1419]",
-                    )}
-                  >
-                    Give
-                  </Link>
-                </li>
-              )}
             </ul>
           </motion.div>
         )}
