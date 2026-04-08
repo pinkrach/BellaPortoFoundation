@@ -77,7 +77,7 @@ const Index = () => {
             <img
               src={heroImage}
               alt="Watercolor painting of a Mediterranean bay inspired by Portofino, with colorful waterfront buildings, calm water, and a small boat."
-              className="h-full w-full object-cover object-bottom"
+              className="h-full w-full object-cover object-[35%_100%] sm:object-bottom"
             />
           </div>
 
@@ -87,7 +87,7 @@ const Index = () => {
             aria-hidden="true"
           />
 
-          <div className="container relative z-10 mx-auto px-4 py-24 md:py-36">
+          <div className="container relative z-10 mx-auto px-3 py-24 sm:px-4 md:py-36">
             <motion.div
               initial={{ opacity: 0, y: reduceMotion ? 0 : 30 }}
               animate={{ opacity: 1, y: 0 }}

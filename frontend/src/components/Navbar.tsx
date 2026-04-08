@@ -313,7 +313,7 @@ export const Navbar = () => {
                 aria-hidden="true"
               />
             )}
-            <ul className="relative z-10 flex list-none flex-col gap-4 px-6 pb-6">
+            <ul className="relative z-10 flex list-none flex-col gap-4 px-6 pb-6 pt-8">
               {navLinks.map((l) => {
                 const active = location.pathname === l.to;
                 return (
@@ -335,7 +335,7 @@ export const Navbar = () => {
                   </li>
                 );
               })}
-              <li className="pt-2">
+              <li>
                 {isLoading ? (
                   <span className={cn(navLinkClass, "text-base opacity-70")}>Loading...</span>
                 ) : isAuthenticated ? (

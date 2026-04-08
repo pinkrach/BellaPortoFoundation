@@ -127,10 +127,10 @@ const SignUpPage = () => {
       </Link>
 
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
-        <div className="pointer-events-none absolute top-10 right-10 text-accent/20">
+        <div className="pointer-events-none absolute top-10 right-10 hidden text-accent/20 md:block">
           <Sailboat className="h-32 w-32 rotate-12" />
         </div>
-        <div className="pointer-events-none absolute bottom-10 left-10 text-lavender/20">
+        <div className="pointer-events-none absolute bottom-10 left-10 hidden text-lavender/20 md:block">
           <Sailboat className="h-24 w-24 -rotate-6" />
         </div>
 

@@ -93,10 +93,10 @@ const Login = () => {
       </Link>
       <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
         {/* Decorative background */}
-        <div className="absolute top-10 right-10 text-accent/20">
+        <div className="absolute top-10 right-10 hidden text-accent/20 md:block">
           <Sailboat className="h-32 w-32 rotate-12" />
         </div>
-        <div className="absolute bottom-10 left-10 text-lavender/20">
+        <div className="absolute bottom-10 left-10 hidden text-lavender/20 md:block">
           <Sailboat className="h-24 w-24 -rotate-6" />
         </div>
 
