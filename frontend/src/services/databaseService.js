@@ -125,7 +125,6 @@ function assertObject(value, context) {
   return value
 }
 
-/** @param {Record<string, unknown> | null | undefined} supporter */
 function resolveSupporterName(supporter) {
   if (!supporter || typeof supporter !== 'object') return null
   const display = supporter.display_name
@@ -136,6 +135,16 @@ function resolveSupporterName(supporter) {
   if (typeof org === 'string' && org.trim()) return org.trim()
   const full = [first, last].filter((x) => typeof x === 'string' && x.trim()).join(' ').trim()
   return full || null
+}
+
+/** @param {Record<string, unknown>} row */
+function mapDonationRow(row) {
+  const supporters = row.supporters && typeof row.supporters === 'object' ? row.supporters : null
+  return {
+    ...row,
+    supporter_name: resolveSupporterName(supporters),
+    supporters,
+  }
 }
 
 function assertKnownTable(table, context) {
@@ -170,17 +179,7 @@ export async function getResidents() {
 }
 
 export async function getDonations(options = {}) {
-  const all = assertArray(
-    await apiRequest('/api/donations', 'getDonations'),
-    'getDonations',
-  ).map((row) => {
-    const supporters = row.supporters && typeof row.supporters === 'object' ? row.supporters : null
-    return {
-      ...row,
-      supporter_name: resolveSupporterName(supporters),
-      supporters,
-    }
-  })
+  const all = assertArray(await apiRequest('/api/donations', 'getDonations'), 'getDonations').map(mapDonationRow)
 
   const limit = options.limit ?? 50
   return all.slice(0, limit)
@@ -207,7 +206,7 @@ export async function getDonationAllocationById(allocationId) {
 }
 
 export async function getAllDonations() {
-  return assertArray(await apiRequest('/api/donations', 'getAllDonations'), 'getAllDonations')
+  return assertArray(await apiRequest('/api/donations', 'getAllDonations'), 'getAllDonations').map(mapDonationRow)
 }
 
 export async function getDonationById(donationId) {

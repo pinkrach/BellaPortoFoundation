@@ -1,22 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "@/components/ui/sonner";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle2, CreditCard, Loader2, Pencil, Plus, Save, Shield } from "lucide-react";
+import { CheckCircle2, ChevronRight, Loader2, Pencil, Save, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
+import { findOrCreateSupporter } from "@/lib/supporterRecord";
 
 const autoCapitalizeName = (value: string) =>
   value
     .toLowerCase()
     .replace(/\b([a-z])/g, (match) => match.toUpperCase());
 
-const splitFullName = (value: string) => {
-  const trimmed = value.trim().replace(/\s+/g, " ");
-  if (!trimmed) return { first: "", last: "" };
-  const parts = trimmed.split(" ");
-  if (parts.length === 1) return { first: parts[0], last: "" };
-  return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] };
-};
+const digitsOnly = (value: string) => value.replace(/\D/g, "");
+
+function displayRecordValue(value: unknown): string {
+  if (value == null) return "—";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "object") return JSON.stringify(value);
+  const text = String(value).trim();
+  return text.length ? text : "—";
+}
 
 export default function DonorSettings() {
   const { isLoading: authLoading, userId, userEmail, firstName, lastName, displayName, initials, role, setAuthFromProfile } = useAuth();
@@ -34,20 +36,47 @@ export default function DonorSettings() {
 
   const sessionEmail = userEmail?.trim() ?? "";
 
-  const [profileDraft, setProfileDraft] = useState({ name: "", email: "" });
-  const [profileSaved, setProfileSaved] = useState({ name: "", email: "" });
+  const [profileDraft, setProfileDraft] = useState({
+    firstName: "",
+    lastName: "",
+    displayName: "",
+    email: "",
+    phone: "",
+    region: "",
+    country: "",
+    organizationName: "",
+  });
+  const [profileSaved, setProfileSaved] = useState({
+    firstName: "",
+    lastName: "",
+    displayName: "",
+    email: "",
+    phone: "",
+    region: "",
+    country: "",
+    organizationName: "",
+  });
   const [profileIsEditing, setProfileIsEditing] = useState(false);
   const [profileIsSaving, setProfileIsSaving] = useState(false);
 
-  /** Hydrate from auth when the session is known; do not clobber drafts while editing. */
+  /** Baseline hydrate from auth until DB rows load; do not clobber drafts while editing. */
   useEffect(() => {
     if (authLoading || !sessionEmail) return;
-    const next = { name: sessionName, email: sessionEmail };
+    const next = {
+      firstName: firstName?.trim() ?? "",
+      lastName: lastName?.trim() ?? "",
+      displayName: displayName?.trim() ?? "",
+      email: sessionEmail,
+      phone: "",
+      region: "",
+      country: "",
+      organizationName: "",
+    };
     if (!profileIsEditing) {
       setProfileSaved(next);
       setProfileDraft(next);
     }
-  }, [authLoading, userId, sessionEmail, sessionName, profileIsEditing]);
+  }, [authLoading, displayName, firstName, lastName, sessionEmail, profileIsEditing]);
 
   useEffect(() => {
     if (!userId) return;
@@ -68,22 +97,6 @@ export default function DonorSettings() {
     }
   }, [userId]);
 
-  const [billingAddress, setBillingAddress] = useState<string>("");
-  const [billingDraft, setBillingDraft] = useState({
-    street: "",
-    city: "",
-    region: "",
-    postal: "",
-  });
-  const [billingIsEditing, setBillingIsEditing] = useState(false);
-  const [billingIsSaving, setBillingIsSaving] = useState(false);
-
-  const [savedCards, setSavedCards] = useState<{ brand: "Visa"; last4: string; expiry: string }[]>([]);
-  const [cardModalOpen, setCardModalOpen] = useState(false);
-  const [cardDraft, setCardDraft] = useState({ number: "", expiry: "", cvv: "" });
-  const [cardError, setCardError] = useState<string | null>(null);
-  const [cardIsSaving, setCardIsSaving] = useState(false);
-
   const [mfaEnrolling, setMfaEnrolling] = useState(false);
   const [mfaVerifying, setMfaVerifying] = useState(false);
   const [mfaError, setMfaError] = useState<string | null>(null);
@@ -91,6 +104,11 @@ export default function DonorSettings() {
   const [mfaQrCode, setMfaQrCode] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
   const [mfaVerifiedActive, setMfaVerifiedActive] = useState(false);
+  const [profileRecord, setProfileRecord] = useState<Record<string, unknown> | null>(null);
+  const [supporterRecord, setSupporterRecord] = useState<Record<string, unknown> | null>(null);
+  const [recordIsLoading, setRecordIsLoading] = useState(false);
+  const [recordError, setRecordError] = useState<string | null>(null);
+  const [additionalInfoOpen, setAdditionalInfoOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading || !sessionEmail || !supabase) return;
@@ -106,11 +124,91 @@ export default function DonorSettings() {
     };
   }, [authLoading, sessionEmail, userId]);
 
-  const profileNameError = useMemo(() => {
-    if (!profileDraft.name.trim()) return "Name is required.";
-    if (profileDraft.name.trim().length < 2) return "Name must be at least 2 characters.";
+  useEffect(() => {
+    if (!supabase || !userId) {
+      setProfileRecord(null);
+      setSupporterRecord(null);
+      setRecordError(null);
+      setRecordIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setRecordIsLoading(true);
+    setRecordError(null);
+
+    (async () => {
+      const { data: profileRow, error: profileErr } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (cancelled) return;
+      if (profileErr) {
+        setRecordError(profileErr.message || "Could not load profile record.");
+        setRecordIsLoading(false);
+        return;
+      }
+
+      setProfileRecord((profileRow as Record<string, unknown>) ?? null);
+
+      const supporterIdRaw = profileRow?.supporter_id;
+      const supporterId = supporterIdRaw == null ? null : Number(supporterIdRaw);
+      const normalizedEmail = (profileRow?.email ?? userEmail ?? "").toString().trim();
+
+      let supporterRow: Record<string, unknown> | null = null;
+      if (Number.isFinite(supporterId)) {
+        const { data, error } = await supabase
+          .from("supporters")
+          .select("*")
+          .eq("supporter_id", supporterId as number)
+          .maybeSingle();
+        if (!error && data) supporterRow = data as Record<string, unknown>;
+      } else if (normalizedEmail) {
+        const { data, error } = await supabase
+          .from("supporters")
+          .select("*")
+          .eq("email", normalizedEmail)
+          .maybeSingle();
+        if (!error && data) supporterRow = data as Record<string, unknown>;
+      }
+
+      if (cancelled) return;
+      setSupporterRecord(supporterRow);
+      const next = {
+        firstName: String(supporterRow?.first_name ?? "").trim(),
+        lastName: String(supporterRow?.last_name ?? "").trim(),
+        displayName: String(supporterRow?.display_name ?? "").trim(),
+        email: String(profileRow?.email ?? userEmail ?? "").trim(),
+        phone: String(supporterRow?.phone ?? "").trim(),
+        region: String(supporterRow?.region ?? "").trim(),
+        country: String(supporterRow?.country ?? "").trim(),
+        organizationName: String(supporterRow?.organization_name ?? "").trim(),
+      };
+      if (!profileIsEditing) {
+        setProfileSaved(next);
+        setProfileDraft(next);
+      }
+      setRecordIsLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [firstName, lastName, profileIsEditing, userEmail, userId]);
+
+  const profileFirstNameError = useMemo(() => {
+    if (!profileDraft.firstName.trim()) return "First name is required.";
+    if (profileDraft.firstName.trim().length < 2) return "First name must be at least 2 characters.";
     return null;
-  }, [profileDraft.name]);
+  }, [profileDraft.firstName]);
+
+  const profileLastNameError = useMemo(() => {
+    if (!profileDraft.lastName.trim()) return "Last name is required.";
+    if (profileDraft.lastName.trim().length < 2) return "Last name must be at least 2 characters.";
+    return null;
+  }, [profileDraft.lastName]);
 
   const profileEmailError = useMemo(() => {
     const email = profileDraft.email.trim();
@@ -119,75 +217,23 @@ export default function DonorSettings() {
     return null;
   }, [profileDraft.email]);
 
-  const canSaveProfile = profileIsEditing && !profileIsSaving && !profileNameError && !profileEmailError;
+  const canSaveProfile =
+    profileIsEditing &&
+    !profileIsSaving &&
+    !profileFirstNameError &&
+    !profileLastNameError &&
+    !profileEmailError;
   const canSavePreferences =
     !preferencesIsSaving &&
     (newsletter !== savedCommunication.newsletter || impactAlerts !== savedCommunication.impactAlerts);
 
   const showProfileSkeleton = authLoading;
   const identityMissing = !authLoading && !sessionEmail;
+  const displayFullName = `${profileSaved.firstName} ${profileSaved.lastName}`.trim() || sessionName || "—";
 
   const inputClassName =
     "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground " +
     "focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/60 disabled:opacity-60";
-
-  const resetCardDraft = () => {
-    setCardDraft({ number: "", expiry: "", cvv: "" });
-    setCardError(null);
-    setCardIsSaving(false);
-  };
-
-  const openCardModal = () => {
-    resetCardDraft();
-    setCardModalOpen(true);
-  };
-
-  const digitsOnly = (value: string) => value.replace(/\D/g, "");
-
-  const deriveLast4 = (value: string) => {
-    const digits = digitsOnly(value);
-    const last4 = digits.slice(-4);
-    return last4.length === 4 ? last4 : "4242";
-  };
-
-  const validateCardDraft = () => {
-    const numberDigits = digitsOnly(cardDraft.number);
-    if (numberDigits.length < 12) return "Card number looks too short.";
-    if (!/^\d{2}\/\d{2}$/.test(cardDraft.expiry.trim())) return "Expiry must be in MM/YY format.";
-    if (!/^\d{3,4}$/.test(digitsOnly(cardDraft.cvv))) return "CVV must be 3–4 digits.";
-    return null;
-  };
-
-  const formatExpiryMasked = (raw: string) => {
-    const digits = digitsOnly(raw).slice(0, 4);
-    if (digits.length <= 2) return digits;
-    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  };
-
-  const parseAddressFromString = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return { street: "", city: "", region: "", postal: "" };
-
-    const parts = trimmed.split(",").map((p) => p.trim()).filter(Boolean);
-    const street = parts[0] ?? "";
-    const city = parts[1] ?? "";
-    const regionAndPostal = parts.slice(2).join(" ").trim();
-    const match = regionAndPostal.match(/^(.*?)(?:\s+(\S+))?$/);
-    const region = (match?.[1] ?? "").trim();
-    const postal = (match?.[2] ?? "").trim();
-    return { street, city, region, postal };
-  };
-
-  const formatAddressString = (a: { street: string; city: string; region: string; postal: string }) => {
-    const street = a.street.trim();
-    const city = a.city.trim();
-    const region = a.region.trim();
-    const postal = a.postal.trim();
-
-    const line1 = street;
-    const line2 = [city, [region, postal].filter(Boolean).join(" ")].filter(Boolean).join(", ");
-    return [line1, line2].filter(Boolean).join(", ");
-  };
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -195,7 +241,6 @@ export default function DonorSettings() {
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <h3 className="font-heading text-base font-semibold text-foreground mb-1">Personal Info</h3>
-            <p className="text-sm text-muted-foreground">Basic account information used for your donor profile.</p>
 
             {showProfileSkeleton ? (
               <div className="mt-5 flex items-center gap-4">
@@ -226,7 +271,10 @@ export default function DonorSettings() {
                   {initials}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{sessionName || "—"}</p>
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {displayFullName}
+                    {role ? ` - ${role === "donor" ? "Donor" : "Admin"}` : ""}
+                  </p>
                   <p className="text-xs text-muted-foreground truncate">{sessionEmail}</p>
                 </div>
               </div>
@@ -249,50 +297,56 @@ export default function DonorSettings() {
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-border/70 bg-background p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Name</p>
-            {showProfileSkeleton ? (
-              <div className="mt-3 h-5 w-3/4 max-w-[12rem] rounded bg-muted animate-pulse" />
-            ) : identityMissing ? (
-              <p className="mt-1 text-sm text-muted-foreground">—</p>
-            ) : profileIsEditing ? (
-              <div className="mt-2">
-                <input
-                  value={profileDraft.name}
-                  onChange={(e) =>
-                    setProfileDraft((current) => ({ ...current, name: autoCapitalizeName(e.target.value) }))
-                  }
-                  disabled={profileIsSaving}
-                  className={inputClassName}
-                  placeholder="Full name"
-                />
-                {profileNameError ? <p className="mt-2 text-xs text-destructive">{profileNameError}</p> : null}
-              </div>
-            ) : (
-              <p className="mt-1 text-sm font-semibold text-foreground">{profileSaved.name || "—"}</p>
-            )}
-          </div>
-          <div className="rounded-xl border border-border/70 bg-background p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Email</p>
-            {showProfileSkeleton ? (
-              <div className="mt-3 h-5 w-full max-w-[14rem] rounded bg-muted animate-pulse" />
-            ) : identityMissing ? (
-              <p className="mt-1 text-sm text-muted-foreground">—</p>
-            ) : profileIsEditing ? (
-              <div className="mt-2">
-                <input
-                  value={profileDraft.email}
-                  onChange={(e) => setProfileDraft((current) => ({ ...current, email: e.target.value }))}
-                  disabled={profileIsSaving}
-                  className={inputClassName}
-                  placeholder="email@example.com"
-                />
-                {profileEmailError ? <p className="mt-2 text-xs text-destructive">{profileEmailError}</p> : null}
-              </div>
-            ) : (
-              <p className="mt-1 text-sm font-semibold text-foreground">{profileSaved.email || "—"}</p>
-            )}
-          </div>
+          {[
+            { key: "firstName", label: "First Name", required: true, placeholder: "First name" },
+            { key: "lastName", label: "Last Name", required: true, placeholder: "Last name" },
+            { key: "displayName", label: "Display Name (optional)", required: false, placeholder: "Display name" },
+            { key: "email", label: "Email", required: true, placeholder: "email@example.com" },
+            { key: "phone", label: "Phone", required: false, placeholder: "Phone number" },
+            { key: "region", label: "Region", required: false, placeholder: "Region" },
+            { key: "country", label: "Country", required: false, placeholder: "Country" },
+            { key: "organizationName", label: "Organization Name (optional)", required: false, placeholder: "Organization" },
+          ].map((field) => (
+            <div key={field.key} className="rounded-xl border border-border/70 bg-background p-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">{field.label}</p>
+              {showProfileSkeleton ? (
+                <div className="mt-3 h-5 w-3/4 max-w-[12rem] rounded bg-muted animate-pulse" />
+              ) : identityMissing ? (
+                <p className="mt-1 text-sm text-muted-foreground">—</p>
+              ) : profileIsEditing ? (
+                <div className="mt-2">
+                  <input
+                    value={String(profileDraft[field.key as keyof typeof profileDraft] ?? "")}
+                    onChange={(e) =>
+                      setProfileDraft((current) => ({
+                        ...current,
+                        [field.key]:
+                          field.key === "firstName" || field.key === "lastName"
+                            ? autoCapitalizeName(e.target.value)
+                            : e.target.value,
+                      }))
+                    }
+                    disabled={profileIsSaving}
+                    className={inputClassName}
+                    placeholder={field.placeholder}
+                  />
+                  {field.key === "firstName" && profileFirstNameError ? (
+                    <p className="mt-2 text-xs text-destructive">{profileFirstNameError}</p>
+                  ) : null}
+                  {field.key === "lastName" && profileLastNameError ? (
+                    <p className="mt-2 text-xs text-destructive">{profileLastNameError}</p>
+                  ) : null}
+                  {field.key === "email" && profileEmailError ? (
+                    <p className="mt-2 text-xs text-destructive">{profileEmailError}</p>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mt-1 text-sm font-semibold text-foreground">
+                  {displayRecordValue(profileSaved[field.key as keyof typeof profileSaved])}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
 
         {!showProfileSkeleton && !identityMissing && profileIsEditing ? (
@@ -318,20 +372,49 @@ export default function DonorSettings() {
                     throw new Error("Profile save is unavailable right now.");
                   }
 
-                  const nextName = profileDraft.name.trim().replace(/\s+/g, " ");
+                  const nextFirst = profileDraft.firstName.trim().replace(/\s+/g, " ");
+                  const nextLast = profileDraft.lastName.trim().replace(/\s+/g, " ");
+                  const nextDisplayName = profileDraft.displayName.trim().replace(/\s+/g, " ");
                   const nextEmail = profileDraft.email.trim();
-                  const { first, last } = splitFullName(nextName);
+                  const nextPhone = profileDraft.phone.trim();
+                  const nextRegion = profileDraft.region.trim();
+                  const nextCountry = profileDraft.country.trim();
+                  const nextOrganizationName = profileDraft.organizationName.trim();
+
+                  let supporterId = Number(profileRecord?.supporter_id ?? supporterRecord?.supporter_id ?? NaN);
+                  if (!Number.isFinite(supporterId)) {
+                    supporterId = await findOrCreateSupporter({
+                      userId,
+                      email: nextEmail,
+                      firstName: nextFirst || null,
+                      lastName: nextLast || null,
+                    });
+                  }
 
                   const { error: profileUpdateError } = await supabase
                     .from("profiles")
                     .update({
-                      first_name: first || null,
-                      last_name: last || null,
                       email: nextEmail,
                     })
                     .eq("id", userId);
 
                   if (profileUpdateError) throw profileUpdateError;
+
+                  const { error: supporterUpdateError } = await supabase
+                    .from("supporters")
+                    .update({
+                      first_name: nextFirst || null,
+                      last_name: nextLast || null,
+                      email: nextEmail,
+                      display_name: nextDisplayName || null,
+                      phone: nextPhone || null,
+                      region: nextRegion || null,
+                      country: nextCountry || null,
+                      organization_name: nextOrganizationName || null,
+                    })
+                    .eq("supporter_id", supporterId);
+
+                  if (supporterUpdateError) throw supporterUpdateError;
 
                   // Keep auth email in sync so future sessions show the new value.
                   if (nextEmail !== sessionEmail) {
@@ -343,11 +426,40 @@ export default function DonorSettings() {
                     userId,
                     email: nextEmail,
                     role: role ?? "donor",
-                    firstName: first || null,
-                    lastName: last || null,
+                    firstName: nextFirst || null,
+                    lastName: nextLast || null,
+                    displayName: nextDisplayName || null,
+                    organizationName: nextOrganizationName || null,
                   });
-                  setProfileSaved({ name: nextName, email: nextEmail });
-                  setProfileDraft({ name: nextName, email: nextEmail });
+                  const savedNext = {
+                    firstName: nextFirst,
+                    lastName: nextLast,
+                    displayName: nextDisplayName,
+                    email: nextEmail,
+                    phone: nextPhone,
+                    region: nextRegion,
+                    country: nextCountry,
+                    organizationName: nextOrganizationName,
+                  };
+                  setProfileSaved(savedNext);
+                  setProfileDraft(savedNext);
+                  setProfileRecord((current) =>
+                    current
+                      ? { ...current, email: nextEmail }
+                      : current,
+                  );
+                  setSupporterRecord((current) => ({
+                    ...(current ?? {}),
+                    supporter_id: supporterId,
+                    first_name: nextFirst || null,
+                    last_name: nextLast || null,
+                    email: nextEmail,
+                    display_name: nextDisplayName || null,
+                    phone: nextPhone || null,
+                    region: nextRegion || null,
+                    country: nextCountry || null,
+                    organization_name: nextOrganizationName || null,
+                  }));
                   setProfileIsEditing(false);
                   toast.success("Changes saved successfully!");
                 } catch (e) {
@@ -364,160 +476,44 @@ export default function DonorSettings() {
             </button>
           </div>
         ) : null}
-      </div>
 
-      <div className="bg-card rounded-2xl p-6 shadow-warm">
-        <h3 className="font-heading text-base font-semibold text-foreground mb-1">Payment &amp; Billing</h3>
-        <p className="text-sm text-muted-foreground">Saved payment methods and billing details will appear here.</p>
+        <div className="mt-6 border-t border-border/70 pt-4">
+          <button
+            type="button"
+            onClick={() => setAdditionalInfoOpen((current) => !current)}
+            className="flex w-full items-center justify-between rounded-xl border border-transparent bg-transparent px-4 py-3 text-left hover:bg-transparent transition-colors"
+            aria-expanded={additionalInfoOpen}
+          >
+            <span className="text-sm font-medium text-foreground">Additional info</span>
+            <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${additionalInfoOpen ? "rotate-90" : ""}`} />
+          </button>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-border/70 bg-background p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Saved cards</p>
-            {savedCards.length === 0 ? (
-              <div className="mt-3 rounded-xl border border-dashed border-border/80 bg-muted/20 p-4 flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="rounded-lg bg-muted/40 p-2">
-                    <CreditCard className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">No payment methods yet</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Add a card for faster checkout during the demo.</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={openCardModal}
-                  className="shrink-0 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-warm hover:shadow-warm-hover transition-shadow"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Card
-                </button>
+          {additionalInfoOpen ? (
+            recordIsLoading ? (
+              <div className="mt-3 rounded-xl border border-border/70 bg-background p-4 text-sm text-muted-foreground">
+                Loading supporter details...
+              </div>
+            ) : recordError ? (
+              <div className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                {recordError}
               </div>
             ) : (
-              <div className="mt-3 space-y-3">
-                {savedCards.map((card) => (
-                  <div key={`${card.brand}-${card.last4}-${card.expiry}`} className="rounded-xl border border-border/70 bg-background p-4">
-                    <p className="text-sm font-semibold text-foreground">
-                      {card.brand} ending in {card.last4}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">Expires {card.expiry}</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {[
+                  { label: "Supporter Type", value: supporterRecord?.supporter_type },
+                  { label: "Relationship Type", value: supporterRecord?.relationship_type },
+                  { label: "Created At", value: supporterRecord?.created_at },
+                  { label: "First Donation Date", value: supporterRecord?.first_donation_date },
+                  { label: "Acquisition Channel", value: supporterRecord?.acquisition_channel },
+                ].map((row) => (
+                  <div key={row.label} className="rounded-xl border border-border/70 bg-background p-4">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{row.label}</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{displayRecordValue(row.value)}</p>
                   </div>
                 ))}
-                <button
-                  type="button"
-                  onClick={openCardModal}
-                  className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted/40 transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add another card
-                </button>
               </div>
-            )}
-          </div>
-          <div className="rounded-xl border border-border/70 bg-background p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Billing address</p>
-            {!billingIsEditing ? (
-              <>
-                <p className="mt-2 text-sm text-muted-foreground">{billingAddress.trim() ? billingAddress : "Not on file."}</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = billingAddress.trim()
-                      ? parseAddressFromString(billingAddress)
-                      : {
-                          street: "123 Bella Way",
-                          city: "Manila",
-                          region: "Metro Manila",
-                          postal: "1000",
-                        };
-                    setBillingDraft(next);
-                    setBillingIsEditing(true);
-                  }}
-                  className="mt-2 text-sm font-medium text-primary hover:underline"
-                >
-                  {billingAddress.trim() ? "Edit" : "Add Address"} →
-                </button>
-              </>
-            ) : (
-              <div className="mt-3">
-                <div className="grid gap-3">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-foreground">Street Address</span>
-                    <input
-                      value={billingDraft.street}
-                      onChange={(e) => setBillingDraft((c) => ({ ...c, street: e.target.value }))}
-                      disabled={billingIsSaving}
-                      className={inputClassName}
-                      placeholder="123 Bella Way"
-                    />
-                  </label>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-foreground">City</span>
-                      <input
-                        value={billingDraft.city}
-                        onChange={(e) => setBillingDraft((c) => ({ ...c, city: e.target.value }))}
-                        disabled={billingIsSaving}
-                        className={inputClassName}
-                        placeholder="Manila"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-foreground">State/Province</span>
-                      <input
-                        value={billingDraft.region}
-                        onChange={(e) => setBillingDraft((c) => ({ ...c, region: e.target.value }))}
-                        disabled={billingIsSaving}
-                        className={inputClassName}
-                        placeholder="Metro Manila"
-                      />
-                    </label>
-                  </div>
-
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-foreground">Zip/Postal Code</span>
-                    <input
-                      value={billingDraft.postal}
-                      onChange={(e) => setBillingDraft((c) => ({ ...c, postal: e.target.value }))}
-                      disabled={billingIsSaving}
-                      className={inputClassName}
-                      placeholder="1000"
-                    />
-                  </label>
-                </div>
-                <div className="mt-3 flex flex-wrap justify-end gap-2">
-                  <button
-                    type="button"
-                    disabled={billingIsSaving}
-                    onClick={() => {
-                      setBillingDraft({ street: "", city: "", region: "", postal: "" });
-                      setBillingIsEditing(false);
-                    }}
-                    className="rounded-full border border-border bg-background px-4 py-2 text-sm font-medium disabled:opacity-60"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={billingIsSaving || !billingDraft.street.trim() || !billingDraft.city.trim()}
-                    onClick={async () => {
-                      setBillingIsSaving(true);
-                      await new Promise((r) => setTimeout(r, 500));
-                      setBillingAddress(formatAddressString(billingDraft));
-                      setBillingIsSaving(false);
-                      setBillingIsEditing(false);
-                      toast.success("Changes saved successfully!");
-                    }}
-                    className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-warm hover:shadow-warm-hover transition-shadow disabled:opacity-60 inline-flex items-center gap-2"
-                  >
-                    {billingIsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    {billingIsSaving ? "Saving..." : "Save"}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+            )
+          ) : null}
         </div>
       </div>
 
@@ -720,110 +716,6 @@ export default function DonorSettings() {
         </div>
       </div>
 
-      <Dialog
-        open={cardModalOpen}
-        onOpenChange={(open) => {
-          setCardModalOpen(open);
-          if (!open) resetCardDraft();
-        }}
-      >
-        <DialogContent className="max-w-md rounded-2xl border-border p-0">
-          <div className="p-6 sm:p-7">
-            <DialogHeader className="pr-8">
-              <DialogTitle className="font-heading text-2xl text-foreground">Add payment method</DialogTitle>
-              <DialogDescription>This is a demo form. No real payment details are stored.</DialogDescription>
-            </DialogHeader>
-
-            <form
-              className="mt-6 space-y-4"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setCardError(null);
-
-                const err = validateCardDraft();
-                if (err) {
-                  setCardError(err);
-                  return;
-                }
-
-                setCardIsSaving(true);
-                await new Promise((r) => setTimeout(r, 900));
-
-                setSavedCards((current) => [
-                  { brand: "Visa", last4: deriveLast4(cardDraft.number), expiry: cardDraft.expiry.trim() || "12/34" },
-                  ...current,
-                ]);
-                setCardIsSaving(false);
-                setCardModalOpen(false);
-                toast.success("Changes saved successfully!");
-              }}
-            >
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-foreground">Card Number</span>
-                <input
-                  value={cardDraft.number}
-                  onChange={(e) => setCardDraft((c) => ({ ...c, number: e.target.value }))}
-                  disabled={cardIsSaving}
-                  placeholder="4242 4242 4242 4242"
-                  className={inputClassName}
-                />
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">Expiry</span>
-                  <input
-                    value={cardDraft.expiry}
-                    onChange={(e) => setCardDraft((c) => ({ ...c, expiry: formatExpiryMasked(e.target.value) }))}
-                    disabled={cardIsSaving}
-                    placeholder="MM/YY"
-                    className={inputClassName}
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">CVV</span>
-                  <input
-                    value={cardDraft.cvv}
-                    onChange={(e) => setCardDraft((c) => ({ ...c, cvv: e.target.value }))}
-                    disabled={cardIsSaving}
-                    placeholder="123"
-                    className={inputClassName}
-                  />
-                </label>
-              </div>
-
-              {cardError ? (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                  {cardError}
-                </div>
-              ) : null}
-
-              {cardIsSaving ? (
-                <div className="rounded-2xl bg-primary/5 p-4 text-sm text-primary">Processing...</div>
-              ) : null}
-
-              <DialogFooter className="gap-2 sm:gap-2">
-                <button
-                  type="button"
-                  disabled={cardIsSaving}
-                  onClick={() => setCardModalOpen(false)}
-                  className="rounded-full border border-border bg-background px-4 py-2 text-sm font-medium disabled:opacity-60"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={cardIsSaving}
-                  className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-warm hover:shadow-warm-hover transition-shadow disabled:opacity-60 inline-flex items-center gap-2"
-                >
-                  {cardIsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  {cardIsSaving ? "Saving..." : "Save Card"}
-                </button>
-              </DialogFooter>
-            </form>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

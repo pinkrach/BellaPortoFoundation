@@ -4,12 +4,15 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using BellaPorto.Api;
 using BellaPorto.Api.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+
+BackendEnvLoader.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -72,6 +75,13 @@ builder.Services.AddCors(options =>
                         || uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase);
 
                     if (isLocalHost)
+                    {
+                        return true;
+                    }
+
+                    // Vercel production + preview deployments (branch/PR URLs are *.vercel.app).
+                    if (uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase)
+                        && uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase))
                     {
                         return true;
                     }
@@ -285,6 +295,7 @@ app.MapGet("/api/profiles/{userId}", async (
 {
     try
     {
+        userId = userId.Trim();
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseServiceRoleConfigured(settings);
@@ -316,6 +327,7 @@ app.MapPut("/api/profiles/{userId}/role", async (
 {
     try
     {
+        userId = userId.Trim();
         if (string.IsNullOrWhiteSpace(requestBody.Role))
         {
             return Results.BadRequest(new { message = "A role is required." });
@@ -337,6 +349,16 @@ app.MapPut("/api/profiles/{userId}/role", async (
             return guard;
         }
 
+        var token = ExtractBearerToken(request);
+        var callerId = await GetBearerAuthUserIdAsync(client, settings.Url!, settings.Key!, token);
+        if (!string.IsNullOrWhiteSpace(callerId)
+            && string.Equals(callerId.Trim(), userId.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Json(
+                new { message = "You cannot change your own role here." },
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
         var updated = await UpdateProfileRoleAsync(
             client,
             settings.Url!,
@@ -344,15 +366,34 @@ app.MapPut("/api/profiles/{userId}/role", async (
             userId,
             normalizedRole);
 
-        return updated is null
-            ? Results.NotFound(new { message = $"Profile {userId} was not found." })
-            : Results.Ok(updated);
+        if (updated is not null)
+        {
+            return Results.Ok(updated);
+        }
+
+        var existing = await FetchProfileByUserIdAsync(client, settings.Url!, settings.Key!, userId);
+        if (existing is null)
+        {
+            return Results.NotFound(new { message = $"Profile {userId} was not found." });
+        }
+
+        return Results.Problem(
+            detail:
+            "This account appears in the list but the role could not be saved. Confirm the API uses SUPABASE_SERVICE_ROLE_KEY (not the anon key) and that Supabase policies allow updating public.profiles.role.",
+            statusCode: StatusCodes.Status502BadGateway);
     }
     catch (Exception ex)
     {
         return Results.Problem(ex.Message);
     }
 });
+
+// PATCH kept for API clients; Settings UI uses PUT because some IIS/Azure fronts return 403 for PATCH.
+app.MapPatch("/api/profiles/{userId}", HandleAdminProfileFieldsUpdateAsync);
+app.MapPut("/api/profiles/{userId}", HandleAdminProfileFieldsUpdateAsync);
+// DELETE kept for API clients; Settings UI uses POST …/delete when DELETE is blocked upstream.
+app.MapDelete("/api/profiles/{userId}", HandleAdminProfileDeleteAsync);
+app.MapPost("/api/profiles/{userId}/delete", HandleAdminProfileDeleteAsync);
 
 app.MapGet("/api/supporters", async (
     HttpRequest request,
@@ -1842,6 +1883,192 @@ app.MapPost("/api/ml/supporter-risk/refresh", async (
     }
 });
 
+app.MapGet("/api/reports/summary", async (
+    HttpRequest request,
+    string? dateFrom,
+    string? dateTo,
+    string? safehouseId,
+    string? campaignName,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var filters = new ReportsQuery
+        {
+            DateFrom = dateFrom,
+            DateTo = dateTo,
+            SafehouseId = safehouseId,
+            CampaignName = campaignName,
+        };
+        var summary = await BuildReportsSummaryAsync(
+            configuration,
+            httpClientFactory,
+            environment,
+            logger,
+            filters,
+            persistArtifact: true,
+            useCache: false);
+        return Results.Json(summary);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to build reports summary.");
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/reports/accomplishment-report", async (
+    HttpRequest request,
+    string? dateFrom,
+    string? dateTo,
+    string? safehouseId,
+    string? campaignName,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var report = await BuildAnnualAccomplishmentReportAsync(
+            configuration,
+            httpClientFactory,
+            environment,
+            logger,
+            new ReportsQuery
+            {
+                DateFrom = dateFrom,
+                DateTo = dateTo,
+                SafehouseId = safehouseId,
+                CampaignName = campaignName,
+            });
+        return Results.Json(report);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to build annual accomplishment report.");
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapPost("/api/reports/refresh", async (
+    ReportsQuery? requestBody,
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var filters = requestBody ?? new ReportsQuery();
+        var summary = await BuildReportsSummaryAsync(
+            configuration,
+            httpClientFactory,
+            environment,
+            logger,
+            filters,
+            persistArtifact: true,
+            useCache: false);
+        return Results.Json(summary);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to refresh reports summary.");
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/reports/export/csv", async (
+    HttpRequest request,
+    string section,
+    string? dateFrom,
+    string? dateTo,
+    string? safehouseId,
+    string? campaignName,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var summary = await BuildReportsSummaryAsync(
+            configuration,
+            httpClientFactory,
+            environment,
+            logger,
+            new ReportsQuery
+            {
+                DateFrom = dateFrom,
+                DateTo = dateTo,
+                SafehouseId = safehouseId,
+                CampaignName = campaignName,
+            },
+            persistArtifact: false);
+
+        var rows = GetExportRowsForSection(summary, section);
+        if (rows.Count == 0)
+        {
+            return Results.BadRequest(new { message = $"No rows were available for reports export section '{section}'." });
+        }
+
+        var csv = BuildCsv(rows);
+        return Results.File(
+            Encoding.UTF8.GetBytes(csv),
+            "text/csv; charset=utf-8",
+            $"reports-{section.Trim().ToLowerInvariant().Replace(' ', '-')}.csv");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to export reports CSV.");
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.Run();
 
 static string GetRepoRoot(IWebHostEnvironment environment)
@@ -1878,6 +2105,151 @@ static string? ExtractBearerToken(HttpRequest request)
     return header.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
         ? header[prefix.Length..].Trim()
         : null;
+}
+
+/// <summary>
+/// Admin profile field update (shared by PATCH and PUT). PUT is registered for hosts that block PATCH (e.g. some IIS / Azure front ends).
+/// </summary>
+static async Task<IResult> HandleAdminProfileFieldsUpdateAsync(
+    string userId,
+    ProfileUpdateRequest requestBody,
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment)
+{
+    try
+    {
+        var hasFirst = requestBody.FirstName is not null;
+        var hasLast = requestBody.LastName is not null;
+        var hasEmail = !string.IsNullOrWhiteSpace(requestBody.Email);
+
+        if (!hasFirst && !hasLast && !hasEmail)
+        {
+            return Results.BadRequest(new { message = "Provide first_name, last_name, and/or email to update." });
+        }
+
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseServiceRoleConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        if (hasEmail && !requestBody.Email!.Contains('@'))
+        {
+            return Results.BadRequest(new { message = "Email must be a valid address." });
+        }
+
+        if (hasEmail)
+        {
+            var (authOk, authErr) = await UpdateAuthUserEmailAsync(
+                client,
+                settings.Url!,
+                settings.Key!,
+                userId,
+                requestBody.Email!.Trim());
+            if (!authOk)
+            {
+                return Results.Problem(
+                    detail: authErr ?? "Unable to update sign-in email in Supabase Auth.",
+                    statusCode: StatusCodes.Status502BadGateway);
+            }
+        }
+
+        var updates = new Dictionary<string, object?>();
+        if (hasFirst)
+        {
+            updates["first_name"] = string.IsNullOrWhiteSpace(requestBody.FirstName)
+                ? null
+                : requestBody.FirstName.Trim();
+        }
+
+        if (hasLast)
+        {
+            updates["last_name"] = string.IsNullOrWhiteSpace(requestBody.LastName)
+                ? null
+                : requestBody.LastName.Trim();
+        }
+
+        if (hasEmail)
+        {
+            updates["email"] = requestBody.Email!.Trim();
+        }
+
+        var updated = await UpdateProfileFieldsAsync(client, settings.Url!, settings.Key!, userId, updates);
+        return updated is null
+            ? Results.NotFound(new { message = $"Profile {userId} was not found." })
+            : Results.Ok(updated);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+}
+
+/// <summary>
+/// Admin deletes a Supabase Auth user (shared by DELETE and POST …/delete). POST is for hosts that block DELETE.
+/// </summary>
+static async Task<IResult> HandleAdminProfileDeleteAsync(
+    string userId,
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment)
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseServiceRoleConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var token = ExtractBearerToken(request);
+        var callerId = await GetBearerAuthUserIdAsync(client, settings.Url!, settings.Key!, token);
+        if (!string.IsNullOrWhiteSpace(callerId)
+            && string.Equals(callerId.Trim(), userId.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Json(
+                new { message = "You cannot delete your own account from this screen." },
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        // Remove public.profiles first; Postgres blocks deleting auth.users while profiles_id_fkey still points at it.
+        var (profileRemoved, profileErr) = await DeleteProfileByUserIdAsync(
+            client,
+            settings.Url!,
+            settings.Key!,
+            userId);
+        if (!profileRemoved)
+        {
+            return Results.Problem(
+                detail: profileErr ?? "Unable to delete the user's profile row.",
+                statusCode: StatusCodes.Status502BadGateway);
+        }
+
+        var (deleted, err) = await DeleteAuthUserAsync(client, settings.Url!, settings.Key!, userId);
+        if (!deleted)
+        {
+            return Results.Problem(
+                detail: err ?? "Unable to delete that user in Supabase Auth.",
+                statusCode: StatusCodes.Status502BadGateway);
+        }
+
+        return Results.Ok(new { ok = true });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
 }
 
 static async Task<bool> VerifyRecaptchaAsync(HttpClient client, string secret, string responseToken)
@@ -1989,6 +2361,242 @@ static async Task<Dictionary<string, List<Dictionary<string, object?>>>> Resolve
         ["donation_allocations"] = allocations,
         ["donations"] = donations,
     };
+}
+
+static async Task<Dictionary<string, List<Dictionary<string, object?>>>> ResolveReportsPayloadAsync(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    string repoRoot,
+    ILogger logger)
+{
+    var settings = ResolveSupabaseSettings(configuration, repoRoot);
+    if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+    {
+        throw new InvalidOperationException(
+            "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+        );
+    }
+
+    logger.LogInformation("Fetching live reporting rows from Supabase.");
+    var client = httpClientFactory.CreateClient();
+
+    var tableNames = new[]
+    {
+        "residents",
+        "education_records",
+        "health_wellbeing_records",
+        "home_visitations",
+        "incident_reports",
+        "intervention_plans",
+        "process_recordings",
+        "safehouses",
+        "safehouse_monthly_metrics",
+        "supporters",
+        "donations",
+        "donation_allocations",
+        "social_media_posts",
+        "public_impact_snapshots",
+        "partner_assignments",
+    };
+
+    var tasks = tableNames.ToDictionary(
+        name => name,
+        name => FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, name));
+
+    await Task.WhenAll(tasks.Values);
+
+    return tasks.ToDictionary(
+        pair => pair.Key,
+        pair => pair.Value.Result);
+}
+
+static bool HasReportsFilters(ReportsQuery filters)
+{
+    return !string.IsNullOrWhiteSpace(filters.DateFrom)
+        || !string.IsNullOrWhiteSpace(filters.DateTo)
+        || !string.IsNullOrWhiteSpace(filters.SafehouseId)
+        || !string.IsNullOrWhiteSpace(filters.CampaignName);
+}
+
+static async Task<JsonNode> BuildReportsSummaryAsync(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    IWebHostEnvironment environment,
+    ILogger logger,
+    ReportsQuery filters,
+    bool persistArtifact,
+    bool useCache = true)
+{
+    var repoRoot = GetRepoRoot(environment);
+    var artifactDir = Path.Combine(repoRoot, "ml-pipelines", "artifacts");
+    Directory.CreateDirectory(artifactDir);
+    var summaryPath = Path.Combine(artifactDir, "reports_summary.json");
+
+    if (useCache && !HasReportsFilters(filters) && File.Exists(summaryPath))
+    {
+        var cached = JsonNode.Parse(await File.ReadAllTextAsync(summaryPath));
+        if (cached is not null)
+        {
+            return cached;
+        }
+    }
+
+    var payload = await ResolveReportsPayloadAsync(configuration, httpClientFactory, repoRoot, logger);
+    var input = new Dictionary<string, object?>
+    {
+        ["tables"] = payload,
+        ["filters"] = new Dictionary<string, object?>
+        {
+            ["dateFrom"] = filters.DateFrom,
+            ["dateTo"] = filters.DateTo,
+            ["safehouseId"] = filters.SafehouseId,
+            ["campaignName"] = filters.CampaignName,
+        },
+    };
+
+    var tempDir = Path.Combine(Path.GetTempPath(), "bella-porto-reports");
+    Directory.CreateDirectory(tempDir);
+
+    var inputPath = Path.Combine(tempDir, $"reports-input-{Guid.NewGuid():N}.json");
+    var outputPath = Path.Combine(tempDir, $"reports-output-{Guid.NewGuid():N}.json");
+    var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "reports_page_aggregations.py");
+
+    await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(input));
+    var node = await RunPythonJsonScriptAsync(
+        repoRoot,
+        scriptPath,
+        [
+            "--input",
+            inputPath,
+            "--output",
+            outputPath,
+            "--artifact-dir",
+            artifactDir,
+        ],
+        outputPath,
+        logger,
+        "Reports summary pipeline");
+
+    if (persistArtifact && !HasReportsFilters(filters))
+    {
+        await File.WriteAllTextAsync(summaryPath, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    return node;
+}
+
+static async Task<JsonNode> BuildAnnualAccomplishmentReportAsync(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    IWebHostEnvironment environment,
+    ILogger logger,
+    ReportsQuery filters)
+{
+    var repoRoot = GetRepoRoot(environment);
+    var payload = await ResolveReportsPayloadAsync(configuration, httpClientFactory, repoRoot, logger);
+    var input = new Dictionary<string, object?>
+    {
+        ["tables"] = payload,
+        ["filters"] = new Dictionary<string, object?>
+        {
+            ["dateFrom"] = filters.DateFrom,
+            ["dateTo"] = filters.DateTo,
+            ["safehouseId"] = filters.SafehouseId,
+            ["campaignName"] = filters.CampaignName,
+        },
+    };
+
+    var tempDir = Path.Combine(Path.GetTempPath(), "bella-porto-annual-report");
+    Directory.CreateDirectory(tempDir);
+
+    var inputPath = Path.Combine(tempDir, $"annual-report-input-{Guid.NewGuid():N}.json");
+    var outputPath = Path.Combine(tempDir, $"annual-report-output-{Guid.NewGuid():N}.json");
+    var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "annual_accomplishment_report_builder.py");
+
+    await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(input));
+    return await RunPythonJsonScriptAsync(
+        repoRoot,
+        scriptPath,
+        [
+            "--input",
+            inputPath,
+            "--output",
+            outputPath,
+        ],
+        outputPath,
+        logger,
+        "Annual accomplishment report pipeline");
+}
+
+static List<Dictionary<string, object?>> GetExportRowsForSection(JsonNode summary, string section)
+{
+    var normalized = string.IsNullOrWhiteSpace(section) ? "overview" : section.Trim();
+    var exportsNode = summary["exports"] as JsonObject;
+    if (exportsNode is null)
+    {
+        return [];
+    }
+
+    JsonNode? selected = null;
+    foreach (var pair in exportsNode)
+    {
+        if (pair.Key.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+        {
+            selected = pair.Value;
+            break;
+        }
+    }
+
+    if (selected is not JsonArray array)
+    {
+        return [];
+    }
+
+    var rows = new List<Dictionary<string, object?>>();
+    foreach (var item in array)
+    {
+        if (item is JsonObject obj)
+        {
+            rows.Add(obj.ToDictionary(pair => pair.Key, pair => JsonNodeToObject(pair.Value)));
+        }
+    }
+    return rows;
+}
+
+static object? JsonNodeToObject(JsonNode? node)
+{
+    if (node is null)
+    {
+        return null;
+    }
+
+    return JsonSerializer.Deserialize<object?>(node.ToJsonString(), JsonOptions());
+}
+
+static string BuildCsv(List<Dictionary<string, object?>> rows)
+{
+    var headers = rows
+        .SelectMany(row => row.Keys)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    var lines = new List<string>
+    {
+        string.Join(",", headers.Select(EscapeCsv)),
+    };
+
+    foreach (var row in rows)
+    {
+        lines.Add(string.Join(",", headers.Select(header => EscapeCsv(row.TryGetValue(header, out var value) ? value : null))));
+    }
+
+    return string.Join("\n", lines);
+}
+
+static string EscapeCsv(object? value)
+{
+    var text = value?.ToString() ?? string.Empty;
+    return $"\"{text.Replace("\"", "\"\"")}\"";
 }
 
 static async Task<JsonNode> RunPythonJsonScriptAsync(
@@ -2429,20 +3037,42 @@ static string StabilityFlag(int posts)
     };
 }
 
+/// <summary>
+/// Trims and strips a single pair of surrounding quotes from .env / config values so JWT keys stay valid.
+/// </summary>
+static string? NormalizeSecretConfigValue(string? raw)
+{
+    if (string.IsNullOrWhiteSpace(raw))
+    {
+        return null;
+    }
+
+    var trimmed = raw.Trim();
+    if (trimmed.Length >= 2
+        && ((trimmed[0] == '"' && trimmed[^1] == '"')
+            || (trimmed[0] == '\'' && trimmed[^1] == '\'')))
+    {
+        trimmed = trimmed[1..^1].Trim();
+    }
+
+    return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+}
+
 static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, string repoRoot)
 {
-    var serviceRoleKey =
+    var serviceRoleKey = NormalizeSecretConfigValue(
         configuration["Supabase:ServiceRoleKey"]
-        ?? Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
-    var anonKey =
+        ?? Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY"));
+    var anonKey = NormalizeSecretConfigValue(
         configuration["Supabase:AnonKey"]
-        ?? Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY");
+        ?? Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY"));
 
     var settings = new SupabaseSettings
     {
-        Url = configuration["Supabase:Url"] ?? Environment.GetEnvironmentVariable("SUPABASE_URL"),
+        Url = NormalizeSecretConfigValue(
+            configuration["Supabase:Url"] ?? Environment.GetEnvironmentVariable("SUPABASE_URL")),
         Key = serviceRoleKey ?? anonKey,
-        UsingServiceRoleKey = !string.IsNullOrWhiteSpace(serviceRoleKey),
+        UsingServiceRoleKey = serviceRoleKey is not null,
     };
 
     if (!string.IsNullOrWhiteSpace(settings.Url) && !string.IsNullOrWhiteSpace(settings.Key))
@@ -2456,6 +3086,10 @@ static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, st
         return settings;
     }
 
+    string? fileUrl = null;
+    string? fileServiceRole = null;
+    string? fileAnon = null;
+
     foreach (var rawLine in File.ReadAllLines(envPath))
     {
         var line = rawLine.Trim();
@@ -2466,17 +3100,36 @@ static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, st
 
         var splitIndex = line.IndexOf('=');
         var key = line[..splitIndex].Trim();
-        var value = line[(splitIndex + 1)..].Trim();
+        var value = NormalizeSecretConfigValue(line[(splitIndex + 1)..]);
 
-        if (string.IsNullOrWhiteSpace(settings.Url) && key == "VITE_SUPABASE_URL")
+        switch (key)
         {
-            settings.Url = value;
+            case "VITE_SUPABASE_URL":
+                fileUrl = value;
+                break;
+            case "SUPABASE_SERVICE_ROLE_KEY":
+                fileServiceRole = value;
+                break;
+            case "VITE_SUPABASE_ANON_KEY":
+                fileAnon = value;
+                break;
         }
-        else if (string.IsNullOrWhiteSpace(settings.Key) && key == "VITE_SUPABASE_ANON_KEY")
-        {
-            settings.Key = value;
-            settings.UsingServiceRoleKey = false;
-        }
+    }
+
+    if (string.IsNullOrWhiteSpace(settings.Url) && !string.IsNullOrWhiteSpace(fileUrl))
+    {
+        settings.Url = fileUrl;
+    }
+
+    if (!string.IsNullOrWhiteSpace(fileServiceRole))
+    {
+        settings.Key = fileServiceRole;
+        settings.UsingServiceRoleKey = true;
+    }
+    else if (string.IsNullOrWhiteSpace(settings.Key) && !string.IsNullOrWhiteSpace(fileAnon))
+    {
+        settings.Key = fileAnon;
+        settings.UsingServiceRoleKey = false;
     }
 
     return settings;
@@ -2588,13 +3241,14 @@ static async Task<Dictionary<string, object?>?> FetchProfileByUserIdAsync(
     string apiKey,
     string userId)
 {
+    var id = userId.Trim();
     var rows = await FetchPagedTableAsync(
         client,
         supabaseUrl,
         apiKey,
         "profiles",
         select: "id,email,first_name,last_name,role",
-        filters: [$"id=eq.{Uri.EscapeDataString(userId)}"]);
+        filters: [$"id=eq.{Uri.EscapeDataString(id)}"]);
 
     return rows.FirstOrDefault();
 }
@@ -2692,10 +3346,11 @@ static async Task<Dictionary<string, object?>?> UpdateProfileRoleAsync(
     string userId,
     string role)
 {
+    var id = userId.Trim();
     var baseUrl = supabaseUrl.TrimEnd('/');
     using var request = new HttpRequestMessage(
         HttpMethod.Patch,
-        $"{baseUrl}/rest/v1/profiles?id=eq.{Uri.EscapeDataString(userId)}&select=id,email,first_name,last_name,role");
+        $"{baseUrl}/rest/v1/profiles?id=eq.{Uri.EscapeDataString(id)}&select=id,email,first_name,last_name,role");
     request.Headers.TryAddWithoutValidation("apikey", apiKey);
     request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
     request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
@@ -2709,7 +3364,198 @@ static async Task<Dictionary<string, object?>?> UpdateProfileRoleAsync(
 
     var body = await response.Content.ReadAsStringAsync();
     var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
-    return rows.FirstOrDefault();
+    var updated = rows.FirstOrDefault();
+    if (updated is not null)
+    {
+        return updated;
+    }
+
+    // PostgREST occasionally returns an empty array on success; treat matching role as success.
+    var current = await FetchProfileByUserIdAsync(client, supabaseUrl, apiKey, id);
+    if (current is null)
+    {
+        return null;
+    }
+
+    var currentRole =
+        current.TryGetValue("role", out var roleValue) && roleValue is not null
+            ? roleValue.ToString()?.Trim().ToLowerInvariant()
+            : null;
+    return string.Equals(currentRole, role, StringComparison.Ordinal) ? current : null;
+}
+
+static async Task<string?> GetBearerAuthUserIdAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    string? bearerToken)
+{
+    if (string.IsNullOrWhiteSpace(bearerToken))
+    {
+        return null;
+    }
+
+    try
+    {
+        var user = await FetchSupabaseAuthUserAsync(client, supabaseUrl, apiKey, bearerToken);
+        return user?.Id;
+    }
+    catch
+    {
+        return null;
+    }
+}
+
+static async Task<(bool ok, string? error)> UpdateAuthUserEmailAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string serviceRoleKey,
+    string userId,
+    string email)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Put,
+        $"{baseUrl}/auth/v1/admin/users/{Uri.EscapeDataString(userId)}");
+    request.Headers.TryAddWithoutValidation("apikey", serviceRoleKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {serviceRoleKey}");
+    request.Content = new StringContent(
+        JsonSerializer.Serialize(new Dictionary<string, string> { ["email"] = email }),
+        Encoding.UTF8,
+        "application/json");
+
+    using var response = await client.SendAsync(request);
+    if (response.IsSuccessStatusCode)
+    {
+        return (true, null);
+    }
+
+    var errBody = await response.Content.ReadAsStringAsync();
+    return (false, string.IsNullOrWhiteSpace(errBody) ? response.ReasonPhrase : errBody);
+}
+
+static async Task<(bool ok, string? error)> DeleteProfileByUserIdAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string serviceRoleKey,
+    string userId)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Delete,
+        $"{baseUrl}/rest/v1/profiles?id=eq.{Uri.EscapeDataString(userId)}");
+    request.Headers.TryAddWithoutValidation("apikey", serviceRoleKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {serviceRoleKey}");
+
+    using var response = await client.SendAsync(request);
+    if (response.IsSuccessStatusCode)
+    {
+        return (true, null);
+    }
+
+    var errBody = await response.Content.ReadAsStringAsync();
+    return (false, string.IsNullOrWhiteSpace(errBody) ? response.ReasonPhrase : errBody);
+}
+
+static async Task<(bool ok, string? error)> DeleteAuthUserAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string serviceRoleKey,
+    string userId)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Delete,
+        $"{baseUrl}/auth/v1/admin/users/{Uri.EscapeDataString(userId)}");
+    request.Headers.TryAddWithoutValidation("apikey", serviceRoleKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {serviceRoleKey}");
+
+    using var response = await client.SendAsync(request);
+    if (response.IsSuccessStatusCode)
+    {
+        return (true, null);
+    }
+
+    var errBody = await response.Content.ReadAsStringAsync();
+    return (false, string.IsNullOrWhiteSpace(errBody) ? response.ReasonPhrase : errBody);
+}
+
+static bool ProfileFieldMatchesUpdate(string field, object? actual, object? expected)
+{
+    if (field == "email")
+    {
+        return string.Equals(
+            actual?.ToString()?.Trim(),
+            expected?.ToString()?.Trim(),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    var a = actual?.ToString()?.Trim() ?? "";
+    var e = expected?.ToString()?.Trim() ?? "";
+    return string.Equals(a, e, StringComparison.Ordinal);
+}
+
+static bool ProfileContainsUpdates(Dictionary<string, object?> profile, Dictionary<string, object?> updates)
+{
+    foreach (var kv in updates)
+    {
+        if (!profile.TryGetValue(kv.Key, out var actual))
+        {
+            return false;
+        }
+
+        if (!ProfileFieldMatchesUpdate(kv.Key, actual, kv.Value))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static async Task<Dictionary<string, object?>?> UpdateProfileFieldsAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string apiKey,
+    string userId,
+    Dictionary<string, object?> updates)
+{
+    var id = userId.Trim();
+    if (updates.Count == 0)
+    {
+        return await FetchProfileByUserIdAsync(client, supabaseUrl, apiKey, id);
+    }
+
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Patch,
+        $"{baseUrl}/rest/v1/profiles?id=eq.{Uri.EscapeDataString(id)}&select=id,email,first_name,last_name,role");
+    request.Headers.TryAddWithoutValidation("apikey", apiKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
+    request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
+    request.Content = new StringContent(
+        JsonSerializer.Serialize(updates),
+        Encoding.UTF8,
+        "application/json");
+
+    using var response = await client.SendAsync(request);
+    response.EnsureSuccessStatusCode();
+
+    var body = await response.Content.ReadAsStringAsync();
+    var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
+    var updated = rows.FirstOrDefault();
+    if (updated is not null)
+    {
+        return updated;
+    }
+
+    var current = await FetchProfileByUserIdAsync(client, supabaseUrl, apiKey, id);
+    if (current is not null && ProfileContainsUpdates(current, updates))
+    {
+        return current;
+    }
+
+    return null;
 }
 
 static async Task<Dictionary<string, object?>?> FetchResidentProfileBundleAsync(
@@ -3014,7 +3860,8 @@ static async Task<List<Dictionary<string, object?>>> FetchAllDonationsAsync(
         var end = start + pageSize - 1;
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
-            $"{baseUrl}/rest/v1/donations?select=donation_id,supporter_id,donation_type,donation_date,is_recurring,campaign_name,channel_source,currency_code,amount,estimated_value,impact_unit,notes,referral_post_id,supporters(display_name,organization_name,first_name,last_name){supporterFilter}&order=donation_date.desc"
+            // select=* avoids hard-coding columns that may not exist until optional migrations are applied.
+            $"{baseUrl}/rest/v1/donations?select=*,supporters(display_name,organization_name,first_name,last_name){supporterFilter}&order=donation_date.desc"
         );
         request.Headers.TryAddWithoutValidation("apikey", apiKey);
         request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
@@ -3091,7 +3938,7 @@ static async Task<Dictionary<string, object?>?> UpdateDonationAsync(
     var baseUrl = supabaseUrl.TrimEnd('/');
     using var request = new HttpRequestMessage(
         HttpMethod.Patch,
-        $"{baseUrl}/rest/v1/donations?donation_id=eq.{donationId}&select=donation_id,supporter_id,donation_type,donation_date,is_recurring,campaign_name,channel_source,currency_code,amount,estimated_value,impact_unit,notes,referral_post_id,supporters(display_name,organization_name,first_name,last_name)"
+        $"{baseUrl}/rest/v1/donations?donation_id=eq.{donationId}&select=*,supporters(display_name,organization_name,first_name,last_name)"
     );
     request.Headers.TryAddWithoutValidation("apikey", apiKey);
     request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
@@ -3523,7 +4370,7 @@ static async Task<Dictionary<string, object?>?> CreateDonationAsync(
     var baseUrl = supabaseUrl.TrimEnd('/');
     using var request = new HttpRequestMessage(
         HttpMethod.Post,
-        $"{baseUrl}/rest/v1/donations?select=donation_id,supporter_id,donation_type,donation_date,is_recurring,campaign_name,channel_source,currency_code,amount,estimated_value,impact_unit,notes,referral_post_id,supporters(display_name,organization_name,first_name,last_name)"
+        $"{baseUrl}/rest/v1/donations?select=*,supporters(display_name,organization_name,first_name,last_name)"
     );
     request.Headers.TryAddWithoutValidation("apikey", apiKey);
     request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
@@ -3669,9 +4516,28 @@ sealed class SupporterRiskRefreshRequest
     public string? ModelDir { get; set; }
 }
 
+sealed class ReportsQuery
+{
+    public string? DateFrom { get; set; }
+    public string? DateTo { get; set; }
+    public string? SafehouseId { get; set; }
+    public string? CampaignName { get; set; }
+}
+
 sealed class ProfileRoleUpdateRequest
 {
     public string Role { get; set; } = string.Empty;
+}
+
+sealed class ProfileUpdateRequest
+{
+    [JsonPropertyName("first_name")]
+    public string? FirstName { get; set; }
+
+    [JsonPropertyName("last_name")]
+    public string? LastName { get; set; }
+
+    public string? Email { get; set; }
 }
 
 /// <summary>Pre-registration CAPTCHA check (includes optional profile fields for auditing).</summary>

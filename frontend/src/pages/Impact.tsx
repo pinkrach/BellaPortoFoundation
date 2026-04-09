@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
 import { PublicLayout } from "@/components/PublicLayout";
 import { impactStats, donationsOverTime, donationTypes, safehouseImpact, donationUsage } from "@/data/mockData";
-import { Heart, MapPin, DollarSign } from "lucide-react";
+import { Heart, MapPin, DollarSign, ArrowRight } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import heroImage from "@/assets/hero/portofino-watercolor-hero.png";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Link } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -22,30 +23,43 @@ const Impact = () => {
 
   return (
     <PublicLayout>
-      {/* Hero header — plain background, no image */}
-      <section className="bg-background py-16 sm:py-20 md:py-28">
-        <div className="container mx-auto px-4">
+      {/* Hero — same houses / water image as home, dimmed for headline + donate CTA */}
+      <section aria-labelledby="impact-heading" className="relative overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <img
+            src={heroImage}
+            alt="Watercolor painting of a Mediterranean bay inspired by Portofino, with waterfront buildings and calm water."
+            className="h-full min-h-[320px] w-full object-cover object-[35%_100%] sm:min-h-[380px] sm:object-bottom md:min-h-[420px]"
+          />
+        </div>
+        <div
+          className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-r from-[hsl(205,38%,16%,0.75)] via-[hsl(200,55%,30%,0.55)] to-[hsl(200,30%,20%,0.35)]"
+          aria-hidden
+        />
+        <div className="container relative z-10 mx-auto flex min-h-[360px] flex-col items-center justify-center px-4 py-16 md:min-h-[440px] md:py-24">
           <motion.div
-            initial={{ opacity: 0, y: 18 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="mx-auto max-w-4xl text-center"
+            transition={{ duration: 0.55 }}
+            className="mx-auto w-full max-w-4xl text-center"
           >
-            <h1 className="font-heading text-4xl font-semibold tracking-tight text-[hsl(200_26%_18%)] md:text-6xl">
+            <h1
+              id="impact-heading"
+              className="font-heading text-4xl font-bold leading-tight text-white drop-shadow-lg sm:text-5xl md:text-6xl"
+            >
               Our Impact
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[hsl(200_14%_38%)] md:text-xl">
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/90 drop-shadow-md md:text-xl">
               A clear view into the work your generosity sustains—measured with care, shared with respect.
             </p>
-            <div className="mt-8">
-              <Link
-                to={donateLink}
-                title="Create an account to donate"
-                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#ad4f6e] px-8 py-3 font-semibold text-white shadow-warm transition-transform hover:scale-[1.02] hover:bg-[#9c4562] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ad4f6e]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                Donate Now
-              </Link>
-            </div>
+            <Link
+              to={donateLink}
+              title="Create an account to donate"
+              className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#ad4f6e] px-8 py-3 text-base font-semibold text-white shadow-lg transition hover:scale-[1.02] hover:bg-[#9c4562] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+            >
+              Donate Now
+              <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
+            </Link>
           </motion.div>
         </div>
       </section>
