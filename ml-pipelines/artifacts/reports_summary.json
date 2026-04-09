@@ -1,0 +1,4913 @@
+{
+  "generatedAt": "2026-04-09T21:20:37.160289+00:00",
+  "asOf": "2027-02-01T00:00:00",
+  "filters": {
+    "dateFrom": null,
+    "dateTo": null,
+    "safehouseId": null,
+    "campaignName": null
+  },
+  "availableFilters": {
+    "safehouses": [
+      {
+        "value": "1",
+        "label": "Lighthouse Safehouse 1"
+      },
+      {
+        "value": "2",
+        "label": "Lighthouse Safehouse 2"
+      },
+      {
+        "value": "3",
+        "label": "Lighthouse Safehouse 3"
+      },
+      {
+        "value": "4",
+        "label": "Lighthouse Safehouse 4"
+      },
+      {
+        "value": "5",
+        "label": "Lighthouse Safehouse 5"
+      },
+      {
+        "value": "6",
+        "label": "Lighthouse Safehouse 6"
+      },
+      {
+        "value": "7",
+        "label": "Lighthouse Safehouse 7"
+      },
+      {
+        "value": "8",
+        "label": "Lighthouse Safehouse 8"
+      },
+      {
+        "value": "9",
+        "label": "Lighthouse Safehouse 9"
+      }
+    ],
+    "campaigns": [
+      {
+        "value": "Back to School",
+        "label": "Back to School"
+      },
+      {
+        "value": "GivingTuesday",
+        "label": "GivingTuesday"
+      },
+      {
+        "value": "Summer of Safety",
+        "label": "Summer of Safety"
+      },
+      {
+        "value": "Year-End Hope",
+        "label": "Year-End Hope"
+      }
+    ],
+    "dateRange": {
+      "min": "2023-01-01T00:00:00",
+      "max": "2027-02-01T00:00:00"
+    }
+  },
+  "kpis": [
+    {
+      "key": "donationsYtd",
+      "label": "Total donations YTD",
+      "value": 8742.62,
+      "detail": "Donation value in the current reporting scope.",
+      "unit": "currency"
+    },
+    {
+      "key": "activeResidents",
+      "label": "Active residents",
+      "value": 30,
+      "detail": "Current active resident caseload."
+    },
+    {
+      "key": "reintegrationSuccessRate",
+      "label": "Reintegration success rate",
+      "value": 31.7,
+      "detail": "Residents with completed reintegration status.",
+      "unit": "%"
+    },
+    {
+      "key": "avgEducationProgress",
+      "label": "Avg education progress",
+      "value": 94.4,
+      "detail": "Latest education progress across residents.",
+      "unit": "%"
+    },
+    {
+      "key": "avgHealthScore",
+      "label": "Avg health score",
+      "value": 3.33,
+      "detail": "Latest resident health and wellbeing score.",
+      "unit": "score"
+    },
+    {
+      "key": "activeSafehouses",
+      "label": "Active safehouses",
+      "value": 9,
+      "detail": "Safehouses currently marked active."
+    },
+    {
+      "key": "activeCampaigns",
+      "label": "Active campaigns",
+      "value": 4,
+      "detail": "Distinct campaigns in filtered donation and outreach data."
+    },
+    {
+      "key": "atRiskResidents",
+      "label": "At-risk residents",
+      "value": 25,
+      "detail": "High-risk residents from ML or current risk labels."
+    }
+  ],
+  "donation": {
+    "trends": [
+      {
+        "month": "2023-01-01T00:00:00",
+        "value": 3130.53,
+        "label": "Jan 2023"
+      },
+      {
+        "month": "2023-02-01T00:00:00",
+        "value": 2104.13,
+        "label": "Feb 2023"
+      },
+      {
+        "month": "2023-03-01T00:00:00",
+        "value": 11193.18,
+        "label": "Mar 2023"
+      },
+      {
+        "month": "2023-04-01T00:00:00",
+        "value": 6819.25,
+        "label": "Apr 2023"
+      },
+      {
+        "month": "2023-05-01T00:00:00",
+        "value": 5468.7,
+        "label": "May 2023"
+      },
+      {
+        "month": "2023-06-01T00:00:00",
+        "value": 4899.13,
+        "label": "Jun 2023"
+      },
+      {
+        "month": "2023-07-01T00:00:00",
+        "value": 7773.01,
+        "label": "Jul 2023"
+      },
+      {
+        "month": "2023-08-01T00:00:00",
+        "value": 7837.41,
+        "label": "Aug 2023"
+      },
+      {
+        "month": "2023-09-01T00:00:00",
+        "value": 4275.93,
+        "label": "Sep 2023"
+      },
+      {
+        "month": "2023-10-01T00:00:00",
+        "value": 7366.21,
+        "label": "Oct 2023"
+      },
+      {
+        "month": "2023-11-01T00:00:00",
+        "value": 8707.63,
+        "label": "Nov 2023"
+      },
+      {
+        "month": "2023-12-01T00:00:00",
+        "value": 19915.14,
+        "label": "Dec 2023"
+      },
+      {
+        "month": "2024-01-01T00:00:00",
+        "value": 6217.2,
+        "label": "Jan 2024"
+      },
+      {
+        "month": "2024-02-01T00:00:00",
+        "value": 3409.62,
+        "label": "Feb 2024"
+      },
+      {
+        "month": "2024-03-01T00:00:00",
+        "value": 3076.28,
+        "label": "Mar 2024"
+      },
+      {
+        "month": "2024-04-01T00:00:00",
+        "value": 3849.47,
+        "label": "Apr 2024"
+      },
+      {
+        "month": "2024-05-01T00:00:00",
+        "value": 2366.71,
+        "label": "May 2024"
+      },
+      {
+        "month": "2024-06-01T00:00:00",
+        "value": 4194.7,
+        "label": "Jun 2024"
+      },
+      {
+        "month": "2024-07-01T00:00:00",
+        "value": 4132.15,
+        "label": "Jul 2024"
+      },
+      {
+        "month": "2024-08-01T00:00:00",
+        "value": 7921.68,
+        "label": "Aug 2024"
+      },
+      {
+        "month": "2024-09-01T00:00:00",
+        "value": 8872.2,
+        "label": "Sep 2024"
+      },
+      {
+        "month": "2024-10-01T00:00:00",
+        "value": 16718.62,
+        "label": "Oct 2024"
+      },
+      {
+        "month": "2024-11-01T00:00:00",
+        "value": 14780.33,
+        "label": "Nov 2024"
+      },
+      {
+        "month": "2024-12-01T00:00:00",
+        "value": 15600.67,
+        "label": "Dec 2024"
+      },
+      {
+        "month": "2025-01-01T00:00:00",
+        "value": 6248.16,
+        "label": "Jan 2025"
+      },
+      {
+        "month": "2025-02-01T00:00:00",
+        "value": 3830.5,
+        "label": "Feb 2025"
+      },
+      {
+        "month": "2025-03-01T00:00:00",
+        "value": 8801.23,
+        "label": "Mar 2025"
+      },
+      {
+        "month": "2025-04-01T00:00:00",
+        "value": 6793.1,
+        "label": "Apr 2025"
+      },
+      {
+        "month": "2025-05-01T00:00:00",
+        "value": 4906.37,
+        "label": "May 2025"
+      },
+      {
+        "month": "2025-06-01T00:00:00",
+        "value": 5320.31,
+        "label": "Jun 2025"
+      },
+      {
+        "month": "2025-07-01T00:00:00",
+        "value": 13673.05,
+        "label": "Jul 2025"
+      },
+      {
+        "month": "2025-08-01T00:00:00",
+        "value": 13191.88,
+        "label": "Aug 2025"
+      },
+      {
+        "month": "2025-09-01T00:00:00",
+        "value": 4588.7,
+        "label": "Sep 2025"
+      },
+      {
+        "month": "2025-10-01T00:00:00",
+        "value": 12419.56,
+        "label": "Oct 2025"
+      },
+      {
+        "month": "2025-11-01T00:00:00",
+        "value": 13490.65,
+        "label": "Nov 2025"
+      },
+      {
+        "month": "2025-12-01T00:00:00",
+        "value": 11071.8,
+        "label": "Dec 2025"
+      },
+      {
+        "month": "2026-01-01T00:00:00",
+        "value": 3942.52,
+        "label": "Jan 2026"
+      },
+      {
+        "month": "2026-02-01T00:00:00",
+        "value": 4457.14,
+        "label": "Feb 2026"
+      },
+      {
+        "month": "2026-03-01T00:00:00",
+        "value": 342.96,
+        "label": "Mar 2026"
+      }
+    ],
+    "retention": [
+      {
+        "month": "2023-01-01",
+        "donors": 8,
+        "repeat_donors": 0,
+        "retention_rate": null
+      },
+      {
+        "month": "2023-02-01",
+        "donors": 6,
+        "repeat_donors": 1,
+        "retention_rate": 0.125
+      },
+      {
+        "month": "2023-03-01",
+        "donors": 15,
+        "repeat_donors": 1,
+        "retention_rate": 0.1667
+      },
+      {
+        "month": "2023-04-01",
+        "donors": 8,
+        "repeat_donors": 3,
+        "retention_rate": 0.2
+      },
+      {
+        "month": "2023-05-01",
+        "donors": 10,
+        "repeat_donors": 1,
+        "retention_rate": 0.125
+      },
+      {
+        "month": "2023-06-01",
+        "donors": 10,
+        "repeat_donors": 2,
+        "retention_rate": 0.2
+      },
+      {
+        "month": "2023-07-01",
+        "donors": 11,
+        "repeat_donors": 2,
+        "retention_rate": 0.2
+      },
+      {
+        "month": "2023-08-01",
+        "donors": 11,
+        "repeat_donors": 5,
+        "retention_rate": 0.4545
+      },
+      {
+        "month": "2023-09-01",
+        "donors": 6,
+        "repeat_donors": 2,
+        "retention_rate": 0.1818
+      },
+      {
+        "month": "2023-10-01",
+        "donors": 10,
+        "repeat_donors": 0,
+        "retention_rate": 0.0
+      },
+      {
+        "month": "2023-11-01",
+        "donors": 13,
+        "repeat_donors": 2,
+        "retention_rate": 0.2
+      },
+      {
+        "month": "2023-12-01",
+        "donors": 19,
+        "repeat_donors": 5,
+        "retention_rate": 0.3846
+      },
+      {
+        "month": "2024-01-01",
+        "donors": 9,
+        "repeat_donors": 3,
+        "retention_rate": 0.1579
+      },
+      {
+        "month": "2024-02-01",
+        "donors": 6,
+        "repeat_donors": 0,
+        "retention_rate": 0.0
+      },
+      {
+        "month": "2024-03-01",
+        "donors": 4,
+        "repeat_donors": 0,
+        "retention_rate": 0.0
+      },
+      {
+        "month": "2024-04-01",
+        "donors": 8,
+        "repeat_donors": 0,
+        "retention_rate": 0.0
+      },
+      {
+        "month": "2024-05-01",
+        "donors": 4,
+        "repeat_donors": 1,
+        "retention_rate": 0.125
+      },
+      {
+        "month": "2024-06-01",
+        "donors": 7,
+        "repeat_donors": 3,
+        "retention_rate": 0.75
+      },
+      {
+        "month": "2024-07-01",
+        "donors": 5,
+        "repeat_donors": 1,
+        "retention_rate": 0.1429
+      },
+      {
+        "month": "2024-08-01",
+        "donors": 9,
+        "repeat_donors": 0,
+        "retention_rate": 0.0
+      },
+      {
+        "month": "2024-09-01",
+        "donors": 11,
+        "repeat_donors": 4,
+        "retention_rate": 0.4444
+      },
+      {
+        "month": "2024-10-01",
+        "donors": 15,
+        "repeat_donors": 4,
+        "retention_rate": 0.3636
+      },
+      {
+        "month": "2024-11-01",
+        "donors": 17,
+        "repeat_donors": 6,
+        "retention_rate": 0.4
+      },
+      {
+        "month": "2024-12-01",
+        "donors": 13,
+        "repeat_donors": 4,
+        "retention_rate": 0.2353
+      },
+      {
+        "month": "2025-01-01",
+        "donors": 9,
+        "repeat_donors": 1,
+        "retention_rate": 0.0769
+      },
+      {
+        "month": "2025-02-01",
+        "donors": 7,
+        "repeat_donors": 0,
+        "retention_rate": 0.0
+      },
+      {
+        "month": "2025-03-01",
+        "donors": 12,
+        "repeat_donors": 2,
+        "retention_rate": 0.2857
+      },
+      {
+        "month": "2025-04-01",
+        "donors": 10,
+        "repeat_donors": 3,
+        "retention_rate": 0.25
+      },
+      {
+        "month": "2025-05-01",
+        "donors": 6,
+        "repeat_donors": 1,
+        "retention_rate": 0.1
+      },
+      {
+        "month": "2025-06-01",
+        "donors": 5,
+        "repeat_donors": 1,
+        "retention_rate": 0.1667
+      },
+      {
+        "month": "2025-07-01",
+        "donors": 13,
+        "repeat_donors": 1,
+        "retention_rate": 0.2
+      },
+      {
+        "month": "2025-08-01",
+        "donors": 11,
+        "repeat_donors": 3,
+        "retention_rate": 0.2308
+      },
+      {
+        "month": "2025-09-01",
+        "donors": 7,
+        "repeat_donors": 3,
+        "retention_rate": 0.2727
+      },
+      {
+        "month": "2025-10-01",
+        "donors": 13,
+        "repeat_donors": 2,
+        "retention_rate": 0.2857
+      },
+      {
+        "month": "2025-11-01",
+        "donors": 16,
+        "repeat_donors": 3,
+        "retention_rate": 0.2308
+      },
+      {
+        "month": "2025-12-01",
+        "donors": 14,
+        "repeat_donors": 4,
+        "retention_rate": 0.25
+      },
+      {
+        "month": "2026-01-01",
+        "donors": 8,
+        "repeat_donors": 2,
+        "retention_rate": 0.1429
+      },
+      {
+        "month": "2026-02-01",
+        "donors": 8,
+        "repeat_donors": 2,
+        "retention_rate": 0.25
+      },
+      {
+        "month": "2026-03-01",
+        "donors": 1,
+        "repeat_donors": 0,
+        "retention_rate": 0.0
+      }
+    ],
+    "lapseRisk": [
+      {
+        "supporter_id": 40,
+        "supporter_name": "Lena Nash",
+        "supporter_type": "InKindDonor",
+        "status": "Active",
+        "donation_count": 2,
+        "lifetime_value": 1646.05,
+        "days_since_last_donation": 559.0,
+        "median_gap_days": 166.0,
+        "recency_ratio": 3.37,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 12.44,
+        "avg_gift_value": 823.02,
+        "lapse_score": 0.98,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 15,
+        "supporter_name": "Zoe Ortiz",
+        "supporter_type": "SkillsContributor",
+        "status": "Active",
+        "donation_count": 2,
+        "lifetime_value": 925.66,
+        "days_since_last_donation": 869.0,
+        "median_gap_days": 91.0,
+        "recency_ratio": 9.55,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 675.66,
+        "avg_gift_value": 462.83,
+        "lapse_score": 0.98,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 35,
+        "supporter_name": "Jose Inoue",
+        "supporter_type": "SocialMediaAdvocate",
+        "status": "Active",
+        "donation_count": 10,
+        "lifetime_value": 8547.74,
+        "days_since_last_donation": 407.0,
+        "median_gap_days": 98.0,
+        "recency_ratio": 4.15,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 300.0,
+        "avg_gift_value": 854.77,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 47,
+        "supporter_name": "Kaya Ward",
+        "supporter_type": "MonetaryDonor",
+        "status": "Inactive",
+        "donation_count": 6,
+        "lifetime_value": 7264.21,
+        "days_since_last_donation": 482.0,
+        "median_gap_days": 105.0,
+        "recency_ratio": 4.59,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 1541.75,
+        "avg_gift_value": 1210.7,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 32,
+        "supporter_name": "Luz Fisher",
+        "supporter_type": "InKindDonor",
+        "status": "Active",
+        "donation_count": 8,
+        "lifetime_value": 5685.9,
+        "days_since_last_donation": 379.0,
+        "median_gap_days": 61.0,
+        "recency_ratio": 6.21,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 5.23,
+        "avg_gift_value": 710.74,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 36,
+        "supporter_name": "Lara Johnson",
+        "supporter_type": "SocialMediaAdvocate",
+        "status": "Active",
+        "donation_count": 6,
+        "lifetime_value": 4060.64,
+        "days_since_last_donation": 961.0,
+        "median_gap_days": 59.0,
+        "recency_ratio": 16.29,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 427.1,
+        "avg_gift_value": 676.77,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 2,
+        "supporter_name": "Aria Brown",
+        "supporter_type": "Volunteer",
+        "status": "Active",
+        "donation_count": 4,
+        "lifetime_value": 3877.36,
+        "days_since_last_donation": 634.0,
+        "median_gap_days": 152.0,
+        "recency_ratio": 4.17,
+        "recurring_share": 0.0,
+        "campaign_diversity": 0,
+        "last_gift_value": 372.94,
+        "avg_gift_value": 969.34,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 33,
+        "supporter_name": "Tara Green",
+        "supporter_type": "InKindDonor",
+        "status": "Active",
+        "donation_count": 7,
+        "lifetime_value": 3794.98,
+        "days_since_last_donation": 671.0,
+        "median_gap_days": 77.5,
+        "recency_ratio": 8.66,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 633.01,
+        "avg_gift_value": 542.14,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 19,
+        "supporter_name": "Nora Singh",
+        "supporter_type": "Volunteer",
+        "status": "Active",
+        "donation_count": 8,
+        "lifetime_value": 3765.27,
+        "days_since_last_donation": 446.0,
+        "median_gap_days": 100.0,
+        "recency_ratio": 4.46,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 8.16,
+        "avg_gift_value": 470.66,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 10,
+        "supporter_name": "Lucas Jones",
+        "supporter_type": "Volunteer",
+        "status": "Active",
+        "donation_count": 6,
+        "lifetime_value": 3458.54,
+        "days_since_last_donation": 449.0,
+        "median_gap_days": 113.0,
+        "recency_ratio": 3.97,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 447.5,
+        "avg_gift_value": 576.42,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      }
+    ],
+    "segmentSummary": [
+      {
+        "segment": "InKindDonor",
+        "supporters": 15,
+        "avg_lapse_score": 0.7669,
+        "high_risk_supporters": 10,
+        "avg_lifetime_value": 3823.31
+      },
+      {
+        "segment": "MonetaryDonor",
+        "supporters": 17,
+        "avg_lapse_score": 0.7048,
+        "high_risk_supporters": 11,
+        "avg_lifetime_value": 6739.61
+      },
+      {
+        "segment": "PartnerOrganization",
+        "supporters": 4,
+        "avg_lapse_score": 0.8166,
+        "high_risk_supporters": 3,
+        "avg_lifetime_value": 3824.74
+      },
+      {
+        "segment": "SkillsContributor",
+        "supporters": 6,
+        "avg_lapse_score": 0.7447,
+        "high_risk_supporters": 4,
+        "avg_lifetime_value": 3829.49
+      },
+      {
+        "segment": "SocialMediaAdvocate",
+        "supporters": 10,
+        "avg_lapse_score": 0.7888,
+        "high_risk_supporters": 8,
+        "avg_lifetime_value": 4074.31
+      },
+      {
+        "segment": "Volunteer",
+        "supporters": 8,
+        "avg_lapse_score": 0.8627,
+        "high_risk_supporters": 7,
+        "avg_lifetime_value": 5345.72
+      }
+    ],
+    "allocationByProgramArea": [
+      {
+        "label": "Education",
+        "value": 67306.45,
+        "allocations": 111,
+        "safehouses": 9
+      },
+      {
+        "label": "Operations",
+        "value": 66853.09,
+        "allocations": 126,
+        "safehouses": 9
+      },
+      {
+        "label": "Wellbeing",
+        "value": 52948.52,
+        "allocations": 107,
+        "safehouses": 9
+      },
+      {
+        "label": "Transport",
+        "value": 39052.78,
+        "allocations": 75,
+        "safehouses": 9
+      },
+      {
+        "label": "Maintenance",
+        "value": 29894.24,
+        "allocations": 51,
+        "safehouses": 9
+      },
+      {
+        "label": "Outreach",
+        "value": 26381.31,
+        "allocations": 51,
+        "safehouses": 9
+      }
+    ],
+    "campaignPerformance": [
+      {
+        "campaign_name": "Back to School",
+        "month": "2024-07-01T00:00:00",
+        "donationValue": 3544.1900000000005,
+        "donations": 4,
+        "forecastNextValue": 3243.79,
+        "label": "Jul 2024"
+      },
+      {
+        "campaign_name": "Back to School",
+        "month": "2025-06-01T00:00:00",
+        "donationValue": 4645.0,
+        "donations": 3,
+        "forecastNextValue": 3267.72,
+        "label": "Jun 2025"
+      },
+      {
+        "campaign_name": "Back to School",
+        "month": "2025-07-01T00:00:00",
+        "donationValue": 5460.8099999999995,
+        "donations": 7,
+        "forecastNextValue": 4550.0,
+        "label": "Jul 2025"
+      },
+      {
+        "campaign_name": "GivingTuesday",
+        "month": "2023-11-01T00:00:00",
+        "donationValue": 6596.18,
+        "donations": 7,
+        "forecastNextValue": 6596.18,
+        "label": "Nov 2023"
+      },
+      {
+        "campaign_name": "GivingTuesday",
+        "month": "2024-11-01T00:00:00",
+        "donationValue": 3986.54,
+        "donations": 6,
+        "forecastNextValue": 5291.36,
+        "label": "Nov 2024"
+      },
+      {
+        "campaign_name": "GivingTuesday",
+        "month": "2025-11-01T00:00:00",
+        "donationValue": 2672.96,
+        "donations": 5,
+        "forecastNextValue": 4418.56,
+        "label": "Nov 2025"
+      },
+      {
+        "campaign_name": "Summer of Safety",
+        "month": "2023-04-01T00:00:00",
+        "donationValue": 4326.83,
+        "donations": 7,
+        "forecastNextValue": 4326.83,
+        "label": "Apr 2023"
+      },
+      {
+        "campaign_name": "Summer of Safety",
+        "month": "2023-05-01T00:00:00",
+        "donationValue": 5447.45,
+        "donations": 8,
+        "forecastNextValue": 4887.14,
+        "label": "May 2023"
+      },
+      {
+        "campaign_name": "Summer of Safety",
+        "month": "2024-04-01T00:00:00",
+        "donationValue": 3186.31,
+        "donations": 6,
+        "forecastNextValue": 4320.2,
+        "label": "Apr 2024"
+      },
+      {
+        "campaign_name": "Summer of Safety",
+        "month": "2024-05-01T00:00:00",
+        "donationValue": 1945.6799999999998,
+        "donations": 3,
+        "forecastNextValue": 3526.48,
+        "label": "May 2024"
+      },
+      {
+        "campaign_name": "Summer of Safety",
+        "month": "2025-04-01T00:00:00",
+        "donationValue": 2522.76,
+        "donations": 6,
+        "forecastNextValue": 2551.58,
+        "label": "Apr 2025"
+      },
+      {
+        "campaign_name": "Summer of Safety",
+        "month": "2025-05-01T00:00:00",
+        "donationValue": 4533.43,
+        "donations": 5,
+        "forecastNextValue": 3000.62,
+        "label": "May 2025"
+      },
+      {
+        "campaign_name": "Year-End Hope",
+        "month": "2023-11-01T00:00:00",
+        "donationValue": 1326.3400000000001,
+        "donations": 5,
+        "forecastNextValue": 1326.34,
+        "label": "Nov 2023"
+      },
+      {
+        "campaign_name": "Year-End Hope",
+        "month": "2023-12-01T00:00:00",
+        "donationValue": 11798.21,
+        "donations": 15,
+        "forecastNextValue": 6562.28,
+        "label": "Dec 2023"
+      },
+      {
+        "campaign_name": "Year-End Hope",
+        "month": "2024-11-01T00:00:00",
+        "donationValue": 8810.03,
+        "donations": 9,
+        "forecastNextValue": 7311.53,
+        "label": "Nov 2024"
+      },
+      {
+        "campaign_name": "Year-End Hope",
+        "month": "2024-12-01T00:00:00",
+        "donationValue": 12416.33,
+        "donations": 12,
+        "forecastNextValue": 11008.19,
+        "label": "Dec 2024"
+      },
+      {
+        "campaign_name": "Year-End Hope",
+        "month": "2025-11-01T00:00:00",
+        "donationValue": 8545.69,
+        "donations": 11,
+        "forecastNextValue": 9924.02,
+        "label": "Nov 2025"
+      },
+      {
+        "campaign_name": "Year-End Hope",
+        "month": "2025-12-01T00:00:00",
+        "donationValue": 2576.8599999999997,
+        "donations": 8,
+        "forecastNextValue": 7846.29,
+        "label": "Dec 2025"
+      }
+    ],
+    "donorUpgradeOpportunities": [
+      {
+        "supporter_id": 37,
+        "supporterName": "Rae Klein",
+        "donationCount": 5,
+        "avgDonationValue": 398.49,
+        "latestDonationValue": 1432.02,
+        "upgradeScore": 2.59
+      },
+      {
+        "supporter_id": 8,
+        "supporterName": "Isla Hernandez",
+        "donationCount": 13,
+        "avgDonationValue": 697.3,
+        "latestDonationValue": 2310.53,
+        "upgradeScore": 2.31
+      },
+      {
+        "supporter_id": 18,
+        "supporterName": "Theo Reed",
+        "donationCount": 5,
+        "avgDonationValue": 683.92,
+        "latestDonationValue": 2148.74,
+        "upgradeScore": 2.14
+      },
+      {
+        "supporter_id": 52,
+        "supporterName": "Cole Cruz",
+        "donationCount": 6,
+        "avgDonationValue": 717.65,
+        "latestDonationValue": 1812.47,
+        "upgradeScore": 1.53
+      },
+      {
+        "supporter_id": 20,
+        "supporterName": "Ezra Taylor",
+        "donationCount": 17,
+        "avgDonationValue": 837.66,
+        "latestDonationValue": 1959.16,
+        "upgradeScore": 1.34
+      },
+      {
+        "supporter_id": 29,
+        "supporterName": "Seth Clark",
+        "donationCount": 6,
+        "avgDonationValue": 806.22,
+        "latestDonationValue": 1878.65,
+        "upgradeScore": 1.33
+      },
+      {
+        "supporter_id": 43,
+        "supporterName": "Hugo Ross",
+        "donationCount": 6,
+        "avgDonationValue": 546.69,
+        "latestDonationValue": 1223.21,
+        "upgradeScore": 1.24
+      },
+      {
+        "supporter_id": 34,
+        "supporterName": "Mia Hill",
+        "donationCount": 7,
+        "avgDonationValue": 346.97,
+        "latestDonationValue": 732.46,
+        "upgradeScore": 1.11
+      },
+      {
+        "supporter_id": 51,
+        "supporterName": "Mira Bello",
+        "donationCount": 6,
+        "avgDonationValue": 442.28,
+        "latestDonationValue": 914.95,
+        "upgradeScore": 1.07
+      },
+      {
+        "supporter_id": 11,
+        "supporterName": "Maya Kim",
+        "donationCount": 4,
+        "avgDonationValue": 1098.9,
+        "latestDonationValue": 2261.72,
+        "upgradeScore": 1.06
+      }
+    ]
+  },
+  "residentOutcomes": {
+    "educationTrend": [
+      {
+        "month": "2023-01-01T00:00:00",
+        "value": 33.9,
+        "label": "Jan 2023"
+      },
+      {
+        "month": "2023-02-01T00:00:00",
+        "value": 51.05,
+        "label": "Feb 2023"
+      },
+      {
+        "month": "2023-03-01T00:00:00",
+        "value": 62.36,
+        "label": "Mar 2023"
+      },
+      {
+        "month": "2023-04-01T00:00:00",
+        "value": 66.94,
+        "label": "Apr 2023"
+      },
+      {
+        "month": "2023-05-01T00:00:00",
+        "value": 76.26,
+        "label": "May 2023"
+      },
+      {
+        "month": "2023-06-01T00:00:00",
+        "value": 74.86,
+        "label": "Jun 2023"
+      },
+      {
+        "month": "2023-07-01T00:00:00",
+        "value": 76.48,
+        "label": "Jul 2023"
+      },
+      {
+        "month": "2023-08-01T00:00:00",
+        "value": 81.27,
+        "label": "Aug 2023"
+      },
+      {
+        "month": "2023-09-01T00:00:00",
+        "value": 85.73,
+        "label": "Sep 2023"
+      },
+      {
+        "month": "2023-10-01T00:00:00",
+        "value": 81.21,
+        "label": "Oct 2023"
+      },
+      {
+        "month": "2023-11-01T00:00:00",
+        "value": 83.6,
+        "label": "Nov 2023"
+      },
+      {
+        "month": "2023-12-01T00:00:00",
+        "value": 86.49,
+        "label": "Dec 2023"
+      },
+      {
+        "month": "2024-01-01T00:00:00",
+        "value": 72.98,
+        "label": "Jan 2024"
+      },
+      {
+        "month": "2024-02-01T00:00:00",
+        "value": 73.57,
+        "label": "Feb 2024"
+      },
+      {
+        "month": "2024-03-01T00:00:00",
+        "value": 76.25,
+        "label": "Mar 2024"
+      },
+      {
+        "month": "2024-04-01T00:00:00",
+        "value": 74.29,
+        "label": "Apr 2024"
+      },
+      {
+        "month": "2024-05-01T00:00:00",
+        "value": 74.11,
+        "label": "May 2024"
+      },
+      {
+        "month": "2024-06-01T00:00:00",
+        "value": 71.87,
+        "label": "Jun 2024"
+      },
+      {
+        "month": "2024-07-01T00:00:00",
+        "value": 73.12,
+        "label": "Jul 2024"
+      },
+      {
+        "month": "2024-08-01T00:00:00",
+        "value": 72.96,
+        "label": "Aug 2024"
+      },
+      {
+        "month": "2024-09-01T00:00:00",
+        "value": 80.78,
+        "label": "Sep 2024"
+      },
+      {
+        "month": "2024-10-01T00:00:00",
+        "value": 76.42,
+        "label": "Oct 2024"
+      },
+      {
+        "month": "2024-11-01T00:00:00",
+        "value": 79.02,
+        "label": "Nov 2024"
+      },
+      {
+        "month": "2024-12-01T00:00:00",
+        "value": 73.94,
+        "label": "Dec 2024"
+      },
+      {
+        "month": "2025-01-01T00:00:00",
+        "value": 78.82,
+        "label": "Jan 2025"
+      },
+      {
+        "month": "2025-02-01T00:00:00",
+        "value": 82.1,
+        "label": "Feb 2025"
+      },
+      {
+        "month": "2025-03-01T00:00:00",
+        "value": 82.26,
+        "label": "Mar 2025"
+      },
+      {
+        "month": "2025-04-01T00:00:00",
+        "value": 80.44,
+        "label": "Apr 2025"
+      },
+      {
+        "month": "2025-05-01T00:00:00",
+        "value": 86.6,
+        "label": "May 2025"
+      },
+      {
+        "month": "2025-06-01T00:00:00",
+        "value": 87.11,
+        "label": "Jun 2025"
+      },
+      {
+        "month": "2025-07-01T00:00:00",
+        "value": 85.28,
+        "label": "Jul 2025"
+      },
+      {
+        "month": "2025-08-01T00:00:00",
+        "value": 88.44,
+        "label": "Aug 2025"
+      },
+      {
+        "month": "2025-09-01T00:00:00",
+        "value": 86.61,
+        "label": "Sep 2025"
+      },
+      {
+        "month": "2025-10-01T00:00:00",
+        "value": 89.49,
+        "label": "Oct 2025"
+      },
+      {
+        "month": "2025-11-01T00:00:00",
+        "value": 83.54,
+        "label": "Nov 2025"
+      },
+      {
+        "month": "2025-12-01T00:00:00",
+        "value": 79.53,
+        "label": "Dec 2025"
+      },
+      {
+        "month": "2026-01-01T00:00:00",
+        "value": 100.0,
+        "label": "Jan 2026"
+      },
+      {
+        "month": "2026-02-01T00:00:00",
+        "value": 100.0,
+        "label": "Feb 2026"
+      }
+    ],
+    "healthTrend": [
+      {
+        "month": "2023-01-01T00:00:00",
+        "value": 3.03,
+        "label": "Jan 2023"
+      },
+      {
+        "month": "2023-02-01T00:00:00",
+        "value": 3.13,
+        "label": "Feb 2023"
+      },
+      {
+        "month": "2023-03-01T00:00:00",
+        "value": 3.16,
+        "label": "Mar 2023"
+      },
+      {
+        "month": "2023-04-01T00:00:00",
+        "value": 3.18,
+        "label": "Apr 2023"
+      },
+      {
+        "month": "2023-05-01T00:00:00",
+        "value": 3.2,
+        "label": "May 2023"
+      },
+      {
+        "month": "2023-06-01T00:00:00",
+        "value": 3.21,
+        "label": "Jun 2023"
+      },
+      {
+        "month": "2023-07-01T00:00:00",
+        "value": 3.18,
+        "label": "Jul 2023"
+      },
+      {
+        "month": "2023-08-01T00:00:00",
+        "value": 3.16,
+        "label": "Aug 2023"
+      },
+      {
+        "month": "2023-09-01T00:00:00",
+        "value": 3.14,
+        "label": "Sep 2023"
+      },
+      {
+        "month": "2023-10-01T00:00:00",
+        "value": 3.16,
+        "label": "Oct 2023"
+      },
+      {
+        "month": "2023-11-01T00:00:00",
+        "value": 3.2,
+        "label": "Nov 2023"
+      },
+      {
+        "month": "2023-12-01T00:00:00",
+        "value": 3.21,
+        "label": "Dec 2023"
+      },
+      {
+        "month": "2024-01-01T00:00:00",
+        "value": 3.09,
+        "label": "Jan 2024"
+      },
+      {
+        "month": "2024-02-01T00:00:00",
+        "value": 3.11,
+        "label": "Feb 2024"
+      },
+      {
+        "month": "2024-03-01T00:00:00",
+        "value": 3.08,
+        "label": "Mar 2024"
+      },
+      {
+        "month": "2024-04-01T00:00:00",
+        "value": 3.09,
+        "label": "Apr 2024"
+      },
+      {
+        "month": "2024-05-01T00:00:00",
+        "value": 3.12,
+        "label": "May 2024"
+      },
+      {
+        "month": "2024-06-01T00:00:00",
+        "value": 3.16,
+        "label": "Jun 2024"
+      },
+      {
+        "month": "2024-07-01T00:00:00",
+        "value": 3.23,
+        "label": "Jul 2024"
+      },
+      {
+        "month": "2024-08-01T00:00:00",
+        "value": 3.23,
+        "label": "Aug 2024"
+      },
+      {
+        "month": "2024-09-01T00:00:00",
+        "value": 3.22,
+        "label": "Sep 2024"
+      },
+      {
+        "month": "2024-10-01T00:00:00",
+        "value": 3.19,
+        "label": "Oct 2024"
+      },
+      {
+        "month": "2024-11-01T00:00:00",
+        "value": 3.18,
+        "label": "Nov 2024"
+      },
+      {
+        "month": "2024-12-01T00:00:00",
+        "value": 3.22,
+        "label": "Dec 2024"
+      },
+      {
+        "month": "2025-01-01T00:00:00",
+        "value": 3.21,
+        "label": "Jan 2025"
+      },
+      {
+        "month": "2025-02-01T00:00:00",
+        "value": 3.2,
+        "label": "Feb 2025"
+      },
+      {
+        "month": "2025-03-01T00:00:00",
+        "value": 3.18,
+        "label": "Mar 2025"
+      },
+      {
+        "month": "2025-04-01T00:00:00",
+        "value": 3.18,
+        "label": "Apr 2025"
+      },
+      {
+        "month": "2025-05-01T00:00:00",
+        "value": 3.26,
+        "label": "May 2025"
+      },
+      {
+        "month": "2025-06-01T00:00:00",
+        "value": 3.28,
+        "label": "Jun 2025"
+      },
+      {
+        "month": "2025-07-01T00:00:00",
+        "value": 3.34,
+        "label": "Jul 2025"
+      },
+      {
+        "month": "2025-08-01T00:00:00",
+        "value": 3.39,
+        "label": "Aug 2025"
+      },
+      {
+        "month": "2025-09-01T00:00:00",
+        "value": 3.4,
+        "label": "Sep 2025"
+      },
+      {
+        "month": "2025-10-01T00:00:00",
+        "value": 3.35,
+        "label": "Oct 2025"
+      },
+      {
+        "month": "2025-11-01T00:00:00",
+        "value": 3.41,
+        "label": "Nov 2025"
+      },
+      {
+        "month": "2025-12-01T00:00:00",
+        "value": 3.38,
+        "label": "Dec 2025"
+      },
+      {
+        "month": "2026-01-01T00:00:00",
+        "value": 3.87,
+        "label": "Jan 2026"
+      },
+      {
+        "month": "2026-02-01T00:00:00",
+        "value": 3.94,
+        "label": "Feb 2026"
+      }
+    ],
+    "processProgress": [
+      {
+        "month": "2023-01-01T00:00:00",
+        "progressRate": 100.0,
+        "concernRate": 0.0,
+        "sessions": 4,
+        "label": "Jan 2023"
+      },
+      {
+        "month": "2023-02-01T00:00:00",
+        "progressRate": 100.0,
+        "concernRate": 0.0,
+        "sessions": 2,
+        "label": "Feb 2023"
+      },
+      {
+        "month": "2023-03-01T00:00:00",
+        "progressRate": 82.4,
+        "concernRate": 17.6,
+        "sessions": 17,
+        "label": "Mar 2023"
+      },
+      {
+        "month": "2023-04-01T00:00:00",
+        "progressRate": 89.5,
+        "concernRate": 31.6,
+        "sessions": 19,
+        "label": "Apr 2023"
+      },
+      {
+        "month": "2023-05-01T00:00:00",
+        "progressRate": 87.5,
+        "concernRate": 25.0,
+        "sessions": 16,
+        "label": "May 2023"
+      },
+      {
+        "month": "2023-06-01T00:00:00",
+        "progressRate": 95.7,
+        "concernRate": 21.7,
+        "sessions": 23,
+        "label": "Jun 2023"
+      },
+      {
+        "month": "2023-07-01T00:00:00",
+        "progressRate": 90.3,
+        "concernRate": 41.9,
+        "sessions": 31,
+        "label": "Jul 2023"
+      },
+      {
+        "month": "2023-08-01T00:00:00",
+        "progressRate": 90.2,
+        "concernRate": 31.7,
+        "sessions": 41,
+        "label": "Aug 2023"
+      },
+      {
+        "month": "2023-09-01T00:00:00",
+        "progressRate": 95.3,
+        "concernRate": 32.6,
+        "sessions": 43,
+        "label": "Sep 2023"
+      },
+      {
+        "month": "2023-10-01T00:00:00",
+        "progressRate": 91.7,
+        "concernRate": 23.6,
+        "sessions": 72,
+        "label": "Oct 2023"
+      },
+      {
+        "month": "2023-11-01T00:00:00",
+        "progressRate": 93.7,
+        "concernRate": 25.4,
+        "sessions": 63,
+        "label": "Nov 2023"
+      },
+      {
+        "month": "2023-12-01T00:00:00",
+        "progressRate": 92.1,
+        "concernRate": 14.3,
+        "sessions": 63,
+        "label": "Dec 2023"
+      },
+      {
+        "month": "2024-01-01T00:00:00",
+        "progressRate": 97.3,
+        "concernRate": 24.3,
+        "sessions": 74,
+        "label": "Jan 2024"
+      },
+      {
+        "month": "2024-02-01T00:00:00",
+        "progressRate": 92.6,
+        "concernRate": 29.6,
+        "sessions": 81,
+        "label": "Feb 2024"
+      },
+      {
+        "month": "2024-03-01T00:00:00",
+        "progressRate": 94.0,
+        "concernRate": 25.0,
+        "sessions": 100,
+        "label": "Mar 2024"
+      },
+      {
+        "month": "2024-04-01T00:00:00",
+        "progressRate": 95.7,
+        "concernRate": 21.7,
+        "sessions": 92,
+        "label": "Apr 2024"
+      },
+      {
+        "month": "2024-05-01T00:00:00",
+        "progressRate": 99.0,
+        "concernRate": 27.3,
+        "sessions": 99,
+        "label": "May 2024"
+      },
+      {
+        "month": "2024-06-01T00:00:00",
+        "progressRate": 89.5,
+        "concernRate": 23.3,
+        "sessions": 86,
+        "label": "Jun 2024"
+      },
+      {
+        "month": "2024-07-01T00:00:00",
+        "progressRate": 92.0,
+        "concernRate": 30.0,
+        "sessions": 100,
+        "label": "Jul 2024"
+      },
+      {
+        "month": "2024-08-01T00:00:00",
+        "progressRate": 91.5,
+        "concernRate": 17.9,
+        "sessions": 106,
+        "label": "Aug 2024"
+      },
+      {
+        "month": "2024-09-01T00:00:00",
+        "progressRate": 96.8,
+        "concernRate": 26.9,
+        "sessions": 93,
+        "label": "Sep 2024"
+      },
+      {
+        "month": "2024-10-01T00:00:00",
+        "progressRate": 90.9,
+        "concernRate": 28.6,
+        "sessions": 77,
+        "label": "Oct 2024"
+      },
+      {
+        "month": "2024-11-01T00:00:00",
+        "progressRate": 96.4,
+        "concernRate": 21.4,
+        "sessions": 56,
+        "label": "Nov 2024"
+      },
+      {
+        "month": "2024-12-01T00:00:00",
+        "progressRate": 93.2,
+        "concernRate": 20.5,
+        "sessions": 73,
+        "label": "Dec 2024"
+      },
+      {
+        "month": "2025-01-01T00:00:00",
+        "progressRate": 94.8,
+        "concernRate": 22.9,
+        "sessions": 96,
+        "label": "Jan 2025"
+      },
+      {
+        "month": "2025-02-01T00:00:00",
+        "progressRate": 92.9,
+        "concernRate": 26.2,
+        "sessions": 84,
+        "label": "Feb 2025"
+      },
+      {
+        "month": "2025-03-01T00:00:00",
+        "progressRate": 92.6,
+        "concernRate": 26.6,
+        "sessions": 94,
+        "label": "Mar 2025"
+      },
+      {
+        "month": "2025-04-01T00:00:00",
+        "progressRate": 96.1,
+        "concernRate": 20.6,
+        "sessions": 102,
+        "label": "Apr 2025"
+      },
+      {
+        "month": "2025-05-01T00:00:00",
+        "progressRate": 92.9,
+        "concernRate": 30.4,
+        "sessions": 112,
+        "label": "May 2025"
+      },
+      {
+        "month": "2025-06-01T00:00:00",
+        "progressRate": 95.5,
+        "concernRate": 27.0,
+        "sessions": 89,
+        "label": "Jun 2025"
+      },
+      {
+        "month": "2025-07-01T00:00:00",
+        "progressRate": 95.7,
+        "concernRate": 26.1,
+        "sessions": 92,
+        "label": "Jul 2025"
+      },
+      {
+        "month": "2025-08-01T00:00:00",
+        "progressRate": 92.0,
+        "concernRate": 31.0,
+        "sessions": 100,
+        "label": "Aug 2025"
+      },
+      {
+        "month": "2025-09-01T00:00:00",
+        "progressRate": 88.1,
+        "concernRate": 17.9,
+        "sessions": 84,
+        "label": "Sep 2025"
+      },
+      {
+        "month": "2025-10-01T00:00:00",
+        "progressRate": 92.0,
+        "concernRate": 16.0,
+        "sessions": 100,
+        "label": "Oct 2025"
+      },
+      {
+        "month": "2025-11-01T00:00:00",
+        "progressRate": 98.1,
+        "concernRate": 22.2,
+        "sessions": 108,
+        "label": "Nov 2025"
+      },
+      {
+        "month": "2025-12-01T00:00:00",
+        "progressRate": 90.2,
+        "concernRate": 24.4,
+        "sessions": 82,
+        "label": "Dec 2025"
+      },
+      {
+        "month": "2026-01-01T00:00:00",
+        "progressRate": 93.5,
+        "concernRate": 18.5,
+        "sessions": 92,
+        "label": "Jan 2026"
+      },
+      {
+        "month": "2026-02-01T00:00:00",
+        "progressRate": 95.1,
+        "concernRate": 18.3,
+        "sessions": 82,
+        "label": "Feb 2026"
+      },
+      {
+        "month": "2026-03-01T00:00:00",
+        "progressRate": 100.0,
+        "concernRate": 8.3,
+        "sessions": 12,
+        "label": "Mar 2026"
+      },
+      {
+        "month": "2026-04-01T00:00:00",
+        "progressRate": 100.0,
+        "concernRate": 14.3,
+        "sessions": 7,
+        "label": "Apr 2026"
+      },
+      {
+        "month": "2026-05-01T00:00:00",
+        "progressRate": 100.0,
+        "concernRate": 20.0,
+        "sessions": 5,
+        "label": "May 2026"
+      },
+      {
+        "month": "2026-06-01T00:00:00",
+        "progressRate": 100.0,
+        "concernRate": 9.1,
+        "sessions": 11,
+        "label": "Jun 2026"
+      },
+      {
+        "month": "2026-07-01T00:00:00",
+        "progressRate": 91.7,
+        "concernRate": 8.3,
+        "sessions": 12,
+        "label": "Jul 2026"
+      },
+      {
+        "month": "2026-08-01T00:00:00",
+        "progressRate": 100.0,
+        "concernRate": 25.0,
+        "sessions": 4,
+        "label": "Aug 2026"
+      },
+      {
+        "month": "2026-09-01T00:00:00",
+        "progressRate": 83.3,
+        "concernRate": 50.0,
+        "sessions": 6,
+        "label": "Sep 2026"
+      },
+      {
+        "month": "2026-10-01T00:00:00",
+        "progressRate": 100.0,
+        "concernRate": 0.0,
+        "sessions": 2,
+        "label": "Oct 2026"
+      },
+      {
+        "month": "2026-11-01T00:00:00",
+        "progressRate": 75.0,
+        "concernRate": 25.0,
+        "sessions": 4,
+        "label": "Nov 2026"
+      },
+      {
+        "month": "2026-12-01T00:00:00",
+        "progressRate": 100.0,
+        "concernRate": 0.0,
+        "sessions": 2,
+        "label": "Dec 2026"
+      },
+      {
+        "month": "2027-01-01T00:00:00",
+        "progressRate": 100.0,
+        "concernRate": 0.0,
+        "sessions": 5,
+        "label": "Jan 2027"
+      },
+      {
+        "month": "2027-02-01T00:00:00",
+        "progressRate": 100.0,
+        "concernRate": 0.0,
+        "sessions": 1,
+        "label": "Feb 2027"
+      }
+    ],
+    "homeVisitOutcomeTrend": [
+      {
+        "month": "2023-02-01T00:00:00",
+        "favorableRate": 100.0,
+        "followupRate": 0.0,
+        "visitCount": 1,
+        "label": "Feb 2023"
+      },
+      {
+        "month": "2023-03-01T00:00:00",
+        "favorableRate": 70.0,
+        "followupRate": 20.0,
+        "visitCount": 10,
+        "label": "Mar 2023"
+      },
+      {
+        "month": "2023-04-01T00:00:00",
+        "favorableRate": 57.1,
+        "followupRate": 28.6,
+        "visitCount": 14,
+        "label": "Apr 2023"
+      },
+      {
+        "month": "2023-05-01T00:00:00",
+        "favorableRate": 63.6,
+        "followupRate": 9.1,
+        "visitCount": 11,
+        "label": "May 2023"
+      },
+      {
+        "month": "2023-06-01T00:00:00",
+        "favorableRate": 36.4,
+        "followupRate": 36.4,
+        "visitCount": 11,
+        "label": "Jun 2023"
+      },
+      {
+        "month": "2023-07-01T00:00:00",
+        "favorableRate": 25.0,
+        "followupRate": 60.7,
+        "visitCount": 28,
+        "label": "Jul 2023"
+      },
+      {
+        "month": "2023-08-01T00:00:00",
+        "favorableRate": 56.5,
+        "followupRate": 26.1,
+        "visitCount": 23,
+        "label": "Aug 2023"
+      },
+      {
+        "month": "2023-09-01T00:00:00",
+        "favorableRate": 37.5,
+        "followupRate": 33.3,
+        "visitCount": 24,
+        "label": "Sep 2023"
+      },
+      {
+        "month": "2023-10-01T00:00:00",
+        "favorableRate": 31.0,
+        "followupRate": 45.2,
+        "visitCount": 42,
+        "label": "Oct 2023"
+      },
+      {
+        "month": "2023-11-01T00:00:00",
+        "favorableRate": 62.9,
+        "followupRate": 31.4,
+        "visitCount": 35,
+        "label": "Nov 2023"
+      },
+      {
+        "month": "2023-12-01T00:00:00",
+        "favorableRate": 34.5,
+        "followupRate": 62.1,
+        "visitCount": 29,
+        "label": "Dec 2023"
+      },
+      {
+        "month": "2024-01-01T00:00:00",
+        "favorableRate": 46.9,
+        "followupRate": 37.5,
+        "visitCount": 32,
+        "label": "Jan 2024"
+      },
+      {
+        "month": "2024-02-01T00:00:00",
+        "favorableRate": 40.0,
+        "followupRate": 50.0,
+        "visitCount": 30,
+        "label": "Feb 2024"
+      },
+      {
+        "month": "2024-03-01T00:00:00",
+        "favorableRate": 52.8,
+        "followupRate": 30.6,
+        "visitCount": 36,
+        "label": "Mar 2024"
+      },
+      {
+        "month": "2024-04-01T00:00:00",
+        "favorableRate": 40.9,
+        "followupRate": 31.8,
+        "visitCount": 44,
+        "label": "Apr 2024"
+      },
+      {
+        "month": "2024-05-01T00:00:00",
+        "favorableRate": 28.9,
+        "followupRate": 53.3,
+        "visitCount": 45,
+        "label": "May 2024"
+      },
+      {
+        "month": "2024-06-01T00:00:00",
+        "favorableRate": 40.0,
+        "followupRate": 46.0,
+        "visitCount": 50,
+        "label": "Jun 2024"
+      },
+      {
+        "month": "2024-07-01T00:00:00",
+        "favorableRate": 45.5,
+        "followupRate": 40.9,
+        "visitCount": 44,
+        "label": "Jul 2024"
+      },
+      {
+        "month": "2024-08-01T00:00:00",
+        "favorableRate": 42.5,
+        "followupRate": 42.5,
+        "visitCount": 40,
+        "label": "Aug 2024"
+      },
+      {
+        "month": "2024-09-01T00:00:00",
+        "favorableRate": 36.6,
+        "followupRate": 41.5,
+        "visitCount": 41,
+        "label": "Sep 2024"
+      },
+      {
+        "month": "2024-10-01T00:00:00",
+        "favorableRate": 46.8,
+        "followupRate": 36.2,
+        "visitCount": 47,
+        "label": "Oct 2024"
+      },
+      {
+        "month": "2024-11-01T00:00:00",
+        "favorableRate": 29.3,
+        "followupRate": 43.9,
+        "visitCount": 41,
+        "label": "Nov 2024"
+      },
+      {
+        "month": "2024-12-01T00:00:00",
+        "favorableRate": 31.4,
+        "followupRate": 42.9,
+        "visitCount": 35,
+        "label": "Dec 2024"
+      },
+      {
+        "month": "2025-01-01T00:00:00",
+        "favorableRate": 44.7,
+        "followupRate": 38.3,
+        "visitCount": 47,
+        "label": "Jan 2025"
+      },
+      {
+        "month": "2025-02-01T00:00:00",
+        "favorableRate": 30.8,
+        "followupRate": 41.0,
+        "visitCount": 39,
+        "label": "Feb 2025"
+      },
+      {
+        "month": "2025-03-01T00:00:00",
+        "favorableRate": 48.5,
+        "followupRate": 42.4,
+        "visitCount": 33,
+        "label": "Mar 2025"
+      },
+      {
+        "month": "2025-04-01T00:00:00",
+        "favorableRate": 42.9,
+        "followupRate": 37.5,
+        "visitCount": 56,
+        "label": "Apr 2025"
+      },
+      {
+        "month": "2025-05-01T00:00:00",
+        "favorableRate": 41.0,
+        "followupRate": 48.7,
+        "visitCount": 39,
+        "label": "May 2025"
+      },
+      {
+        "month": "2025-06-01T00:00:00",
+        "favorableRate": 40.0,
+        "followupRate": 33.3,
+        "visitCount": 45,
+        "label": "Jun 2025"
+      },
+      {
+        "month": "2025-07-01T00:00:00",
+        "favorableRate": 45.2,
+        "followupRate": 42.9,
+        "visitCount": 42,
+        "label": "Jul 2025"
+      },
+      {
+        "month": "2025-08-01T00:00:00",
+        "favorableRate": 55.0,
+        "followupRate": 27.5,
+        "visitCount": 40,
+        "label": "Aug 2025"
+      },
+      {
+        "month": "2025-09-01T00:00:00",
+        "favorableRate": 26.2,
+        "followupRate": 50.0,
+        "visitCount": 42,
+        "label": "Sep 2025"
+      },
+      {
+        "month": "2025-10-01T00:00:00",
+        "favorableRate": 45.8,
+        "followupRate": 35.4,
+        "visitCount": 48,
+        "label": "Oct 2025"
+      },
+      {
+        "month": "2025-11-01T00:00:00",
+        "favorableRate": 42.5,
+        "followupRate": 40.0,
+        "visitCount": 40,
+        "label": "Nov 2025"
+      },
+      {
+        "month": "2025-12-01T00:00:00",
+        "favorableRate": 28.6,
+        "followupRate": 48.6,
+        "visitCount": 35,
+        "label": "Dec 2025"
+      },
+      {
+        "month": "2026-01-01T00:00:00",
+        "favorableRate": 23.7,
+        "followupRate": 55.3,
+        "visitCount": 38,
+        "label": "Jan 2026"
+      },
+      {
+        "month": "2026-02-01T00:00:00",
+        "favorableRate": 37.0,
+        "followupRate": 48.1,
+        "visitCount": 27,
+        "label": "Feb 2026"
+      },
+      {
+        "month": "2026-03-01T00:00:00",
+        "favorableRate": 33.3,
+        "followupRate": 66.7,
+        "visitCount": 6,
+        "label": "Mar 2026"
+      },
+      {
+        "month": "2026-04-01T00:00:00",
+        "favorableRate": 57.1,
+        "followupRate": 28.6,
+        "visitCount": 7,
+        "label": "Apr 2026"
+      },
+      {
+        "month": "2026-05-01T00:00:00",
+        "favorableRate": 33.3,
+        "followupRate": 66.7,
+        "visitCount": 9,
+        "label": "May 2026"
+      },
+      {
+        "month": "2026-06-01T00:00:00",
+        "favorableRate": 71.4,
+        "followupRate": 14.3,
+        "visitCount": 7,
+        "label": "Jun 2026"
+      },
+      {
+        "month": "2026-07-01T00:00:00",
+        "favorableRate": 83.3,
+        "followupRate": 16.7,
+        "visitCount": 6,
+        "label": "Jul 2026"
+      },
+      {
+        "month": "2026-08-01T00:00:00",
+        "favorableRate": 45.5,
+        "followupRate": 45.5,
+        "visitCount": 11,
+        "label": "Aug 2026"
+      },
+      {
+        "month": "2026-09-01T00:00:00",
+        "favorableRate": 100.0,
+        "followupRate": 0.0,
+        "visitCount": 1,
+        "label": "Sep 2026"
+      },
+      {
+        "month": "2026-10-01T00:00:00",
+        "favorableRate": 50.0,
+        "followupRate": 50.0,
+        "visitCount": 2,
+        "label": "Oct 2026"
+      },
+      {
+        "month": "2026-11-01T00:00:00",
+        "favorableRate": 100.0,
+        "followupRate": 0.0,
+        "visitCount": 1,
+        "label": "Nov 2026"
+      },
+      {
+        "month": "2026-12-01T00:00:00",
+        "favorableRate": 50.0,
+        "followupRate": 50.0,
+        "visitCount": 2,
+        "label": "Dec 2026"
+      },
+      {
+        "month": "2027-01-01T00:00:00",
+        "favorableRate": 100.0,
+        "followupRate": 0.0,
+        "visitCount": 1,
+        "label": "Jan 2027"
+      }
+    ],
+    "incidentTrend": [
+      {
+        "month": "2023-04-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 1,
+        "label": "Apr 2023"
+      },
+      {
+        "month": "2023-06-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 1,
+        "label": "Jun 2023"
+      },
+      {
+        "month": "2023-08-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 1,
+        "label": "Aug 2023"
+      },
+      {
+        "month": "2023-09-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 0,
+        "label": "Sep 2023"
+      },
+      {
+        "month": "2023-11-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 0,
+        "label": "Nov 2023"
+      },
+      {
+        "month": "2023-12-01T00:00:00",
+        "incidentCount": 2,
+        "unresolvedCount": 0,
+        "label": "Dec 2023"
+      },
+      {
+        "month": "2024-01-01T00:00:00",
+        "incidentCount": 2,
+        "unresolvedCount": 0,
+        "label": "Jan 2024"
+      },
+      {
+        "month": "2024-02-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 1,
+        "label": "Feb 2024"
+      },
+      {
+        "month": "2024-03-01T00:00:00",
+        "incidentCount": 4,
+        "unresolvedCount": 0,
+        "label": "Mar 2024"
+      },
+      {
+        "month": "2024-04-01T00:00:00",
+        "incidentCount": 5,
+        "unresolvedCount": 1,
+        "label": "Apr 2024"
+      },
+      {
+        "month": "2024-06-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 1,
+        "label": "Jun 2024"
+      },
+      {
+        "month": "2024-07-01T00:00:00",
+        "incidentCount": 4,
+        "unresolvedCount": 2,
+        "label": "Jul 2024"
+      },
+      {
+        "month": "2024-08-01T00:00:00",
+        "incidentCount": 5,
+        "unresolvedCount": 0,
+        "label": "Aug 2024"
+      },
+      {
+        "month": "2024-09-01T00:00:00",
+        "incidentCount": 6,
+        "unresolvedCount": 3,
+        "label": "Sep 2024"
+      },
+      {
+        "month": "2024-10-01T00:00:00",
+        "incidentCount": 4,
+        "unresolvedCount": 1,
+        "label": "Oct 2024"
+      },
+      {
+        "month": "2024-11-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 2,
+        "label": "Nov 2024"
+      },
+      {
+        "month": "2024-12-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 1,
+        "label": "Dec 2024"
+      },
+      {
+        "month": "2025-01-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 0,
+        "label": "Jan 2025"
+      },
+      {
+        "month": "2025-02-01T00:00:00",
+        "incidentCount": 2,
+        "unresolvedCount": 1,
+        "label": "Feb 2025"
+      },
+      {
+        "month": "2025-03-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 1,
+        "label": "Mar 2025"
+      },
+      {
+        "month": "2025-04-01T00:00:00",
+        "incidentCount": 7,
+        "unresolvedCount": 3,
+        "label": "Apr 2025"
+      },
+      {
+        "month": "2025-05-01T00:00:00",
+        "incidentCount": 5,
+        "unresolvedCount": 1,
+        "label": "May 2025"
+      },
+      {
+        "month": "2025-06-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 0,
+        "label": "Jun 2025"
+      },
+      {
+        "month": "2025-07-01T00:00:00",
+        "incidentCount": 5,
+        "unresolvedCount": 1,
+        "label": "Jul 2025"
+      },
+      {
+        "month": "2025-08-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 1,
+        "label": "Aug 2025"
+      },
+      {
+        "month": "2025-09-01T00:00:00",
+        "incidentCount": 5,
+        "unresolvedCount": 1,
+        "label": "Sep 2025"
+      },
+      {
+        "month": "2025-10-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 0,
+        "label": "Oct 2025"
+      },
+      {
+        "month": "2025-11-01T00:00:00",
+        "incidentCount": 6,
+        "unresolvedCount": 1,
+        "label": "Nov 2025"
+      },
+      {
+        "month": "2025-12-01T00:00:00",
+        "incidentCount": 6,
+        "unresolvedCount": 1,
+        "label": "Dec 2025"
+      },
+      {
+        "month": "2026-01-01T00:00:00",
+        "incidentCount": 2,
+        "unresolvedCount": 2,
+        "label": "Jan 2026"
+      },
+      {
+        "month": "2026-02-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 1,
+        "label": "Feb 2026"
+      },
+      {
+        "month": "2026-04-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 0,
+        "label": "Apr 2026"
+      }
+    ],
+    "riskLevelDistribution": [
+      {
+        "label": "Low",
+        "value": 34
+      },
+      {
+        "label": "Medium",
+        "value": 20
+      },
+      {
+        "label": "High",
+        "value": 5
+      },
+      {
+        "label": "Critical",
+        "value": 1
+      }
+    ]
+  },
+  "safehouse": {
+    "occupancyVsCapacity": [
+      {
+        "safehouseName": "Lighthouse Safehouse 1",
+        "occupancy": 10,
+        "capacityGirls": 8,
+        "occupancyRatio": 125.0
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 2",
+        "occupancy": 8,
+        "capacityGirls": 10,
+        "occupancyRatio": 80.0
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 3",
+        "occupancy": 7,
+        "capacityGirls": 9,
+        "occupancyRatio": 77.8
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 4",
+        "occupancy": 8,
+        "capacityGirls": 12,
+        "occupancyRatio": 66.7
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 5",
+        "occupancy": 6,
+        "capacityGirls": 11,
+        "occupancyRatio": 54.5
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 6",
+        "occupancy": 5,
+        "capacityGirls": 8,
+        "occupancyRatio": 62.5
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 7",
+        "occupancy": 8,
+        "capacityGirls": 12,
+        "occupancyRatio": 66.7
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 8",
+        "occupancy": 6,
+        "capacityGirls": 9,
+        "occupancyRatio": 66.7
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 9",
+        "occupancy": 2,
+        "capacityGirls": 6,
+        "occupancyRatio": 33.3
+      }
+    ],
+    "incidentForecast": [
+      {
+        "safehouseId": 1,
+        "safehouseName": "Lighthouse Safehouse 1",
+        "predictedIncidentCount": 1.0,
+        "pressureScore": 75.0,
+        "occupancyRatio": 125.0
+      },
+      {
+        "safehouseId": 2,
+        "safehouseName": "Lighthouse Safehouse 2",
+        "predictedIncidentCount": 0.0,
+        "pressureScore": 48.0,
+        "occupancyRatio": 80.0
+      },
+      {
+        "safehouseId": 3,
+        "safehouseName": "Lighthouse Safehouse 3",
+        "predictedIncidentCount": 0.0,
+        "pressureScore": 46.7,
+        "occupancyRatio": 77.8
+      },
+      {
+        "safehouseId": 4,
+        "safehouseName": "Lighthouse Safehouse 4",
+        "predictedIncidentCount": 0.0,
+        "pressureScore": 40.0,
+        "occupancyRatio": 66.7
+      },
+      {
+        "safehouseId": 7,
+        "safehouseName": "Lighthouse Safehouse 7",
+        "predictedIncidentCount": 0.0,
+        "pressureScore": 40.0,
+        "occupancyRatio": 66.7
+      },
+      {
+        "safehouseId": 8,
+        "safehouseName": "Lighthouse Safehouse 8",
+        "predictedIncidentCount": 0.0,
+        "pressureScore": 40.0,
+        "occupancyRatio": 66.7
+      },
+      {
+        "safehouseId": 6,
+        "safehouseName": "Lighthouse Safehouse 6",
+        "predictedIncidentCount": 0.0,
+        "pressureScore": 37.5,
+        "occupancyRatio": 62.5
+      },
+      {
+        "safehouseId": 5,
+        "safehouseName": "Lighthouse Safehouse 5",
+        "predictedIncidentCount": 0.0,
+        "pressureScore": 32.7,
+        "occupancyRatio": 54.5
+      },
+      {
+        "safehouseId": 9,
+        "safehouseName": "Lighthouse Safehouse 9",
+        "predictedIncidentCount": 0.0,
+        "pressureScore": 20.0,
+        "occupancyRatio": 33.3
+      }
+    ],
+    "educationBySafehouse": [
+      {
+        "label": "Lighthouse Safehouse 1",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 2",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 3",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 4",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 5",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 6",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 7",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 8",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 9",
+        "value": null
+      }
+    ],
+    "healthBySafehouse": [
+      {
+        "label": "Lighthouse Safehouse 1",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 2",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 3",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 4",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 5",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 6",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 7",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 8",
+        "value": null
+      },
+      {
+        "label": "Lighthouse Safehouse 9",
+        "value": null
+      }
+    ],
+    "staffingPressure": [
+      {
+        "safehouseName": "Lighthouse Safehouse 1",
+        "active_residents": 10,
+        "staffCapacity": 4,
+        "occupancyRatio": 125.0,
+        "residentsPerStaff": 2.5
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 2",
+        "active_residents": 8,
+        "staffCapacity": 5,
+        "occupancyRatio": 80.0,
+        "residentsPerStaff": 1.6
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 3",
+        "active_residents": 7,
+        "staffCapacity": 4,
+        "occupancyRatio": 77.8,
+        "residentsPerStaff": 1.75
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 4",
+        "active_residents": 8,
+        "staffCapacity": 4,
+        "occupancyRatio": 66.7,
+        "residentsPerStaff": 2.0
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 5",
+        "active_residents": 6,
+        "staffCapacity": 4,
+        "occupancyRatio": 54.5,
+        "residentsPerStaff": 1.5
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 6",
+        "active_residents": 5,
+        "staffCapacity": 5,
+        "occupancyRatio": 62.5,
+        "residentsPerStaff": 1.0
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 7",
+        "active_residents": 8,
+        "staffCapacity": 4,
+        "occupancyRatio": 66.7,
+        "residentsPerStaff": 2.0
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 8",
+        "active_residents": 6,
+        "staffCapacity": 7,
+        "occupancyRatio": 66.7,
+        "residentsPerStaff": 0.86
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 9",
+        "active_residents": 2,
+        "staffCapacity": 3,
+        "occupancyRatio": 33.3,
+        "residentsPerStaff": 0.67
+      }
+    ]
+  },
+  "reintegration": {
+    "readiness": [
+      {
+        "resident_id": 40,
+        "internal_code": "LS-0040",
+        "safehouse_id": 1,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.94,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 92.3,
+        "safehouseName": "Lighthouse Safehouse 1"
+      },
+      {
+        "resident_id": 15,
+        "internal_code": "LS-0015",
+        "safehouse_id": 8,
+        "reintegration_status": "On Hold",
+        "case_status": "Transferred",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.89,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 89.7,
+        "safehouseName": "Lighthouse Safehouse 8"
+      },
+      {
+        "resident_id": 39,
+        "internal_code": "LS-0039",
+        "safehouse_id": 8,
+        "reintegration_status": "On Hold",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.71,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 89.5,
+        "safehouseName": "Lighthouse Safehouse 8"
+      },
+      {
+        "resident_id": 38,
+        "internal_code": "LS-0038",
+        "safehouse_id": 2,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 97.3,
+        "healthScore": 3.71,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 88.3,
+        "safehouseName": "Lighthouse Safehouse 2"
+      },
+      {
+        "resident_id": 51,
+        "internal_code": "LS-0051",
+        "safehouse_id": 2,
+        "reintegration_status": "Not Started",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.56,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 87.7,
+        "safehouseName": "Lighthouse Safehouse 2"
+      },
+      {
+        "resident_id": 28,
+        "internal_code": "LS-0028",
+        "safehouse_id": 3,
+        "reintegration_status": "Not Started",
+        "case_status": "Closed",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 4.33,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 87.0,
+        "safehouseName": "Lighthouse Safehouse 3"
+      },
+      {
+        "resident_id": 59,
+        "internal_code": "LS-0059",
+        "safehouse_id": 3,
+        "reintegration_status": "Completed",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.58,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 86.0,
+        "safehouseName": "Lighthouse Safehouse 3"
+      },
+      {
+        "resident_id": 43,
+        "internal_code": "LS-0043",
+        "safehouse_id": 2,
+        "reintegration_status": "In Progress",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.41,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 85.9,
+        "safehouseName": "Lighthouse Safehouse 2"
+      },
+      {
+        "resident_id": 16,
+        "internal_code": "LS-0016",
+        "safehouse_id": 8,
+        "reintegration_status": "In Progress",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.32,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 84.8,
+        "safehouseName": "Lighthouse Safehouse 8"
+      },
+      {
+        "resident_id": 13,
+        "internal_code": "LS-0013",
+        "safehouse_id": 2,
+        "reintegration_status": "Completed",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.3,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 84.6,
+        "safehouseName": "Lighthouse Safehouse 2"
+      }
+    ],
+    "completionRate": 31.7,
+    "funnel": [
+      {
+        "label": "In care",
+        "value": 30
+      },
+      {
+        "label": "Planning",
+        "value": 0
+      },
+      {
+        "label": "In progress",
+        "value": 21
+      },
+      {
+        "label": "Completed",
+        "value": 19
+      }
+    ],
+    "interventionCompletion": [
+      {
+        "label": "In Progress",
+        "value": 72
+      },
+      {
+        "label": "Open",
+        "value": 39
+      },
+      {
+        "label": "On Hold",
+        "value": 37
+      },
+      {
+        "label": "Achieved",
+        "value": 29
+      },
+      {
+        "label": "Closed",
+        "value": 3
+      }
+    ]
+  },
+  "outreachImpact": {
+    "bestPlatform": "YouTube",
+    "bestPostingTime": "afternoon",
+    "conversionByPostType": [
+      {
+        "postType": "ImpactStory",
+        "referralRate": 94.6,
+        "avgDonationValuePhp": null,
+        "posts": 203
+      },
+      {
+        "postType": "Campaign",
+        "referralRate": 82.0,
+        "avgDonationValuePhp": null,
+        "posts": 156
+      },
+      {
+        "postType": "FundraisingAppeal",
+        "referralRate": 81.1,
+        "avgDonationValuePhp": null,
+        "posts": 90
+      },
+      {
+        "postType": "ThankYou",
+        "referralRate": 38.1,
+        "avgDonationValuePhp": null,
+        "posts": 118
+      },
+      {
+        "postType": "EducationalContent",
+        "referralRate": 35.1,
+        "avgDonationValuePhp": null,
+        "posts": 114
+      },
+      {
+        "postType": "EventPromotion",
+        "referralRate": 33.6,
+        "avgDonationValuePhp": null,
+        "posts": 131
+      }
+    ],
+    "donationValueForecast": [
+      {
+        "label": "ImpactStory",
+        "value": 116160.67
+      },
+      {
+        "label": "FundraisingAppeal",
+        "value": 36155.81
+      },
+      {
+        "label": "Campaign",
+        "value": 28141.3
+      },
+      {
+        "label": "EducationalContent",
+        "value": 3183.23
+      },
+      {
+        "label": "ThankYou",
+        "value": 2927.61
+      },
+      {
+        "label": "EventPromotion",
+        "value": 2762.69
+      }
+    ],
+    "publicImpactSnapshots": [
+      {
+        "month": "2026-09-01",
+        "label": "Sep 2026",
+        "activeResidentsServed": 60.0,
+        "avgHealthScore": 0.0,
+        "avgEducationProgress": 0.0,
+        "totalDonationImpact": 0.0
+      },
+      {
+        "month": "2026-10-01",
+        "label": "Oct 2026",
+        "activeResidentsServed": 60.0,
+        "avgHealthScore": 0.0,
+        "avgEducationProgress": 0.0,
+        "totalDonationImpact": 0.0
+      },
+      {
+        "month": "2026-11-01",
+        "label": "Nov 2026",
+        "activeResidentsServed": 60.0,
+        "avgHealthScore": 0.0,
+        "avgEducationProgress": 0.0,
+        "totalDonationImpact": 0.0
+      },
+      {
+        "month": "2026-12-01",
+        "label": "Dec 2026",
+        "activeResidentsServed": 60.0,
+        "avgHealthScore": 0.0,
+        "avgEducationProgress": 0.0,
+        "totalDonationImpact": 0.0
+      },
+      {
+        "month": "2027-01-01",
+        "label": "Jan 2027",
+        "activeResidentsServed": 60.0,
+        "avgHealthScore": 0.0,
+        "avgEducationProgress": 0.0,
+        "totalDonationImpact": 0.0
+      },
+      {
+        "month": "2027-02-01",
+        "label": "Feb 2027",
+        "activeResidentsServed": 60.0,
+        "avgHealthScore": 0.0,
+        "avgEducationProgress": 0.0,
+        "totalDonationImpact": 0.0
+      }
+    ]
+  },
+  "annualReport": {
+    "serviceBuckets": [
+      {
+        "label": "Caring",
+        "count": 1497,
+        "detail": {
+          "processSessions": 1400,
+          "interventionPlans": 97
+        }
+      },
+      {
+        "label": "Healing",
+        "count": 1523,
+        "detail": {
+          "processSessions": 1427,
+          "interventionPlans": 96
+        }
+      },
+      {
+        "label": "Teaching",
+        "count": 1554,
+        "detail": {
+          "processSessions": 1448,
+          "interventionPlans": 106
+        }
+      }
+    ],
+    "beneficiaryCounts": [
+      {
+        "label": "Residents served",
+        "value": 60
+      },
+      {
+        "label": "Active residents",
+        "value": 30
+      },
+      {
+        "label": "Completed reintegrations",
+        "value": 19
+      },
+      {
+        "label": "Supporters engaged",
+        "value": 59
+      }
+    ],
+    "serviceCounts": [
+      {
+        "label": "Process recordings",
+        "value": 2819
+      },
+      {
+        "label": "Home visitations",
+        "value": 1337
+      },
+      {
+        "label": "Intervention plans",
+        "value": 180
+      },
+      {
+        "label": "Allocations made",
+        "value": 521
+      }
+    ],
+    "outcomes": [
+      {
+        "label": "Average education progress",
+        "value": 78.26,
+        "unit": "%"
+      },
+      {
+        "label": "Average health score",
+        "value": 3.18,
+        "unit": "score"
+      },
+      {
+        "label": "Incident resolution rate",
+        "value": 71.0,
+        "unit": "%"
+      },
+      {
+        "label": "Donation value",
+        "value": 293707.81,
+        "unit": "currency"
+      }
+    ],
+    "programAreas": [
+      {
+        "label": "Operations",
+        "value": 126
+      },
+      {
+        "label": "Education",
+        "value": 111
+      },
+      {
+        "label": "Wellbeing",
+        "value": 107
+      },
+      {
+        "label": "Transport",
+        "value": 75
+      },
+      {
+        "label": "Maintenance",
+        "value": 51
+      },
+      {
+        "label": "Outreach",
+        "value": 51
+      }
+    ],
+    "highlights": [
+      "Caring services were recorded 1497 times across counseling and intervention workflows.",
+      "Healing supports averaged a health score of 3.18 while 71 incidents were resolved.",
+      "Teaching-related records helped sustain average education progress of 78.3% across the reporting period."
+    ],
+    "narrativeSummary": "The annual accomplishment report highlights 60 residents served, 19 completed reintegrations, and 293707.81 in donation value. Top investment areas included Operations, Education, Wellbeing, while Caring, Healing, and Teaching remained the dominant service themes.",
+    "exportRows": [
+      {
+        "section": "service_bucket",
+        "label": "Caring",
+        "count": 1497,
+        "process_sessions": 1400,
+        "intervention_plans": 97
+      },
+      {
+        "section": "service_bucket",
+        "label": "Healing",
+        "count": 1523,
+        "process_sessions": 1427,
+        "intervention_plans": 96
+      },
+      {
+        "section": "service_bucket",
+        "label": "Teaching",
+        "count": 1554,
+        "process_sessions": 1448,
+        "intervention_plans": 106
+      },
+      {
+        "section": "outcome",
+        "label": "Average education progress",
+        "value": 78.26,
+        "unit": "%"
+      },
+      {
+        "section": "outcome",
+        "label": "Average health score",
+        "value": 3.18,
+        "unit": "score"
+      },
+      {
+        "section": "outcome",
+        "label": "Incident resolution rate",
+        "value": 71.0,
+        "unit": "%"
+      },
+      {
+        "section": "outcome",
+        "label": "Donation value",
+        "value": 293707.81,
+        "unit": "currency"
+      }
+    ]
+  },
+  "exports": {
+    "overview": [
+      {
+        "Total donations YTD": 8742.62,
+        "Active residents": 30,
+        "Reintegration success rate": 31.7,
+        "Avg education progress": 94.4,
+        "Avg health score": 3.33,
+        "Active safehouses": 9,
+        "Active campaigns": 4,
+        "At-risk residents": 25
+      }
+    ],
+    "donation": [
+      {
+        "month": "2023-01-01T00:00:00",
+        "value": 3130.53,
+        "label": "Jan 2023"
+      },
+      {
+        "month": "2023-02-01T00:00:00",
+        "value": 2104.13,
+        "label": "Feb 2023"
+      },
+      {
+        "month": "2023-03-01T00:00:00",
+        "value": 11193.18,
+        "label": "Mar 2023"
+      },
+      {
+        "month": "2023-04-01T00:00:00",
+        "value": 6819.25,
+        "label": "Apr 2023"
+      },
+      {
+        "month": "2023-05-01T00:00:00",
+        "value": 5468.7,
+        "label": "May 2023"
+      },
+      {
+        "month": "2023-06-01T00:00:00",
+        "value": 4899.13,
+        "label": "Jun 2023"
+      },
+      {
+        "month": "2023-07-01T00:00:00",
+        "value": 7773.01,
+        "label": "Jul 2023"
+      },
+      {
+        "month": "2023-08-01T00:00:00",
+        "value": 7837.41,
+        "label": "Aug 2023"
+      },
+      {
+        "month": "2023-09-01T00:00:00",
+        "value": 4275.93,
+        "label": "Sep 2023"
+      },
+      {
+        "month": "2023-10-01T00:00:00",
+        "value": 7366.21,
+        "label": "Oct 2023"
+      },
+      {
+        "month": "2023-11-01T00:00:00",
+        "value": 8707.63,
+        "label": "Nov 2023"
+      },
+      {
+        "month": "2023-12-01T00:00:00",
+        "value": 19915.14,
+        "label": "Dec 2023"
+      },
+      {
+        "month": "2024-01-01T00:00:00",
+        "value": 6217.2,
+        "label": "Jan 2024"
+      },
+      {
+        "month": "2024-02-01T00:00:00",
+        "value": 3409.62,
+        "label": "Feb 2024"
+      },
+      {
+        "month": "2024-03-01T00:00:00",
+        "value": 3076.28,
+        "label": "Mar 2024"
+      },
+      {
+        "month": "2024-04-01T00:00:00",
+        "value": 3849.47,
+        "label": "Apr 2024"
+      },
+      {
+        "month": "2024-05-01T00:00:00",
+        "value": 2366.71,
+        "label": "May 2024"
+      },
+      {
+        "month": "2024-06-01T00:00:00",
+        "value": 4194.7,
+        "label": "Jun 2024"
+      },
+      {
+        "month": "2024-07-01T00:00:00",
+        "value": 4132.15,
+        "label": "Jul 2024"
+      },
+      {
+        "month": "2024-08-01T00:00:00",
+        "value": 7921.68,
+        "label": "Aug 2024"
+      },
+      {
+        "month": "2024-09-01T00:00:00",
+        "value": 8872.2,
+        "label": "Sep 2024"
+      },
+      {
+        "month": "2024-10-01T00:00:00",
+        "value": 16718.62,
+        "label": "Oct 2024"
+      },
+      {
+        "month": "2024-11-01T00:00:00",
+        "value": 14780.33,
+        "label": "Nov 2024"
+      },
+      {
+        "month": "2024-12-01T00:00:00",
+        "value": 15600.67,
+        "label": "Dec 2024"
+      },
+      {
+        "month": "2025-01-01T00:00:00",
+        "value": 6248.16,
+        "label": "Jan 2025"
+      },
+      {
+        "month": "2025-02-01T00:00:00",
+        "value": 3830.5,
+        "label": "Feb 2025"
+      },
+      {
+        "month": "2025-03-01T00:00:00",
+        "value": 8801.23,
+        "label": "Mar 2025"
+      },
+      {
+        "month": "2025-04-01T00:00:00",
+        "value": 6793.1,
+        "label": "Apr 2025"
+      },
+      {
+        "month": "2025-05-01T00:00:00",
+        "value": 4906.37,
+        "label": "May 2025"
+      },
+      {
+        "month": "2025-06-01T00:00:00",
+        "value": 5320.31,
+        "label": "Jun 2025"
+      },
+      {
+        "month": "2025-07-01T00:00:00",
+        "value": 13673.05,
+        "label": "Jul 2025"
+      },
+      {
+        "month": "2025-08-01T00:00:00",
+        "value": 13191.88,
+        "label": "Aug 2025"
+      },
+      {
+        "month": "2025-09-01T00:00:00",
+        "value": 4588.7,
+        "label": "Sep 2025"
+      },
+      {
+        "month": "2025-10-01T00:00:00",
+        "value": 12419.56,
+        "label": "Oct 2025"
+      },
+      {
+        "month": "2025-11-01T00:00:00",
+        "value": 13490.65,
+        "label": "Nov 2025"
+      },
+      {
+        "month": "2025-12-01T00:00:00",
+        "value": 11071.8,
+        "label": "Dec 2025"
+      },
+      {
+        "month": "2026-01-01T00:00:00",
+        "value": 3942.52,
+        "label": "Jan 2026"
+      },
+      {
+        "month": "2026-02-01T00:00:00",
+        "value": 4457.14,
+        "label": "Feb 2026"
+      },
+      {
+        "month": "2026-03-01T00:00:00",
+        "value": 342.96,
+        "label": "Mar 2026"
+      }
+    ],
+    "residentOutcomes": [
+      {
+        "month": "2023-04-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 1,
+        "label": "Apr 2023"
+      },
+      {
+        "month": "2023-06-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 1,
+        "label": "Jun 2023"
+      },
+      {
+        "month": "2023-08-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 1,
+        "label": "Aug 2023"
+      },
+      {
+        "month": "2023-09-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 0,
+        "label": "Sep 2023"
+      },
+      {
+        "month": "2023-11-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 0,
+        "label": "Nov 2023"
+      },
+      {
+        "month": "2023-12-01T00:00:00",
+        "incidentCount": 2,
+        "unresolvedCount": 0,
+        "label": "Dec 2023"
+      },
+      {
+        "month": "2024-01-01T00:00:00",
+        "incidentCount": 2,
+        "unresolvedCount": 0,
+        "label": "Jan 2024"
+      },
+      {
+        "month": "2024-02-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 1,
+        "label": "Feb 2024"
+      },
+      {
+        "month": "2024-03-01T00:00:00",
+        "incidentCount": 4,
+        "unresolvedCount": 0,
+        "label": "Mar 2024"
+      },
+      {
+        "month": "2024-04-01T00:00:00",
+        "incidentCount": 5,
+        "unresolvedCount": 1,
+        "label": "Apr 2024"
+      },
+      {
+        "month": "2024-06-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 1,
+        "label": "Jun 2024"
+      },
+      {
+        "month": "2024-07-01T00:00:00",
+        "incidentCount": 4,
+        "unresolvedCount": 2,
+        "label": "Jul 2024"
+      },
+      {
+        "month": "2024-08-01T00:00:00",
+        "incidentCount": 5,
+        "unresolvedCount": 0,
+        "label": "Aug 2024"
+      },
+      {
+        "month": "2024-09-01T00:00:00",
+        "incidentCount": 6,
+        "unresolvedCount": 3,
+        "label": "Sep 2024"
+      },
+      {
+        "month": "2024-10-01T00:00:00",
+        "incidentCount": 4,
+        "unresolvedCount": 1,
+        "label": "Oct 2024"
+      },
+      {
+        "month": "2024-11-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 2,
+        "label": "Nov 2024"
+      },
+      {
+        "month": "2024-12-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 1,
+        "label": "Dec 2024"
+      },
+      {
+        "month": "2025-01-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 0,
+        "label": "Jan 2025"
+      },
+      {
+        "month": "2025-02-01T00:00:00",
+        "incidentCount": 2,
+        "unresolvedCount": 1,
+        "label": "Feb 2025"
+      },
+      {
+        "month": "2025-03-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 1,
+        "label": "Mar 2025"
+      },
+      {
+        "month": "2025-04-01T00:00:00",
+        "incidentCount": 7,
+        "unresolvedCount": 3,
+        "label": "Apr 2025"
+      },
+      {
+        "month": "2025-05-01T00:00:00",
+        "incidentCount": 5,
+        "unresolvedCount": 1,
+        "label": "May 2025"
+      },
+      {
+        "month": "2025-06-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 0,
+        "label": "Jun 2025"
+      },
+      {
+        "month": "2025-07-01T00:00:00",
+        "incidentCount": 5,
+        "unresolvedCount": 1,
+        "label": "Jul 2025"
+      },
+      {
+        "month": "2025-08-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 1,
+        "label": "Aug 2025"
+      },
+      {
+        "month": "2025-09-01T00:00:00",
+        "incidentCount": 5,
+        "unresolvedCount": 1,
+        "label": "Sep 2025"
+      },
+      {
+        "month": "2025-10-01T00:00:00",
+        "incidentCount": 3,
+        "unresolvedCount": 0,
+        "label": "Oct 2025"
+      },
+      {
+        "month": "2025-11-01T00:00:00",
+        "incidentCount": 6,
+        "unresolvedCount": 1,
+        "label": "Nov 2025"
+      },
+      {
+        "month": "2025-12-01T00:00:00",
+        "incidentCount": 6,
+        "unresolvedCount": 1,
+        "label": "Dec 2025"
+      },
+      {
+        "month": "2026-01-01T00:00:00",
+        "incidentCount": 2,
+        "unresolvedCount": 2,
+        "label": "Jan 2026"
+      },
+      {
+        "month": "2026-02-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 1,
+        "label": "Feb 2026"
+      },
+      {
+        "month": "2026-04-01T00:00:00",
+        "incidentCount": 1,
+        "unresolvedCount": 0,
+        "label": "Apr 2026"
+      }
+    ],
+    "safehouse": [
+      {
+        "safehouseName": "Lighthouse Safehouse 1",
+        "occupancy": 10,
+        "capacityGirls": 8,
+        "occupancyRatio": 125.0
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 2",
+        "occupancy": 8,
+        "capacityGirls": 10,
+        "occupancyRatio": 80.0
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 3",
+        "occupancy": 7,
+        "capacityGirls": 9,
+        "occupancyRatio": 77.8
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 4",
+        "occupancy": 8,
+        "capacityGirls": 12,
+        "occupancyRatio": 66.7
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 5",
+        "occupancy": 6,
+        "capacityGirls": 11,
+        "occupancyRatio": 54.5
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 6",
+        "occupancy": 5,
+        "capacityGirls": 8,
+        "occupancyRatio": 62.5
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 7",
+        "occupancy": 8,
+        "capacityGirls": 12,
+        "occupancyRatio": 66.7
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 8",
+        "occupancy": 6,
+        "capacityGirls": 9,
+        "occupancyRatio": 66.7
+      },
+      {
+        "safehouseName": "Lighthouse Safehouse 9",
+        "occupancy": 2,
+        "capacityGirls": 6,
+        "occupancyRatio": 33.3
+      }
+    ],
+    "reintegration": [
+      {
+        "resident_id": 1,
+        "internal_code": "LS-0001",
+        "safehouse_id": 4,
+        "reintegration_status": "In Progress",
+        "case_status": "Active",
+        "current_risk_level": "High",
+        "educationProgress": 52.8,
+        "healthScore": 3.22,
+        "incidentCount": 4.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 39.4,
+        "safehouseName": "Lighthouse Safehouse 4"
+      },
+      {
+        "resident_id": 2,
+        "internal_code": "LS-0002",
+        "safehouse_id": 3,
+        "reintegration_status": "Completed",
+        "case_status": "Closed",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.62,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 80.4,
+        "safehouseName": "Lighthouse Safehouse 3"
+      },
+      {
+        "resident_id": 3,
+        "internal_code": "LS-0003",
+        "safehouse_id": 1,
+        "reintegration_status": "Completed",
+        "case_status": "Active",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.57,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 75.8,
+        "safehouseName": "Lighthouse Safehouse 1"
+      },
+      {
+        "resident_id": 4,
+        "internal_code": "LS-0004",
+        "safehouse_id": 2,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.11,
+        "incidentCount": 3.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 76.3,
+        "safehouseName": "Lighthouse Safehouse 2"
+      },
+      {
+        "resident_id": 5,
+        "internal_code": "LS-0005",
+        "safehouse_id": 4,
+        "reintegration_status": "Completed",
+        "case_status": "Transferred",
+        "current_risk_level": "Low",
+        "educationProgress": 80.8,
+        "healthScore": 3.06,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 69.1,
+        "safehouseName": "Lighthouse Safehouse 4"
+      },
+      {
+        "resident_id": 6,
+        "internal_code": "LS-0006",
+        "safehouse_id": 5,
+        "reintegration_status": "In Progress",
+        "case_status": "Active",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.3,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 72.6,
+        "safehouseName": "Lighthouse Safehouse 5"
+      },
+      {
+        "resident_id": 7,
+        "internal_code": "LS-0007",
+        "safehouse_id": 6,
+        "reintegration_status": "In Progress",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.24,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 81.9,
+        "safehouseName": "Lighthouse Safehouse 6"
+      },
+      {
+        "resident_id": 8,
+        "internal_code": "LS-0008",
+        "safehouse_id": 4,
+        "reintegration_status": "Not Started",
+        "case_status": "Active",
+        "current_risk_level": "High",
+        "educationProgress": 71.3,
+        "healthScore": 3.34,
+        "incidentCount": 3.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 51.2,
+        "safehouseName": "Lighthouse Safehouse 4"
+      },
+      {
+        "resident_id": 9,
+        "internal_code": "LS-0009",
+        "safehouse_id": 7,
+        "reintegration_status": "Not Started",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 44.4,
+        "healthScore": 3.15,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 57.8,
+        "safehouseName": "Lighthouse Safehouse 7"
+      },
+      {
+        "resident_id": 10,
+        "internal_code": "LS-0010",
+        "safehouse_id": 1,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 80.0,
+        "healthScore": 3.37,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 74.4,
+        "safehouseName": "Lighthouse Safehouse 1"
+      },
+      {
+        "resident_id": 11,
+        "internal_code": "LS-0011",
+        "safehouse_id": 1,
+        "reintegration_status": "Completed",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 2.92,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 78.0,
+        "safehouseName": "Lighthouse Safehouse 1"
+      },
+      {
+        "resident_id": 12,
+        "internal_code": "LS-0012",
+        "safehouse_id": 3,
+        "reintegration_status": "In Progress",
+        "case_status": "Active",
+        "current_risk_level": "High",
+        "educationProgress": 100.0,
+        "healthScore": 3.43,
+        "incidentCount": 4.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 63.2,
+        "safehouseName": "Lighthouse Safehouse 3"
+      },
+      {
+        "resident_id": 13,
+        "internal_code": "LS-0013",
+        "safehouse_id": 2,
+        "reintegration_status": "Completed",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.3,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 84.6,
+        "safehouseName": "Lighthouse Safehouse 2"
+      },
+      {
+        "resident_id": 14,
+        "internal_code": "LS-0014",
+        "safehouse_id": 7,
+        "reintegration_status": "In Progress",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.07,
+        "incidentCount": 4.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 73.8,
+        "safehouseName": "Lighthouse Safehouse 7"
+      },
+      {
+        "resident_id": 15,
+        "internal_code": "LS-0015",
+        "safehouse_id": 8,
+        "reintegration_status": "On Hold",
+        "case_status": "Transferred",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.89,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 89.7,
+        "safehouseName": "Lighthouse Safehouse 8"
+      },
+      {
+        "resident_id": 16,
+        "internal_code": "LS-0016",
+        "safehouse_id": 8,
+        "reintegration_status": "In Progress",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.32,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 84.8,
+        "safehouseName": "Lighthouse Safehouse 8"
+      },
+      {
+        "resident_id": 17,
+        "internal_code": "LS-0017",
+        "safehouse_id": 1,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.48,
+        "incidentCount": 5.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 68.8,
+        "safehouseName": "Lighthouse Safehouse 1"
+      },
+      {
+        "resident_id": 18,
+        "internal_code": "LS-0018",
+        "safehouse_id": 8,
+        "reintegration_status": "In Progress",
+        "case_status": "Closed",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.15,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 74.8,
+        "safehouseName": "Lighthouse Safehouse 8"
+      },
+      {
+        "resident_id": 19,
+        "internal_code": "LS-0019",
+        "safehouse_id": 4,
+        "reintegration_status": "Completed",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 92.4,
+        "healthScore": 2.73,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 70.3,
+        "safehouseName": "Lighthouse Safehouse 4"
+      },
+      {
+        "resident_id": 20,
+        "internal_code": "LS-0020",
+        "safehouse_id": 1,
+        "reintegration_status": "Completed",
+        "case_status": "Closed",
+        "current_risk_level": "Medium",
+        "educationProgress": 95.1,
+        "healthScore": 3.5,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 72.8,
+        "safehouseName": "Lighthouse Safehouse 1"
+      },
+      {
+        "resident_id": 21,
+        "internal_code": "LS-0021",
+        "safehouse_id": 5,
+        "reintegration_status": "Completed",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.31,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 80.7,
+        "safehouseName": "Lighthouse Safehouse 5"
+      },
+      {
+        "resident_id": 22,
+        "internal_code": "LS-0022",
+        "safehouse_id": 6,
+        "reintegration_status": "Completed",
+        "case_status": "Transferred",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.42,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 74.0,
+        "safehouseName": "Lighthouse Safehouse 6"
+      },
+      {
+        "resident_id": 23,
+        "internal_code": "LS-0023",
+        "safehouse_id": 5,
+        "reintegration_status": "In Progress",
+        "case_status": "Closed",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.63,
+        "incidentCount": 3.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 74.6,
+        "safehouseName": "Lighthouse Safehouse 5"
+      },
+      {
+        "resident_id": 24,
+        "internal_code": "LS-0024",
+        "safehouse_id": 4,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 95.4,
+        "healthScore": 3.39,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 81.6,
+        "safehouseName": "Lighthouse Safehouse 4"
+      },
+      {
+        "resident_id": 25,
+        "internal_code": "LS-0025",
+        "safehouse_id": 1,
+        "reintegration_status": "Completed",
+        "case_status": "Active",
+        "current_risk_level": "High",
+        "educationProgress": 100.0,
+        "healthScore": 2.99,
+        "incidentCount": 3.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 59.9,
+        "safehouseName": "Lighthouse Safehouse 1"
+      },
+      {
+        "resident_id": 26,
+        "internal_code": "LS-0026",
+        "safehouse_id": 3,
+        "reintegration_status": "Not Started",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.44,
+        "incidentCount": 3.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 80.3,
+        "safehouseName": "Lighthouse Safehouse 3"
+      },
+      {
+        "resident_id": 27,
+        "internal_code": "LS-0027",
+        "safehouse_id": 2,
+        "reintegration_status": "In Progress",
+        "case_status": "Transferred",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.06,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 81.7,
+        "safehouseName": "Lighthouse Safehouse 2"
+      },
+      {
+        "resident_id": 28,
+        "internal_code": "LS-0028",
+        "safehouse_id": 3,
+        "reintegration_status": "Not Started",
+        "case_status": "Closed",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 4.33,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 87.0,
+        "safehouseName": "Lighthouse Safehouse 3"
+      },
+      {
+        "resident_id": 29,
+        "internal_code": "LS-0029",
+        "safehouse_id": 8,
+        "reintegration_status": "Completed",
+        "case_status": "Transferred",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.22,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 75.6,
+        "safehouseName": "Lighthouse Safehouse 8"
+      },
+      {
+        "resident_id": 30,
+        "internal_code": "LS-0030",
+        "safehouse_id": 5,
+        "reintegration_status": "Completed",
+        "case_status": "Transferred",
+        "current_risk_level": "Critical",
+        "educationProgress": 100.0,
+        "healthScore": 3.23,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 54.8,
+        "safehouseName": "Lighthouse Safehouse 5"
+      },
+      {
+        "resident_id": 31,
+        "internal_code": "LS-0031",
+        "safehouse_id": 1,
+        "reintegration_status": "In Progress",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.37,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 83.4,
+        "safehouseName": "Lighthouse Safehouse 1"
+      },
+      {
+        "resident_id": 32,
+        "internal_code": "LS-0032",
+        "safehouse_id": 6,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.23,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 71.8,
+        "safehouseName": "Lighthouse Safehouse 6"
+      },
+      {
+        "resident_id": 33,
+        "internal_code": "LS-0033",
+        "safehouse_id": 7,
+        "reintegration_status": "In Progress",
+        "case_status": "Transferred",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.3,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 82.6,
+        "safehouseName": "Lighthouse Safehouse 7"
+      },
+      {
+        "resident_id": 34,
+        "internal_code": "LS-0034",
+        "safehouse_id": 7,
+        "reintegration_status": "Completed",
+        "case_status": "Closed",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 2.88,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 67.6,
+        "safehouseName": "Lighthouse Safehouse 7"
+      },
+      {
+        "resident_id": 35,
+        "internal_code": "LS-0035",
+        "safehouse_id": 3,
+        "reintegration_status": "In Progress",
+        "case_status": "Transferred",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.41,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 73.9,
+        "safehouseName": "Lighthouse Safehouse 3"
+      },
+      {
+        "resident_id": 36,
+        "internal_code": "LS-0036",
+        "safehouse_id": 1,
+        "reintegration_status": "In Progress",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.41,
+        "incidentCount": 3.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 79.9,
+        "safehouseName": "Lighthouse Safehouse 1"
+      },
+      {
+        "resident_id": 37,
+        "internal_code": "LS-0037",
+        "safehouse_id": 4,
+        "reintegration_status": "On Hold",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.15,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 78.8,
+        "safehouseName": "Lighthouse Safehouse 4"
+      },
+      {
+        "resident_id": 38,
+        "internal_code": "LS-0038",
+        "safehouse_id": 2,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 97.3,
+        "healthScore": 3.71,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 88.3,
+        "safehouseName": "Lighthouse Safehouse 2"
+      },
+      {
+        "resident_id": 39,
+        "internal_code": "LS-0039",
+        "safehouse_id": 8,
+        "reintegration_status": "On Hold",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.71,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 89.5,
+        "safehouseName": "Lighthouse Safehouse 8"
+      },
+      {
+        "resident_id": 40,
+        "internal_code": "LS-0040",
+        "safehouse_id": 1,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.94,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 92.3,
+        "safehouseName": "Lighthouse Safehouse 1"
+      },
+      {
+        "resident_id": 41,
+        "internal_code": "LS-0041",
+        "safehouse_id": 9,
+        "reintegration_status": "In Progress",
+        "case_status": "Active",
+        "current_risk_level": "High",
+        "educationProgress": 100.0,
+        "healthScore": 2.63,
+        "incidentCount": 5.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 51.6,
+        "safehouseName": "Lighthouse Safehouse 9"
+      },
+      {
+        "resident_id": 42,
+        "internal_code": "LS-0042",
+        "safehouse_id": 6,
+        "reintegration_status": "Not Started",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.06,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 79.7,
+        "safehouseName": "Lighthouse Safehouse 6"
+      },
+      {
+        "resident_id": 43,
+        "internal_code": "LS-0043",
+        "safehouse_id": 2,
+        "reintegration_status": "In Progress",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.41,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 85.9,
+        "safehouseName": "Lighthouse Safehouse 2"
+      },
+      {
+        "resident_id": 44,
+        "internal_code": "LS-0044",
+        "safehouse_id": 9,
+        "reintegration_status": "Completed",
+        "case_status": "Closed",
+        "current_risk_level": "Medium",
+        "educationProgress": 56.5,
+        "healthScore": 2.79,
+        "incidentCount": 3.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 44.9,
+        "safehouseName": "Lighthouse Safehouse 9"
+      },
+      {
+        "resident_id": 45,
+        "internal_code": "LS-0045",
+        "safehouse_id": 3,
+        "reintegration_status": "In Progress",
+        "case_status": "Transferred",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.46,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 76.5,
+        "safehouseName": "Lighthouse Safehouse 3"
+      },
+      {
+        "resident_id": 46,
+        "internal_code": "LS-0046",
+        "safehouse_id": 7,
+        "reintegration_status": "Not Started",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 96.3,
+        "healthScore": 3.25,
+        "incidentCount": 3.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 76.3,
+        "safehouseName": "Lighthouse Safehouse 7"
+      },
+      {
+        "resident_id": 47,
+        "internal_code": "LS-0047",
+        "safehouse_id": 4,
+        "reintegration_status": "In Progress",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.04,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 81.5,
+        "safehouseName": "Lighthouse Safehouse 4"
+      },
+      {
+        "resident_id": 48,
+        "internal_code": "LS-0048",
+        "safehouse_id": 5,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Medium",
+        "educationProgress": 96.5,
+        "healthScore": 3.3,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 71.0,
+        "safehouseName": "Lighthouse Safehouse 5"
+      },
+      {
+        "resident_id": 49,
+        "internal_code": "LS-0049",
+        "safehouse_id": 5,
+        "reintegration_status": "Completed",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.18,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 83.2,
+        "safehouseName": "Lighthouse Safehouse 5"
+      },
+      {
+        "resident_id": 50,
+        "internal_code": "LS-0050",
+        "safehouse_id": 4,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Medium",
+        "educationProgress": 90.9,
+        "healthScore": 3.97,
+        "incidentCount": 3.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 74.5,
+        "safehouseName": "Lighthouse Safehouse 4"
+      },
+      {
+        "resident_id": 51,
+        "internal_code": "LS-0051",
+        "safehouse_id": 2,
+        "reintegration_status": "Not Started",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.56,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 87.7,
+        "safehouseName": "Lighthouse Safehouse 2"
+      },
+      {
+        "resident_id": 52,
+        "internal_code": "LS-0052",
+        "safehouse_id": 2,
+        "reintegration_status": "Completed",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 36.4,
+        "healthScore": 3.26,
+        "incidentCount": 3.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 49.5,
+        "safehouseName": "Lighthouse Safehouse 2"
+      },
+      {
+        "resident_id": 53,
+        "internal_code": "LS-0053",
+        "safehouse_id": 6,
+        "reintegration_status": "Completed",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.52,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 83.2,
+        "safehouseName": "Lighthouse Safehouse 6"
+      },
+      {
+        "resident_id": 54,
+        "internal_code": "LS-0054",
+        "safehouse_id": 7,
+        "reintegration_status": "In Progress",
+        "case_status": "Transferred",
+        "current_risk_level": "Medium",
+        "educationProgress": 78.1,
+        "healthScore": 3.02,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 61.4,
+        "safehouseName": "Lighthouse Safehouse 7"
+      },
+      {
+        "resident_id": 55,
+        "internal_code": "LS-0055",
+        "safehouse_id": 2,
+        "reintegration_status": "In Progress",
+        "case_status": "Active",
+        "current_risk_level": "Medium",
+        "educationProgress": 98.3,
+        "healthScore": 3.46,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 73.8,
+        "safehouseName": "Lighthouse Safehouse 2"
+      },
+      {
+        "resident_id": 56,
+        "internal_code": "LS-0056",
+        "safehouse_id": 1,
+        "reintegration_status": "Completed",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.55,
+        "incidentCount": 2.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 83.6,
+        "safehouseName": "Lighthouse Safehouse 1"
+      },
+      {
+        "resident_id": 57,
+        "internal_code": "LS-0057",
+        "safehouse_id": 7,
+        "reintegration_status": "On Hold",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.2,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 83.4,
+        "safehouseName": "Lighthouse Safehouse 7"
+      },
+      {
+        "resident_id": 58,
+        "internal_code": "LS-0058",
+        "safehouse_id": 8,
+        "reintegration_status": "In Progress",
+        "case_status": "Closed",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.37,
+        "incidentCount": 4.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 77.4,
+        "safehouseName": "Lighthouse Safehouse 8"
+      },
+      {
+        "resident_id": 59,
+        "internal_code": "LS-0059",
+        "safehouse_id": 3,
+        "reintegration_status": "Completed",
+        "case_status": "Active",
+        "current_risk_level": "Low",
+        "educationProgress": 100.0,
+        "healthScore": 3.58,
+        "incidentCount": 1.0,
+        "planCompletedShare": 0.0,
+        "readinessScore": 86.0,
+        "safehouseName": "Lighthouse Safehouse 3"
+      },
+      {
+        "resident_id": 60,
+        "internal_code": "LS-0060",
+        "safehouse_id": 7,
+        "reintegration_status": "In Progress",
+        "case_status": "Transferred",
+        "current_risk_level": "Medium",
+        "educationProgress": 100.0,
+        "healthScore": 3.17,
+        "incidentCount": null,
+        "planCompletedShare": 0.0,
+        "readinessScore": 75.0,
+        "safehouseName": "Lighthouse Safehouse 7"
+      }
+    ],
+    "outreachImpact": [
+      {
+        "postType": "ImpactStory",
+        "referralRate": 94.6,
+        "avgDonationValuePhp": null,
+        "posts": 203
+      },
+      {
+        "postType": "Campaign",
+        "referralRate": 82.0,
+        "avgDonationValuePhp": null,
+        "posts": 156
+      },
+      {
+        "postType": "FundraisingAppeal",
+        "referralRate": 81.1,
+        "avgDonationValuePhp": null,
+        "posts": 90
+      },
+      {
+        "postType": "ThankYou",
+        "referralRate": 38.1,
+        "avgDonationValuePhp": null,
+        "posts": 118
+      },
+      {
+        "postType": "EducationalContent",
+        "referralRate": 35.1,
+        "avgDonationValuePhp": null,
+        "posts": 114
+      },
+      {
+        "postType": "EventPromotion",
+        "referralRate": 33.6,
+        "avgDonationValuePhp": null,
+        "posts": 131
+      }
+    ],
+    "annualReport": [
+      {
+        "section": "service_bucket",
+        "label": "Caring",
+        "count": 1497,
+        "process_sessions": 1400,
+        "intervention_plans": 97
+      },
+      {
+        "section": "service_bucket",
+        "label": "Healing",
+        "count": 1523,
+        "process_sessions": 1427,
+        "intervention_plans": 96
+      },
+      {
+        "section": "service_bucket",
+        "label": "Teaching",
+        "count": 1554,
+        "process_sessions": 1448,
+        "intervention_plans": 106
+      },
+      {
+        "section": "outcome",
+        "label": "Average education progress",
+        "value": 78.26,
+        "unit": "%"
+      },
+      {
+        "section": "outcome",
+        "label": "Average health score",
+        "value": 3.18,
+        "unit": "score"
+      },
+      {
+        "section": "outcome",
+        "label": "Incident resolution rate",
+        "value": 71.0,
+        "unit": "%"
+      },
+      {
+        "section": "outcome",
+        "label": "Donation value",
+        "value": 293707.81,
+        "unit": "currency"
+      }
+    ],
+    "donorLapse": [
+      {
+        "supporter_id": 40,
+        "supporter_name": "Lena Nash",
+        "supporter_type": "InKindDonor",
+        "status": "Active",
+        "donation_count": 2,
+        "lifetime_value": 1646.05,
+        "days_since_last_donation": 559.0,
+        "median_gap_days": 166.0,
+        "recency_ratio": 3.37,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 12.44,
+        "avg_gift_value": 823.02,
+        "lapse_score": 0.98,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 15,
+        "supporter_name": "Zoe Ortiz",
+        "supporter_type": "SkillsContributor",
+        "status": "Active",
+        "donation_count": 2,
+        "lifetime_value": 925.66,
+        "days_since_last_donation": 869.0,
+        "median_gap_days": 91.0,
+        "recency_ratio": 9.55,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 675.66,
+        "avg_gift_value": 462.83,
+        "lapse_score": 0.98,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 35,
+        "supporter_name": "Jose Inoue",
+        "supporter_type": "SocialMediaAdvocate",
+        "status": "Active",
+        "donation_count": 10,
+        "lifetime_value": 8547.74,
+        "days_since_last_donation": 407.0,
+        "median_gap_days": 98.0,
+        "recency_ratio": 4.15,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 300.0,
+        "avg_gift_value": 854.77,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 47,
+        "supporter_name": "Kaya Ward",
+        "supporter_type": "MonetaryDonor",
+        "status": "Inactive",
+        "donation_count": 6,
+        "lifetime_value": 7264.21,
+        "days_since_last_donation": 482.0,
+        "median_gap_days": 105.0,
+        "recency_ratio": 4.59,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 1541.75,
+        "avg_gift_value": 1210.7,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 32,
+        "supporter_name": "Luz Fisher",
+        "supporter_type": "InKindDonor",
+        "status": "Active",
+        "donation_count": 8,
+        "lifetime_value": 5685.9,
+        "days_since_last_donation": 379.0,
+        "median_gap_days": 61.0,
+        "recency_ratio": 6.21,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 5.23,
+        "avg_gift_value": 710.74,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 36,
+        "supporter_name": "Lara Johnson",
+        "supporter_type": "SocialMediaAdvocate",
+        "status": "Active",
+        "donation_count": 6,
+        "lifetime_value": 4060.64,
+        "days_since_last_donation": 961.0,
+        "median_gap_days": 59.0,
+        "recency_ratio": 16.29,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 427.1,
+        "avg_gift_value": 676.77,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 2,
+        "supporter_name": "Aria Brown",
+        "supporter_type": "Volunteer",
+        "status": "Active",
+        "donation_count": 4,
+        "lifetime_value": 3877.36,
+        "days_since_last_donation": 634.0,
+        "median_gap_days": 152.0,
+        "recency_ratio": 4.17,
+        "recurring_share": 0.0,
+        "campaign_diversity": 0,
+        "last_gift_value": 372.94,
+        "avg_gift_value": 969.34,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 33,
+        "supporter_name": "Tara Green",
+        "supporter_type": "InKindDonor",
+        "status": "Active",
+        "donation_count": 7,
+        "lifetime_value": 3794.98,
+        "days_since_last_donation": 671.0,
+        "median_gap_days": 77.5,
+        "recency_ratio": 8.66,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 633.01,
+        "avg_gift_value": 542.14,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 19,
+        "supporter_name": "Nora Singh",
+        "supporter_type": "Volunteer",
+        "status": "Active",
+        "donation_count": 8,
+        "lifetime_value": 3765.27,
+        "days_since_last_donation": 446.0,
+        "median_gap_days": 100.0,
+        "recency_ratio": 4.46,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 8.16,
+        "avg_gift_value": 470.66,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 10,
+        "supporter_name": "Lucas Jones",
+        "supporter_type": "Volunteer",
+        "status": "Active",
+        "donation_count": 6,
+        "lifetime_value": 3458.54,
+        "days_since_last_donation": 449.0,
+        "median_gap_days": 113.0,
+        "recency_ratio": 3.97,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 447.5,
+        "avg_gift_value": 576.42,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 42,
+        "supporter_name": "Finn Price",
+        "supporter_type": "MonetaryDonor",
+        "status": "Active",
+        "donation_count": 5,
+        "lifetime_value": 2146.77,
+        "days_since_last_donation": 397.0,
+        "median_gap_days": 42.5,
+        "recency_ratio": 9.34,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 717.18,
+        "avg_gift_value": 429.35,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 46,
+        "supporter_name": "Faith Alliance",
+        "supporter_type": "PartnerOrganization",
+        "status": "Inactive",
+        "donation_count": 5,
+        "lifetime_value": 2048.05,
+        "days_since_last_donation": 517.0,
+        "median_gap_days": 133.5,
+        "recency_ratio": 3.87,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 762.84,
+        "avg_gift_value": 409.61,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 39,
+        "supporter_name": "Ben Morris",
+        "supporter_type": "InKindDonor",
+        "status": "Active",
+        "donation_count": 5,
+        "lifetime_value": 1943.22,
+        "days_since_last_donation": 596.0,
+        "median_gap_days": 153.0,
+        "recency_ratio": 3.9,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 364.81,
+        "avg_gift_value": 388.64,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 58,
+        "supporter_name": "Rico Iglesias",
+        "supporter_type": "SocialMediaAdvocate",
+        "status": "Inactive",
+        "donation_count": 3,
+        "lifetime_value": 870.43,
+        "days_since_last_donation": 1111.0,
+        "median_gap_days": 186.5,
+        "recency_ratio": 5.96,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 250.0,
+        "avg_gift_value": 290.14,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 28,
+        "supporter_name": "Pia Baker",
+        "supporter_type": "Volunteer",
+        "status": "Active",
+        "donation_count": 0,
+        "lifetime_value": 0.0,
+        "days_since_last_donation": null,
+        "median_gap_days": null,
+        "recency_ratio": null,
+        "recurring_share": 0.0,
+        "campaign_diversity": 0,
+        "last_gift_value": null,
+        "avg_gift_value": null,
+        "lapse_score": 0.95,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 22,
+        "supporter_name": "Nico Vasquez",
+        "supporter_type": "SkillsContributor",
+        "status": "Active",
+        "donation_count": 5,
+        "lifetime_value": 4326.73,
+        "days_since_last_donation": 355.0,
+        "median_gap_days": 53.5,
+        "recency_ratio": 6.64,
+        "recurring_share": 0.0,
+        "campaign_diversity": 0,
+        "last_gift_value": 642.58,
+        "avg_gift_value": 865.35,
+        "lapse_score": 0.9469,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 50,
+        "supporter_name": "Bright Foundation",
+        "supporter_type": "PartnerOrganization",
+        "status": "Inactive",
+        "donation_count": 4,
+        "lifetime_value": 3201.4,
+        "days_since_last_donation": 573.0,
+        "median_gap_days": 165.0,
+        "recency_ratio": 3.47,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 1510.6,
+        "avg_gift_value": 800.35,
+        "lapse_score": 0.9445,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 12,
+        "supporter_name": "Ella Lopez",
+        "supporter_type": "InKindDonor",
+        "status": "Active",
+        "donation_count": 7,
+        "lifetime_value": 5002.38,
+        "days_since_last_donation": 476.0,
+        "median_gap_days": 71.0,
+        "recency_ratio": 6.7,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 735.61,
+        "avg_gift_value": 714.63,
+        "lapse_score": 0.9251,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 9,
+        "supporter_name": "Sophia Ibrahim",
+        "supporter_type": "Volunteer",
+        "status": "Active",
+        "donation_count": 9,
+        "lifetime_value": 10315.75,
+        "days_since_last_donation": 363.0,
+        "median_gap_days": 100.0,
+        "recency_ratio": 3.63,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 707.04,
+        "avg_gift_value": 1146.19,
+        "lapse_score": 0.9084,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 17,
+        "supporter_name": "Hana Quinn",
+        "supporter_type": "MonetaryDonor",
+        "status": "Active",
+        "donation_count": 4,
+        "lifetime_value": 1406.67,
+        "days_since_last_donation": 688.0,
+        "median_gap_days": 53.0,
+        "recency_ratio": 12.98,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 12.85,
+        "avg_gift_value": 351.67,
+        "lapse_score": 0.9064,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 53,
+        "supporter_name": "Dina DelosReyes",
+        "supporter_type": "Volunteer",
+        "status": "Inactive",
+        "donation_count": 2,
+        "lifetime_value": 2271.28,
+        "days_since_last_donation": 814.0,
+        "median_gap_days": 328.0,
+        "recency_ratio": 2.48,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 7.43,
+        "avg_gift_value": 1135.64,
+        "lapse_score": 0.8963,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 55,
+        "supporter_name": "Kian Farah",
+        "supporter_type": "MonetaryDonor",
+        "status": "Inactive",
+        "donation_count": 6,
+        "lifetime_value": 12074.79,
+        "days_since_last_donation": 595.0,
+        "median_gap_days": 131.0,
+        "recency_ratio": 4.54,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 2499.74,
+        "avg_gift_value": 2012.46,
+        "lapse_score": 0.8932,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 41,
+        "supporter_name": "Cleo Owens",
+        "supporter_type": "SocialMediaAdvocate",
+        "status": "Active",
+        "donation_count": 4,
+        "lifetime_value": 2166.7,
+        "days_since_last_donation": 739.0,
+        "median_gap_days": 129.0,
+        "recency_ratio": 5.73,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 9.31,
+        "avg_gift_value": 541.68,
+        "lapse_score": 0.8874,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 5,
+        "supporter_name": "Emma Evans",
+        "supporter_type": "InKindDonor",
+        "status": "Active",
+        "donation_count": 5,
+        "lifetime_value": 4751.17,
+        "days_since_last_donation": 487.0,
+        "median_gap_days": 153.5,
+        "recency_ratio": 3.17,
+        "recurring_share": 0.0,
+        "campaign_diversity": 1,
+        "last_gift_value": 504.86,
+        "avg_gift_value": 950.23,
+        "lapse_score": 0.8845,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      },
+      {
+        "supporter_id": 51,
+        "supporter_name": "Mira Bello",
+        "supporter_type": "InKindDonor",
+        "status": "Inactive",
+        "donation_count": 6,
+        "lifetime_value": 2653.68,
+        "days_since_last_donation": 339.0,
+        "median_gap_days": 27.0,
+        "recency_ratio": 12.56,
+        "recurring_share": 0.0,
+        "campaign_diversity": 2,
+        "last_gift_value": 914.95,
+        "avg_gift_value": 442.28,
+        "lapse_score": 0.8509,
+        "lapse_band": "High",
+        "upgrade_hint": "Reactivation campaign"
+      }
+    ]
+  }
+}

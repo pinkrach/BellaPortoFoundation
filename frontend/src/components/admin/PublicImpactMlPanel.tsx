@@ -37,7 +37,7 @@ import { fetchWithAuth, apiBaseUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type DetailChartType = "count" | "currency" | "score";
-type TimelineMetricKey = "activeResidentsServed" | "avgHealthScore" | "avgEducationProgress" | "totalDonationImpact";
+type TimelineMetricKey = "avgHealthScore" | "avgEducationProgress" | "totalDonationImpact";
 
 type PublicImpactResponse = {
   generatedAt: string;
@@ -227,7 +227,7 @@ function DetailDialog({
 
 export function PublicImpactMlPanel() {
   const queryClient = useQueryClient();
-  const [timelineMetric, setTimelineMetric] = useState<TimelineMetricKey>("activeResidentsServed");
+  const [timelineMetric, setTimelineMetric] = useState<TimelineMetricKey>("totalDonationImpact");
   const [activeKpiLabel, setActiveKpiLabel] = useState<string | null>(null);
   const [activeChartId, setActiveChartId] = useState<string | null>(null);
 
@@ -255,7 +255,6 @@ export function PublicImpactMlPanel() {
 
   const timelineMeta = useMemo<Record<TimelineMetricKey, { label: string; icon: typeof Users }>>(
     () => ({
-      activeResidentsServed: { label: "Residents served", icon: Users },
       avgHealthScore: { label: "Health score", icon: HeartPulse },
       avgEducationProgress: { label: "Education progress", icon: Brain },
       totalDonationImpact: { label: "Donation impact", icon: BarChart3 },

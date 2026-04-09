@@ -16,6 +16,7 @@ import {
   ClipboardList,
   Download,
   FileHeart,
+  Gift,
   HandCoins,
   Heart,
   HeartPulse,
@@ -55,6 +56,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { ReportsAnalyticsPanel } from "@/components/admin/ReportsAnalyticsPanel";
+import {
+  AnalyticsDetailDialog,
+  type AnalyticsChartRow,
+  type AnalyticsDetailConfig,
+  type AnalyticsMiniKpi,
+} from "@/components/dashboard/charts/AnalyticsDetailDialog";
 import {
   Dialog,
   DialogContent,
@@ -69,6 +77,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { fetchWithAuth } from "@/lib/api";
 import { PublicImpactMlPanel } from "@/components/admin/PublicImpactMlPanel";
 import { OutreachSocialMediaPanel } from "@/components/admin/OutreachSocialMediaPanel";
 import {
@@ -278,6 +287,14 @@ type WorkspaceData = {
   publicImpact: PublicImpactSnapshot[];
 };
 
+type ReportsSummaryLite = {
+  donation?: {
+    trends?: AnalyticsChartRow[];
+    retention?: AnalyticsChartRow[];
+    lapseRisk?: AnalyticsChartRow[];
+  };
+};
+
 type AnalyticsDatum = Record<string, string | number | null>;
 
 type AnalyticsCardConfig = {
@@ -296,6 +313,7 @@ type AnalyticsCardConfig = {
   modalOptions?: Array<{ value: string; label: string }>;
   selectedOption?: string;
   onOptionChange?: (value: string) => void;
+  detail?: AnalyticsDetailConfig;
 };
 
 type ResidentFormState = {
@@ -889,6 +907,60 @@ function buildMonthlySumChart(
   return Array.from(monthly.entries())
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([label, value]) => ({ label, value: Math.round(value) }));
+}
+
+function buildMonthlyMetricChart<TMetrics extends Record<string, (items: Array<Record<string, unknown>>) => number>>(
+  rows: Array<Record<string, unknown>>,
+  dateKey: string,
+  metrics: TMetrics,
+): Array<{ label: string } & { [K in keyof TMetrics]: number }> {
+  const monthly = new Map<string, Array<Record<string, unknown>>>();
+  rows.forEach((row) => {
+    const parsed = new Date(String(row[dateKey] ?? ""));
+    if (Number.isNaN(parsed.getTime())) return;
+    const key = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+    const bucket = monthly.get(key) ?? [];
+    bucket.push(row);
+    monthly.set(key, bucket);
+  });
+  return Array.from(monthly.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([label, items]) => ({
+      label,
+      ...(Object.fromEntries(
+        Object.entries(metrics).map(([metricKey, selector]) => [metricKey, Number(selector(items).toFixed(1))]),
+      ) as { [K in keyof TMetrics]: number }),
+    }));
+}
+
+function buildMiniKpi(label: string, value: string, detail?: string): AnalyticsMiniKpi {
+  return { label, value, detail };
+}
+
+function formatPercentValue(value: number, digits = 0) {
+  return `${value.toFixed(digits)}%`;
+}
+
+async function fetchReportsSummaryLite(): Promise<ReportsSummaryLite | null> {
+  const parseStrictJson = async (response: Response) => {
+    const text = await response.text();
+    return JSON.parse(text.replace(/\bNaN\b/g, "null").replace(/\b-Infinity\b/g, "null").replace(/\bInfinity\b/g, "null")) as ReportsSummaryLite;
+  };
+
+  try {
+    const response = await fetchWithAuth("/api/reports/summary");
+    if (response.ok) return parseStrictJson(response);
+  } catch {
+    // fall through to bundled snapshot
+  }
+
+  try {
+    const response = await fetch("/reports-summary.json");
+    if (!response.ok) return null;
+    return parseStrictJson(response);
+  } catch {
+    return null;
+  }
 }
 
 function AnalyticsPreviewChart({ config, expanded = false }: { config: AnalyticsCardConfig; expanded?: boolean }) {
@@ -1996,6 +2068,7 @@ export function AdminWorkspace() {
   const outreachSubTab = (searchParams.get("outreachSubTab") as OutreachSubTab | null) ?? "social-media";
   const selectedResidentIds = parseIds(searchParams.get("residentIds"));
   const selectedSupporterId = Number(searchParams.get("supporterId") || 0) || null;
+  const supporterModalRequested = searchParams.get("supporterModal") === "1";
   const selectedSafehouseId = Number(searchParams.get("safehouseId") || 0) || null;
 
   const [residentSearch, setResidentSearch] = useState("");
@@ -2083,6 +2156,8 @@ export function AdminWorkspace() {
   });
 
   const [supporterFormOpen, setSupporterFormOpen] = useState(false);
+  const [supporterDetailId, setSupporterDetailId] = useState<number | null>(null);
+  const [supporterModalOpen, setSupporterModalOpen] = useState(false);
   const [editingSupporterId, setEditingSupporterId] = useState<number | null>(null);
   const [supporterForm, setSupporterForm] = useState<SupporterFormState>({
     supporter_type: "MonetaryDonor",
@@ -2260,14 +2335,20 @@ export function AdminWorkspace() {
   });
   const [expandedChartKey, setExpandedChartKey] = useState<string | null>(null);
   const [healthChartMetric, setHealthChartMetric] = useState("general_health_score");
-  const [monthlyMetricsChartMetric, setMonthlyMetricsChartMetric] = useState("active_residents");
+  const [monthlyMetricsChartMetric, setMonthlyMetricsChartMetric] = useState("avg_education_progress");
 
   const workspaceQuery = useQuery({
     queryKey: ["admin-workspace"],
     queryFn: fetchAdminWorkspace,
   });
+  const reportsSummaryQuery = useQuery({
+    queryKey: ["admin-workspace-reports-lite"],
+    queryFn: fetchReportsSummaryLite,
+    retry: false,
+  });
 
   const workspace = workspaceQuery.data ?? EMPTY_WORKSPACE;
+  const reportsSummary = reportsSummaryQuery.data;
 
   const safehouseMap = useMemo(
     () => new Map(workspace.safehouses.map((safehouse) => [safehouse.safehouse_id, safehouse])),
@@ -2538,6 +2619,63 @@ export function AdminWorkspace() {
       setSearchParams(next, { replace: true });
     });
   };
+
+  useEffect(() => {
+    if (!supporterModalRequested || !selectedSupporterId) return;
+    if (!supporterMap.has(selectedSupporterId)) return;
+    setSupporterDetailId(selectedSupporterId);
+    setSupporterModalOpen(true);
+  }, [selectedSupporterId, supporterMap, supporterModalRequested]);
+
+  const openSupporterDetail = useCallback(
+    (supporterId: number, options?: { updateParams?: boolean }) => {
+      if (!supporterMap.has(supporterId)) return;
+      setSupporterDetailId(supporterId);
+      setSupporterModalOpen(true);
+      if (options?.updateParams !== false) {
+        setParams({
+          tab: "donations",
+          donationsSubTab: "supporters",
+          supporterId: String(supporterId),
+          supporterModal: "1",
+        });
+      }
+    },
+    [setParams, supporterMap],
+  );
+
+  const closeSupporterDetail = useCallback(() => {
+    setSupporterModalOpen(false);
+    setSupporterDetailId(null);
+    setParams({ supporterModal: null });
+  }, [setParams]);
+
+  const selectedSupporterDetail = supporterDetailId ? supporterMap.get(supporterDetailId) ?? null : null;
+
+  const selectedSupporterDonations = useMemo(
+    () =>
+      supporterDetailId
+        ? workspace.donations
+            .filter((donation) => donation.supporter_id === supporterDetailId)
+            .sort((left, right) => compareDatesDescending(left.donation_date ?? left.created_at, right.donation_date ?? right.created_at))
+        : [],
+    [supporterDetailId, workspace.donations],
+  );
+
+  const selectedSupporterDonationIds = useMemo(
+    () => new Set(selectedSupporterDonations.map((donation) => donation.donation_id)),
+    [selectedSupporterDonations],
+  );
+
+  const selectedSupporterAllocations = useMemo(
+    () => workspace.allocations.filter((allocation) => allocation.donation_id != null && selectedSupporterDonationIds.has(allocation.donation_id)),
+    [selectedSupporterDonationIds, workspace.allocations],
+  );
+
+  const selectedSupporterInKind = useMemo(
+    () => workspace.inKind.filter((item) => item.donation_id != null && selectedSupporterDonationIds.has(item.donation_id)),
+    [selectedSupporterDonationIds, workspace.inKind],
+  );
 
   const getPage = (key: string) => tablePages[key] ?? 1;
   const setPage = (key: string, page: number) => {
@@ -3366,6 +3504,23 @@ export function AdminWorkspace() {
       "donation_date",
       (row) => toNumber(row.amount ?? row.estimated_value),
     );
+    const reportRetentionRows = reportsSummary?.donation?.retention ?? [];
+    const reportLapseRiskRows = reportsSummary?.donation?.lapseRisk ?? [];
+    const highRiskDonorRows: AnalyticsChartRow[] = (reportLapseRiskRows.filter((row) => String(row.lapse_band ?? "").toLowerCase() === "high").length
+      ? reportLapseRiskRows.filter((row) => String(row.lapse_band ?? "").toLowerCase() === "high")
+      : reportLapseRiskRows)
+      .slice(0, 10)
+      .map((row) => ({
+        ...row,
+        label: row.supporter_name ?? "Supporter",
+        value: Math.round(toNumber(row.lapse_score) * 100),
+      }));
+    const avgLapseScore = highRiskDonorRows.length
+      ? highRiskDonorRows.reduce((sum, row) => sum + toNumber(row.lapse_score), 0) / highRiskDonorRows.length
+      : 0;
+    const recurringSharePct = filteredDonations.length
+      ? (filteredDonations.filter((donation) => String(donation.is_recurring).toLowerCase() === "true").length / filteredDonations.length) * 100
+      : 0;
 
     const healthMetricDefinitions: Record<string, { label: string; extractor: (row: RecordRow) => number }> = {
       general_health_score: { label: "General Health", extractor: (row) => toNumber(row.general_health_score) },
@@ -3376,12 +3531,230 @@ export function AdminWorkspace() {
 
     const currentHealthMetric = healthMetricDefinitions[healthChartMetric] ?? healthMetricDefinitions.general_health_score;
     const monthlyMetricLabels: Record<string, string> = {
-      active_residents: "Active Residents",
       avg_education_progress: "Education Progress",
       avg_health_score: "Health Score",
       home_visitation_count: "Visitations",
       incident_count: "Incidents",
     };
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+    const processTrendData = buildMonthlyMetricChart(residentProcessSplit.currentAndPast, "session_date", {
+      progressRate: (items) => (items.length ? (items.filter((row) => String(row.progress_noted ?? "").toLowerCase() === "true").length / items.length) * 100 : 0),
+      concernRate: (items) => (items.length ? (items.filter((row) => String(row.concerns_flagged ?? "").toLowerCase() === "true").length / items.length) * 100 : 0),
+      sessions: (items) => items.length,
+      followUpQueue: (items) => items.filter((row) => String(row.follow_up_actions ?? "").trim()).length,
+    });
+    const latestProcessPoint = processTrendData.at(-1);
+    const processFollowUpOverdue = residentProcessSplit.currentAndPast.filter((row) => {
+      const parsed = new Date(String(row.session_date ?? ""));
+      if (Number.isNaN(parsed.getTime())) return false;
+      const hasFollowUp = String(row.follow_up_actions ?? "").trim().length > 0;
+      return hasFollowUp && parsed.getTime() < now.getTime() - (7 * 24 * 60 * 60 * 1000);
+    }).length;
+
+    const visitationTrendData = buildMonthlyMetricChart(residentVisitationSplit.currentAndPast, "visit_date", {
+      favorableRate: (items) => (items.length ? (items.filter((row) => String(row.visit_outcome ?? "").toLowerCase() === "favorable").length / items.length) * 100 : 0),
+      followupRate: (items) => (items.length ? (items.filter((row) => String(row.follow_up_needed ?? "").toLowerCase() === "true").length / items.length) * 100 : 0),
+      visits: (items) => items.length,
+    });
+    const latestVisitationPoint = visitationTrendData.at(-1);
+
+    const healthTrendData = buildMonthlyMetricChart(residentHealthSplit.currentAndPast, "record_date", {
+      value: (items) => (items.length ? items.reduce((sum, row) => sum + toNumber(row.general_health_score), 0) / items.length : 0),
+      sleep: (items) => (items.length ? items.reduce((sum, row) => sum + toNumber(row.sleep_quality_score), 0) / items.length : 0),
+      nutrition: (items) => (items.length ? items.reduce((sum, row) => sum + toNumber(row.nutrition_score), 0) / items.length : 0),
+      checkupCompletion: (items) => {
+        const totalChecks = items.length * 3;
+        if (!totalChecks) return 0;
+        const completed = items.reduce((sum, row) => sum
+          + (String(row.medical_checkup_done ?? "").toLowerCase() === "true" ? 1 : 0)
+          + (String(row.dental_checkup_done ?? "").toLowerCase() === "true" ? 1 : 0)
+          + (String(row.psychological_checkup_done ?? "").toLowerCase() === "true" ? 1 : 0), 0);
+        return (completed / totalChecks) * 100;
+      },
+    });
+    const avgHealth = residentHealthSplit.currentAndPast.length
+      ? residentHealthSplit.currentAndPast.reduce((sum, row) => sum + toNumber(row.general_health_score), 0) / residentHealthSplit.currentAndPast.length
+      : 0;
+    const avgSleep = residentHealthSplit.currentAndPast.length
+      ? residentHealthSplit.currentAndPast.reduce((sum, row) => sum + toNumber(row.sleep_quality_score), 0) / residentHealthSplit.currentAndPast.length
+      : 0;
+    const avgNutrition = residentHealthSplit.currentAndPast.length
+      ? residentHealthSplit.currentAndPast.reduce((sum, row) => sum + toNumber(row.nutrition_score), 0) / residentHealthSplit.currentAndPast.length
+      : 0;
+    const checkupCompletionPct = healthTrendData.at(-1)?.checkupCompletion ?? 0;
+
+    const interventionStatusRows = Array.from(
+      residentInterventionSplit.currentAndPast.reduce<Map<string, number>>((accumulator, row) => {
+        const label = asText(row.status, "Unknown");
+        accumulator.set(label, (accumulator.get(label) ?? 0) + 1);
+        return accumulator;
+      }, new Map()),
+    ).map(([label, value]) => ({ label, value }));
+    const achievedPct = residentInterventionSplit.currentAndPast.length
+      ? (residentInterventionSplit.currentAndPast.filter((row) => String(row.status ?? "").toLowerCase() === "completed").length / residentInterventionSplit.currentAndPast.length) * 100
+      : 0;
+    const inProgressPct = residentInterventionSplit.currentAndPast.length
+      ? (residentInterventionSplit.currentAndPast.filter((row) => String(row.status ?? "").toLowerCase() === "in progress").length / residentInterventionSplit.currentAndPast.length) * 100
+      : 0;
+    const onHoldPct = residentInterventionSplit.currentAndPast.length
+      ? (residentInterventionSplit.currentAndPast.filter((row) => String(row.status ?? "").toLowerCase() === "on hold").length / residentInterventionSplit.currentAndPast.length) * 100
+      : 0;
+
+    const incidentTrendData = buildMonthlyMetricChart(residentIncidentSplit.currentAndPast, "incident_date", {
+      incidentCount: (items) => items.length,
+      unresolvedCount: (items) => items.filter((row) => String(row.resolved ?? "").toLowerCase() !== "true").length,
+    });
+    const incidentSeverityRows = buildCountChart(residentIncidentSplit.currentAndPast, "severity");
+    const highSeverityOpen = residentIncidentSplit.currentAndPast.filter((row) => {
+      const severity = String(row.severity ?? "").toLowerCase();
+      return String(row.resolved ?? "").toLowerCase() !== "true" && (severity === "high" || severity === "critical");
+    }).length;
+    const unresolvedAging = residentIncidentSplit.currentAndPast.filter((row) => {
+      const parsed = new Date(String(row.incident_date ?? ""));
+      return !Number.isNaN(parsed.getTime()) && String(row.resolved ?? "").toLowerCase() !== "true" && parsed.getTime() < now.getTime() - (14 * 24 * 60 * 60 * 1000);
+    }).length;
+    const incidentForecast = incidentTrendData.length
+      ? incidentTrendData.slice(-3).reduce((sum, row) => sum + toNumber(row.incidentCount), 0) / Math.max(incidentTrendData.slice(-3).length, 1)
+      : 0;
+
+    const allocationProgramRows = Array.from(
+      filteredAllocations.reduce<Map<string, number>>((accumulator, allocation) => {
+        const label = asText(allocation.program_area, "Unassigned");
+        accumulator.set(label, (accumulator.get(label) ?? 0) + toNumber(allocation.amount_allocated));
+        return accumulator;
+      }, new Map()),
+    )
+      .map(([label, value]) => ({ label, value: Math.round(value) }))
+      .sort((left, right) => right.value - left.value);
+    const totalAllocationValue = allocationProgramRows.reduce((sum, row) => sum + toNumber(row.value), 0);
+    const educationAllocationPct = totalAllocationValue
+      ? ((allocationProgramRows.find((row) => row.label.toLowerCase().includes("education"))?.value ?? 0) / totalAllocationValue) * 100
+      : 0;
+    const wellbeingAllocationPct = totalAllocationValue
+      ? ((allocationProgramRows.find((row) => row.label.toLowerCase().includes("wellbeing"))?.value ?? 0) / totalAllocationValue) * 100
+      : 0;
+
+    const safehouseOccupancyRows: AnalyticsChartRow[] = filteredSafehouses.map((safehouse) => ({
+      safehouseId: safehouse.safehouse_id,
+      label: `Safehouse ${safehouse.safehouse_id}`,
+      value: Math.round((toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1)) * 100),
+      occupancy: toNumber(safehouse.current_occupancy),
+      capacity: toNumber(safehouse.capacity_girls),
+    }));
+    const safehousePressureRows: AnalyticsChartRow[] = filteredSafehouses.map((safehouse) => {
+      const rows = workspace.monthlyMetrics
+        .filter((metric) => metric.safehouse_id === safehouse.safehouse_id)
+        .sort((left, right) => compareDatesDescending(right.month_start, left.month_start))
+        .slice(0, 3);
+      const avgIncidents = rows.length ? rows.reduce((sum, row) => sum + toNumber(row.incident_count), 0) / rows.length : 0;
+      const avgProgress = rows.length ? rows.reduce((sum, row) => sum + toNumber(row.avg_education_progress), 0) / rows.length : 0;
+      const occupancyRatio = toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1);
+      return {
+        safehouseId: safehouse.safehouse_id,
+        label: `Safehouse ${safehouse.safehouse_id}`,
+        value: Number(((occupancyRatio * 60) + (avgIncidents * 10)).toFixed(1)),
+        forecastedIncidents: Number(avgIncidents.toFixed(1)),
+        avgProgress: Number(avgProgress.toFixed(1)),
+      };
+    }).sort((left, right) => toNumber(right.value) - toNumber(left.value));
+    const averageSafehousePressure = safehousePressureRows.length
+      ? safehousePressureRows.reduce((sum, row) => sum + toNumber(row.value), 0) / safehousePressureRows.length
+      : 0;
+    const caseStatusRows = buildCountChart(
+      filteredResidentsTable.map((resident) => ({ case_status: resident.case_status ?? "Unknown" })),
+      "case_status",
+    );
+    const residentRiskRows = buildCountChart(
+      filteredResidentsTable.map((resident) => ({ current_risk_level: resident.current_risk_level ?? "Unknown" })),
+      "current_risk_level",
+    );
+    const educationProgressRows = buildAverageChart(
+      educationLevelOptions.map((option) => ({
+        label: option,
+        values: residentEducationSplit.currentAndPast
+          .filter((row) => String(row.education_level ?? "") === option)
+          .map((row) => toNumber(row.progress_percent))
+          .filter((value) => value > 0),
+      })),
+    ).filter((entry) => entry.value > 0);
+    const educationEnrolledPct = residentEducationSplit.currentAndPast.length
+      ? (residentEducationSplit.currentAndPast.filter((row) => String(row.enrollment_status ?? "").toLowerCase().includes("enroll")).length / residentEducationSplit.currentAndPast.length) * 100
+      : 0;
+    const inKindCategoryRows = buildCountChart(filteredInKind as unknown as Array<Record<string, unknown>>, "item_category");
+    const totalInKindUnits = filteredInKind.reduce((sum, item) => sum + toNumber(item.quantity), 0);
+    const totalInKindEstimatedValue = filteredInKind.reduce((sum, item) => sum + (toNumber(item.quantity) * toNumber(item.estimated_unit_value)), 0);
+    const safehouseAllocationRows = Array.from(
+      safehouseAllocations.reduce<Map<string, number>>((accumulator, allocation) => {
+        const label = asText(allocation.program_area, "Unassigned");
+        accumulator.set(label, (accumulator.get(label) ?? 0) + toNumber(allocation.amount_allocated));
+        return accumulator;
+      }, new Map()),
+    )
+      .map(([label, value]) => ({ label, value: Math.round(value) }))
+      .sort((left, right) => right.value - left.value);
+    const safehouseMetricTrendRows = Array.from(
+      safehouseMetrics.reduce<
+        Map<
+          string,
+          {
+            monthStart: string;
+            activeResidents: number;
+            avgEducationProgress: number;
+            avgHealthScore: number;
+            visitations: number;
+            incidents: number;
+            houseCount: number;
+          }
+        >
+      >((accumulator, metric) => {
+        const monthStart = String(metric.month_start ?? "").slice(0, 7);
+        if (!monthStart) return accumulator;
+        const current = accumulator.get(monthStart) ?? {
+          monthStart,
+          activeResidents: 0,
+          avgEducationProgress: 0,
+          avgHealthScore: 0,
+          visitations: 0,
+          incidents: 0,
+          houseCount: 0,
+        };
+        current.activeResidents += toNumber(metric.active_residents);
+        current.avgEducationProgress += toNumber(metric.avg_education_progress);
+        current.avgHealthScore += toNumber(metric.avg_health_score);
+        current.visitations += toNumber(metric.home_visitation_count);
+        current.incidents += toNumber(metric.incident_count);
+        current.houseCount += 1;
+        accumulator.set(monthStart, current);
+        return accumulator;
+      }, new Map()),
+    )
+      .map(([, entry]) => {
+        const averagedValue =
+          monthlyMetricsChartMetric === "avg_education_progress"
+            ? entry.avgEducationProgress / Math.max(entry.houseCount, 1)
+            : monthlyMetricsChartMetric === "avg_health_score"
+              ? entry.avgHealthScore / Math.max(entry.houseCount, 1)
+              : monthlyMetricsChartMetric === "home_visitation_count"
+                ? entry.visitations
+                : monthlyMetricsChartMetric === "incident_count"
+                  ? entry.incidents
+                  : entry.avgEducationProgress / Math.max(entry.houseCount, 1);
+        return {
+          monthStart: entry.monthStart,
+          label: entry.monthStart,
+          value: Number(averagedValue.toFixed(monthlyMetricsChartMetric.includes("avg_") ? 1 : 0)),
+          activeResidents: entry.activeResidents,
+          avgEducationProgress: Number((entry.avgEducationProgress / Math.max(entry.houseCount, 1)).toFixed(1)),
+          avgHealthScore: Number((entry.avgHealthScore / Math.max(entry.houseCount, 1)).toFixed(1)),
+          visitations: entry.visitations,
+          incidents: entry.incidents,
+          safehouseCount: entry.houseCount,
+        };
+      })
+      .sort((left, right) => String(left.monthStart).localeCompare(String(right.monthStart)));
+    const latestSafehouseMetric = safehouseMetricTrendRows.at(-1);
 
     return {
       "residents-all": {
@@ -3391,36 +3764,112 @@ export function AdminWorkspace() {
         kpiLabel: "Visible Residents",
         kpiValue: String(filteredResidentsTable.length),
         kpiDetail: `${filteredResidentsTable.filter((resident) => (resident.case_status ?? "").toLowerCase() === "active").length} active in this view`,
-        data: buildCountChart(
-          filteredResidentsTable.map((resident) => ({ case_status: resident.case_status ?? "Unknown" })),
-          "case_status",
-        ),
+        data: caseStatusRows,
         xKey: "label",
         yKey: "value",
         type: "pie",
+        detail: {
+          title: "Resident overview",
+          description: "Review resident case-status mix and current risk distribution for the residents in this view.",
+          miniKpis: [
+            buildMiniKpi("Visible residents", String(filteredResidentsTable.length)),
+            buildMiniKpi("Active cases", String(filteredResidentsTable.filter((resident) => (resident.case_status ?? "").toLowerCase() === "active").length)),
+            buildMiniKpi("High risk", String(filteredResidentsTable.filter((resident) => (resident.current_risk_level ?? "").toLowerCase() === "high").length)),
+            buildMiniKpi("Reintegration ready", String(filteredResidentsTable.filter((resident) => (resident.reintegration_status ?? "").toLowerCase().includes("ready")).length)),
+          ],
+          views: [
+            {
+              key: "case-status",
+              label: "Case status",
+              description: "This chart shows how visible residents are distributed across current case statuses.",
+              chartType: "pie",
+              data: caseStatusRows,
+              rows: caseStatusRows,
+              labelKey: "label",
+              valueKey: "value",
+            },
+            {
+              key: "risk-level",
+              label: "Risk levels",
+              description: "This chart shows the current resident risk-level distribution for the same filtered scope.",
+              chartType: "pie",
+              data: residentRiskRows,
+              rows: residentRiskRows,
+              labelKey: "label",
+              valueKey: "value",
+            },
+          ],
+        },
       },
       "residents-process": {
         key: "residents-process",
-        title: "Session types",
-        subtitle: "Current process record mix",
-        kpiLabel: "Follow-Up Queue",
-        kpiValue: String(residentProcessSplit.currentAndPast.filter((row) => String(row.follow_up_actions ?? "").trim()).length),
-        kpiDetail: `${residentProcessSplit.currentAndPast.length} visible process records`,
-        data: buildCountChart(residentProcessSplit.currentAndPast, "session_type"),
+        title: "Process progress",
+        subtitle: "Progress and concern trend for visible process records",
+        kpiLabel: "Progress Rate",
+        kpiValue: formatPercentValue(toNumber(latestProcessPoint?.progressRate), 0),
+        kpiDetail: `${toNumber(latestProcessPoint?.sessions)} sessions in the latest month`,
+        data: processTrendData.map((row) => ({ label: row.label, value: row.progressRate })),
         xKey: "label",
         yKey: "value",
+        type: "line",
+        detail: {
+          title: "Process recording progress",
+          description: "Track progress and concern rates for process records in the current resident scope.",
+          miniKpis: [
+            buildMiniKpi("Progress rate", formatPercentValue(toNumber(latestProcessPoint?.progressRate), 0)),
+            buildMiniKpi("Concern rate", formatPercentValue(toNumber(latestProcessPoint?.concernRate), 0)),
+            buildMiniKpi("Follow-up overdue", String(processFollowUpOverdue)),
+            buildMiniKpi("Sessions this month", String(toNumber(processTrendData.find((row) => row.label === currentMonthKey)?.sessions))),
+          ],
+          views: [
+            {
+              key: "progress",
+              label: "Progress trend",
+              description: "This chart compares process-record progress rate and concern rate by month.",
+              chartType: "line",
+              data: processTrendData,
+              rows: processTrendData,
+              xKey: "label",
+              dataKey: "progressRate",
+              secondaryKey: "concernRate",
+            },
+          ],
+        },
       },
       "residents-visitations": {
         key: "residents-visitations",
         title: "Visit outcomes",
-        subtitle: "Outcome distribution for visible visitations",
-        kpiLabel: "Upcoming Events",
-        kpiValue: String(residentUpcomingEvents.length),
-        kpiDetail: `${residentVisitationSplit.currentAndPast.length} completed or current visit rows`,
-        data: buildCountChart(residentVisitationSplit.currentAndPast, "visit_outcome"),
+        subtitle: "Favorable visits and follow-up-needed trend",
+        kpiLabel: "Favorable Visits",
+        kpiValue: formatPercentValue(toNumber(latestVisitationPoint?.favorableRate), 0),
+        kpiDetail: `${toNumber(latestVisitationPoint?.visits)} visits in the latest month`,
+        data: visitationTrendData.map((row) => ({ label: row.label, value: row.favorableRate })),
         xKey: "label",
         yKey: "value",
-        type: "pie",
+        type: "line",
+        detail: {
+          title: "Visitations & conferences",
+          description: "Review favorable visit rate, follow-up-needed rate, and the current upcoming conference load.",
+          miniKpis: [
+            buildMiniKpi("Favorable visit %", formatPercentValue(toNumber(latestVisitationPoint?.favorableRate), 0)),
+            buildMiniKpi("Visits this month", String(toNumber(visitationTrendData.find((row) => row.label === currentMonthKey)?.visits))),
+            buildMiniKpi("Follow-up needed %", formatPercentValue(toNumber(latestVisitationPoint?.followupRate), 0)),
+            buildMiniKpi("Upcoming conferences", String(residentUpcomingEvents.length)),
+          ],
+          views: [
+            {
+              key: "visit-outcomes",
+              label: "Visit outcomes",
+              description: "This chart compares favorable visit rate and follow-up-needed rate by month.",
+              chartType: "line",
+              data: visitationTrendData,
+              rows: visitationTrendData,
+              xKey: "label",
+              dataKey: "favorableRate",
+              secondaryKey: "followupRate",
+            },
+          ],
+        },
       },
       "residents-education": {
         key: "residents-education",
@@ -3429,41 +3878,69 @@ export function AdminWorkspace() {
         kpiLabel: "Average Progress",
         kpiValue: `${residentEducationSplit.currentAndPast.length ? Math.round(residentEducationSplit.currentAndPast.reduce((sum, row) => sum + toNumber(row.progress_percent), 0) / residentEducationSplit.currentAndPast.length) : 0}%`,
         kpiDetail: `${residentEducationSplit.currentAndPast.length} visible education records`,
-        data: buildAverageChart(
-          educationLevelOptions.map((option) => ({
-            label: option,
-            values: residentEducationSplit.currentAndPast
-              .filter((row) => String(row.education_level ?? "") === option)
-              .map((row) => toNumber(row.progress_percent))
-              .filter((value) => value > 0),
-          })),
-        ).filter((entry) => entry.value > 0),
+        data: educationProgressRows,
         xKey: "label",
         yKey: "value",
+        detail: {
+          title: "Education progress",
+          description: "Review average education progress by level for the current resident scope.",
+          miniKpis: [
+            buildMiniKpi("Average progress", `${residentEducationSplit.currentAndPast.length ? Math.round(residentEducationSplit.currentAndPast.reduce((sum, row) => sum + toNumber(row.progress_percent), 0) / residentEducationSplit.currentAndPast.length) : 0}%`),
+            buildMiniKpi("Education records", String(residentEducationSplit.currentAndPast.length)),
+            buildMiniKpi("Enrollment rate", formatPercentValue(educationEnrolledPct, 0)),
+            buildMiniKpi("Top level", String(educationProgressRows[0]?.label ?? "N/A")),
+          ],
+          views: [
+            {
+              key: "education-progress",
+              label: "Education progress",
+              description: "This chart shows average education progress by level for visible records.",
+              chartType: "bar",
+              data: educationProgressRows,
+              rows: educationProgressRows,
+              labelKey: "label",
+              valueKey: "value",
+            },
+          ],
+        },
       },
       "residents-health": {
         key: "residents-health",
-        title: currentHealthMetric.label,
-        subtitle: "Visible health records by resident",
+        title: "Health trend",
+        subtitle: "Average health trend across visible health records",
         kpiLabel: "Average Health",
-        kpiValue: `${residentHealthSplit.currentAndPast.length ? (residentHealthSplit.currentAndPast.reduce((sum, row) => sum + currentHealthMetric.extractor(row), 0) / residentHealthSplit.currentAndPast.length).toFixed(1) : "0.0"}`,
+        kpiValue: avgHealth.toFixed(1),
         kpiDetail: `${residentHealthSplit.currentAndPast.length} visible health records`,
-        data: residentHealthSplit.currentAndPast
-          .map((row) => ({
-            label: residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident)),
-            value: currentHealthMetric.extractor(row),
-          }))
-          .filter((entry) => entry.value > 0)
-          .slice(0, 10),
+        data: healthTrendData.map((row) => ({ label: row.label, value: row.value })),
         xKey: "label",
         yKey: "value",
-        modalOptions: Object.entries(healthMetricDefinitions).map(([value, meta]) => ({ value, label: meta.label })),
-        selectedOption: healthChartMetric,
-        onOptionChange: setHealthChartMetric,
+        type: "line",
+        detail: {
+          title: "Health trend",
+          description: "This chart shows the average health score by month for residents in the current scope.",
+          miniKpis: [
+            buildMiniKpi("Avg health", avgHealth.toFixed(1)),
+            buildMiniKpi("Avg sleep", avgSleep.toFixed(1)),
+            buildMiniKpi("Avg nutrition", avgNutrition.toFixed(1)),
+            buildMiniKpi("Checkup completion", formatPercentValue(checkupCompletionPct, 0)),
+          ],
+          views: [
+            {
+              key: "health",
+              label: "Health trend",
+              description: "This chart shows the average health score by month for visible residents.",
+              chartType: "line",
+              data: healthTrendData,
+              rows: healthTrendData,
+              xKey: "label",
+              dataKey: "value",
+            },
+          ],
+        },
       },
       "residents-interventions": {
         key: "residents-interventions",
-        title: "Intervention status",
+        title: "Intervention completion",
         subtitle: "Plan status across visible interventions",
         kpiLabel: "Overdue Plans",
         kpiValue: String(
@@ -3473,23 +3950,83 @@ export function AdminWorkspace() {
           }).length,
         ),
         kpiDetail: `${residentInterventionSplit.currentAndPast.length} visible intervention plans`,
-        data: buildCountChart(residentInterventionSplit.currentAndPast, "status"),
+        data: interventionStatusRows,
         xKey: "label",
         yKey: "value",
         type: "pie",
+        detail: {
+          title: "Interventions",
+          description: "Review intervention status and completion distribution for the current resident scope.",
+          miniKpis: [
+            buildMiniKpi("Overdue plans", String(
+              residentInterventionSplit.currentAndPast.filter((row) => {
+                const date = new Date(String(row.target_date ?? ""));
+                return !Number.isNaN(date.getTime()) && date < now && String(row.status ?? "").toLowerCase() !== "completed";
+              }).length,
+            )),
+            buildMiniKpi("Achieved %", formatPercentValue(achievedPct, 0)),
+            buildMiniKpi("In progress %", formatPercentValue(inProgressPct, 0)),
+            buildMiniKpi("On hold %", formatPercentValue(onHoldPct, 0)),
+          ],
+          views: [
+            {
+              key: "status",
+              label: "Status mix",
+              description: "This chart shows intervention-plan status distribution for visible records.",
+              chartType: "pie",
+              data: interventionStatusRows,
+              rows: interventionStatusRows,
+              labelKey: "label",
+              valueKey: "value",
+            },
+          ],
+        },
       },
       "residents-incidents": {
         key: "residents-incidents",
-        title: "Incident severity",
-        subtitle: "Severity mix for visible incidents",
+        title: "Incident risk",
+        subtitle: "Incident trend and severity distribution for visible incidents",
         kpiLabel: "Open Incidents",
         kpiValue: String(residentIncidentSplit.currentAndPast.filter((row) => String(row.resolved ?? "").toLowerCase() !== "true").length),
         kpiDetail: `${residentIncidentSplit.currentAndPast.length} visible incidents`,
-        data: buildCountChart(residentIncidentSplit.currentAndPast, "severity"),
+        data: incidentTrendData.map((row) => ({ label: row.label, value: row.incidentCount })),
         xKey: "label",
         yKey: "value",
         color: "hsl(var(--secondary))",
-        type: "pie",
+        type: "line",
+        detail: {
+          title: "Incidents",
+          description: "Inspect incident trend, severity mix, and the next-month forecast signal for the current view.",
+          miniKpis: [
+            buildMiniKpi("Open incidents", String(residentIncidentSplit.currentAndPast.filter((row) => String(row.resolved ?? "").toLowerCase() !== "true").length)),
+            buildMiniKpi("High severity open", String(highSeverityOpen)),
+            buildMiniKpi("Unresolved aging", String(unresolvedAging)),
+            buildMiniKpi("Next month forecast", incidentForecast.toFixed(1)),
+          ],
+          views: [
+            {
+              key: "trend",
+              label: "Incident trend",
+              description: "This chart compares total incidents and unresolved incidents by month.",
+              chartType: "line",
+              data: incidentTrendData,
+              rows: incidentTrendData,
+              xKey: "label",
+              dataKey: "incidentCount",
+              secondaryKey: "unresolvedCount",
+            },
+            {
+              key: "severity",
+              label: "Severity mix",
+              description: "This chart shows how visible incidents are distributed across severity levels.",
+              chartType: "pie",
+              data: incidentSeverityRows,
+              rows: incidentSeverityRows,
+              labelKey: "label",
+              valueKey: "value",
+            },
+          ],
+        },
       },
       "donations-supporters": {
         key: "donations-supporters",
@@ -3502,6 +4039,55 @@ export function AdminWorkspace() {
         xKey: "label",
         yKey: "value",
         type: "pie",
+        detail: {
+          title: "Donor retention and lapse risk",
+          description: "This view combines donor status with the pipeline-backed lapse-risk output when it is available.",
+          miniKpis: [
+            buildMiniKpi("Active supporters", String(filteredSupporters.filter((supporter) => (supporter.status ?? "").toLowerCase() === "active").length)),
+            buildMiniKpi("High lapse risk", String(highRiskDonorRows.length)),
+            buildMiniKpi("Avg lapse score", avgLapseScore ? avgLapseScore.toFixed(2) : "N/A"),
+            buildMiniKpi("Recurring share", formatPercentValue(recurringSharePct, 0)),
+          ],
+          views: highRiskDonorRows.length
+            ? [
+                {
+                  key: "lapse-risk",
+                  label: "Lapse risk",
+                  description: "This chart ranks the supporters most likely to lapse based on the reporting pipeline output.",
+                  chartType: "bar",
+                  data: highRiskDonorRows,
+                  rows: highRiskDonorRows,
+                  labelKey: "label",
+                  valueKey: "value",
+                  searchable: true,
+                },
+                {
+                  key: "supporter-status",
+                  label: "Supporter status",
+                  description: "This chart shows the current visible supporter-status mix.",
+                  chartType: "pie",
+                  data: buildCountChart(filteredSupporters.map((supporter) => ({ status: supporter.status ?? "Unknown" })), "status"),
+                  rows: buildCountChart(filteredSupporters.map((supporter) => ({ status: supporter.status ?? "Unknown" })), "status"),
+                  labelKey: "label",
+                  valueKey: "value",
+                },
+              ]
+            : [
+                {
+                  key: "supporter-status",
+                  label: "Supporter status",
+                  description: "This chart shows the current visible supporter-status mix.",
+                  chartType: "pie",
+                  data: buildCountChart(filteredSupporters.map((supporter) => ({ status: supporter.status ?? "Unknown" })), "status"),
+                  rows: buildCountChart(filteredSupporters.map((supporter) => ({ status: supporter.status ?? "Unknown" })), "status"),
+                  labelKey: "label",
+                  valueKey: "value",
+                },
+              ],
+          rowAction: highRiskDonorRows.length
+            ? { label: "Open supporter", type: "supporter", idKey: "supporter_id", textKey: "supporter_name" }
+            : undefined,
+        },
       },
       "donations-donations": {
         key: "donations-donations",
@@ -3514,6 +4100,51 @@ export function AdminWorkspace() {
         xKey: "label",
         yKey: "value",
         type: "line",
+        detail: {
+          title: "Donation trend",
+          description: "Review monthly donation trend and retention signal for the current donation scope.",
+          miniKpis: [
+            buildMiniKpi("Recurring share", formatPercentValue(recurringSharePct, 0)),
+            buildMiniKpi("Total donated", formatCurrency(filteredDonations.reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0))),
+            buildMiniKpi("Latest month", String(donationsByMonth.at(-1)?.label ?? "N/A")),
+            buildMiniKpi("High lapse risk", String(highRiskDonorRows.length)),
+          ],
+          views: reportRetentionRows.length
+            ? [
+                {
+                  key: "donation-trend",
+                  label: "Donation trend",
+                  description: "This chart shows monthly donation value in the current scope.",
+                  chartType: "line",
+                  data: donationsByMonth,
+                  rows: donationsByMonth,
+                  xKey: "label",
+                  dataKey: "value",
+                },
+                {
+                  key: "retention",
+                  label: "Retention",
+                  description: "This chart shows the monthly donor retention signal from the reporting pipeline.",
+                  chartType: "line",
+                  data: reportRetentionRows,
+                  rows: reportRetentionRows,
+                  xKey: "month",
+                  dataKey: "retention_rate",
+                },
+              ]
+            : [
+                {
+                  key: "donation-trend",
+                  label: "Donation trend",
+                  description: "This chart shows monthly donation value in the current scope.",
+                  chartType: "line",
+                  data: donationsByMonth,
+                  rows: donationsByMonth,
+                  xKey: "label",
+                  dataKey: "value",
+                },
+              ],
+        },
       },
       "donations-in-kind": {
         key: "donations-in-kind",
@@ -3522,41 +4153,108 @@ export function AdminWorkspace() {
         kpiLabel: "In-Kind Items",
         kpiValue: String(filteredInKind.length),
         kpiDetail: `${formatCompactNumber(filteredInKind.reduce((sum, item) => sum + toNumber(item.quantity), 0))} total units in view`,
-        data: buildCountChart(filteredInKind as unknown as Array<Record<string, unknown>>, "item_category"),
+        data: inKindCategoryRows,
         xKey: "label",
         yKey: "value",
         type: "pie",
+        detail: {
+          title: "In-kind donation mix",
+          description: "Review the visible in-kind categories and the current item volume behind them.",
+          miniKpis: [
+            buildMiniKpi("In-kind items", String(filteredInKind.length)),
+            buildMiniKpi("Total units", formatCompactNumber(totalInKindUnits)),
+            buildMiniKpi("Estimated value", formatCurrency(totalInKindEstimatedValue)),
+            buildMiniKpi("Top category", String(inKindCategoryRows[0]?.label ?? "N/A")),
+          ],
+          views: [
+            {
+              key: "in-kind-categories",
+              label: "Categories",
+              description: "This chart shows the current visible in-kind category mix.",
+              chartType: "pie",
+              data: inKindCategoryRows,
+              rows: inKindCategoryRows,
+              labelKey: "label",
+              valueKey: "value",
+            },
+          ],
+        },
       },
       "donations-allocations": {
         key: "donations-allocations",
-        title: "Allocation areas",
+        title: "Allocation by program area",
         subtitle: "Program area totals",
         kpiLabel: "Allocated Value",
         kpiValue: formatCurrency(filteredAllocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0)),
         kpiDetail: `${filteredAllocations.length} visible allocation records`,
-        data: Array.from(
-          filteredAllocations.reduce<Map<string, number>>((accumulator, allocation) => {
-            const label = asText(allocation.program_area, "Unassigned");
-            accumulator.set(label, (accumulator.get(label) ?? 0) + toNumber(allocation.amount_allocated));
-            return accumulator;
-          }, new Map()),
-        ).map(([label, value]) => ({ label, value: Math.round(value) })),
+        data: allocationProgramRows,
         xKey: "label",
         yKey: "value",
+        detail: {
+          title: "Allocation by program area",
+          description: "This shows which program areas received the most funding in the filtered reporting scope.",
+          miniKpis: [
+            buildMiniKpi("Allocated value", formatCurrency(totalAllocationValue)),
+            buildMiniKpi("Top supported area", String(allocationProgramRows[0]?.label ?? "N/A")),
+            buildMiniKpi("Education %", formatPercentValue(educationAllocationPct, 0)),
+            buildMiniKpi("Wellbeing %", formatPercentValue(wellbeingAllocationPct, 0)),
+          ],
+          views: [
+            {
+              key: "allocation-area",
+              label: "Allocation by area",
+              description: "This chart shows which program areas received the most funding in the current scope.",
+              chartType: "bar",
+              data: allocationProgramRows,
+              rows: allocationProgramRows,
+              labelKey: "label",
+              valueKey: "value",
+            },
+          ],
+        },
       },
       "safehouses-overview": {
         key: "safehouses-overview",
-        title: "Occupancy by house",
+        title: "Occupancy vs capacity",
         subtitle: "Current occupancy across visible houses",
-        kpiLabel: "Average Occupancy",
+        kpiLabel: "Occupancy %",
         kpiValue: `${filteredSafehouses.length ? Math.round(filteredSafehouses.reduce((sum, safehouse) => sum + (toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1)) * 100, 0) / filteredSafehouses.length) : 0}%`,
         kpiDetail: `${filteredSafehouses.length} visible safe houses`,
-        data: filteredSafehouses.map((safehouse) => ({
-          label: asText(safehouse.name, `House ${safehouse.safehouse_id}`),
-          value: Math.round((toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1)) * 100),
-        })),
+        data: safehouseOccupancyRows,
         xKey: "label",
         yKey: "value",
+        detail: {
+          title: "Safehouse performance",
+          description: "Compare safehouse occupancy and pressure indicators for the current safehouse scope.",
+          miniKpis: [
+            buildMiniKpi("Occupancy %", `${filteredSafehouses.length ? Math.round(filteredSafehouses.reduce((sum, safehouse) => sum + (toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1)) * 100, 0) / filteredSafehouses.length) : 0}%`),
+            buildMiniKpi("Pressure score", averageSafehousePressure.toFixed(1)),
+            buildMiniKpi("Forecasted incidents", safehousePressureRows.length ? (safehousePressureRows.reduce((sum, row) => sum + toNumber(row.forecastedIncidents), 0) / safehousePressureRows.length).toFixed(1) : "0.0"),
+            buildMiniKpi("Avg progress", safehousePressureRows.length ? `${(safehousePressureRows.reduce((sum, row) => sum + toNumber(row.avgProgress), 0) / safehousePressureRows.length).toFixed(1)}%` : "0.0%"),
+          ],
+          views: [
+            {
+              key: "occupancy",
+              label: "Occupancy vs capacity",
+              description: "This compares current occupancy percentage across visible safehouses.",
+              chartType: "bar",
+              data: safehouseOccupancyRows,
+              rows: safehouseOccupancyRows,
+              labelKey: "label",
+              valueKey: "value",
+            },
+            {
+              key: "pressure",
+              label: "Incident forecast",
+              description: "This compares pressure score and forecasted incident load using recent monthly metric history.",
+              chartType: "bar",
+              data: safehousePressureRows,
+              rows: safehousePressureRows,
+              labelKey: "label",
+              valueKey: "value",
+            },
+          ],
+        },
       },
       "safehouses-allocations": {
         key: "safehouses-allocations",
@@ -3565,20 +4263,41 @@ export function AdminWorkspace() {
         kpiLabel: "Allocated To Houses",
         kpiValue: formatCurrency(safehouseAllocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0)),
         kpiDetail: `${safehouseAllocations.length} visible allocation records`,
-        data: Array.from(
-          safehouseAllocations.reduce<Map<string, number>>((accumulator, allocation) => {
-            const label = asText(allocation.program_area, "Unassigned");
-            accumulator.set(label, (accumulator.get(label) ?? 0) + toNumber(allocation.amount_allocated));
-            return accumulator;
-          }, new Map()),
-        ).map(([label, value]) => ({ label, value: Math.round(value) })),
+        data: safehouseAllocationRows,
         xKey: "label",
         yKey: "value",
+        detail: {
+          title: "Safehouse allocation history",
+          description: "This chart shows how visible safehouse-linked allocations are split across program areas.",
+          miniKpis: [
+            buildMiniKpi("Allocated value", formatCurrency(safehouseAllocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0))),
+            buildMiniKpi("Allocation records", String(safehouseAllocations.length)),
+            buildMiniKpi("Top program area", String(safehouseAllocationRows[0]?.label ?? "N/A")),
+            buildMiniKpi("Education share", formatPercentValue(
+              safehouseAllocationRows.reduce((sum, row) => sum + toNumber(row.value), 0)
+                ? ((safehouseAllocationRows.find((row) => String(row.label).toLowerCase().includes("education"))?.value ?? 0) / safehouseAllocationRows.reduce((sum, row) => sum + toNumber(row.value), 0)) * 100
+                : 0,
+              0,
+            )),
+          ],
+          views: [
+            {
+              key: "safehouse-allocation-area",
+              label: "Allocation by area",
+              description: "This chart shows which program areas are receiving safehouse-linked allocations in the current scope.",
+              chartType: "bar",
+              data: safehouseAllocationRows,
+              rows: safehouseAllocationRows,
+              labelKey: "label",
+              valueKey: "value",
+            },
+          ],
+        },
       },
       "safehouses-metrics": {
         key: "safehouses-metrics",
-        title: monthlyMetricLabels[monthlyMetricsChartMetric] ?? "Monthly metrics",
-        subtitle: "Visible monthly metric trend",
+        title: "Education progress trend",
+        subtitle: "Monthly safehouse education progress across the visible scope",
         kpiLabel: "Latest Snapshot",
         kpiValue: String(
           safehouseMetrics.length
@@ -3588,18 +4307,65 @@ export function AdminWorkspace() {
             : 0,
         ),
         kpiDetail: monthlyMetricLabels[monthlyMetricsChartMetric] ?? "Monthly metrics",
-        data: safehouseMetrics
-          .map((metric) => ({
-            label: String(metric.month_start ?? "").slice(0, 7) || asDisplayDate(metric.month_start),
-            value: toNumber(metric[monthlyMetricsChartMetric as keyof MonthlyMetric]),
-          }))
-          .filter((entry) => entry.label),
+        data: safehouseMetricTrendRows,
         xKey: "label",
         yKey: "value",
         type: "line",
         modalOptions: Object.entries(monthlyMetricLabels).map(([value, label]) => ({ value, label })),
         selectedOption: monthlyMetricsChartMetric,
         onOptionChange: setMonthlyMetricsChartMetric,
+        detail: {
+          title: "Safehouse monthly metrics",
+          description: "Review monthly education progress first, then switch to other operational metrics for the same safehouse scope.",
+          miniKpis: [
+            buildMiniKpi("Latest education", latestSafehouseMetric ? `${toNumber(latestSafehouseMetric.avgEducationProgress).toFixed(1)}%` : "0.0%"),
+            buildMiniKpi("Latest month", String(latestSafehouseMetric?.label ?? "N/A")),
+            buildMiniKpi("Latest incidents", String(latestSafehouseMetric?.incidents ?? 0)),
+            buildMiniKpi("Latest health", latestSafehouseMetric ? toNumber(latestSafehouseMetric.avgHealthScore).toFixed(1) : "0.0"),
+          ],
+          views: [
+            {
+              key: "education-progress",
+              label: "Education Progress",
+              description: "This chart shows average education progress by month across the visible safehouse scope.",
+              chartType: "line",
+              data: safehouseMetricTrendRows.map((row) => ({ label: row.label, value: row.avgEducationProgress })),
+              rows: safehouseMetricTrendRows.map((row) => ({ label: row.label, value: row.avgEducationProgress })),
+              xKey: "label",
+              dataKey: "value",
+            },
+            {
+              key: "health-score",
+              label: "Health Score",
+              description: "This chart shows average health score by month across the same safehouse scope.",
+              chartType: "line",
+              data: safehouseMetricTrendRows.map((row) => ({ label: row.label, value: row.avgHealthScore })),
+              rows: safehouseMetricTrendRows.map((row) => ({ label: row.label, value: row.avgHealthScore })),
+              xKey: "label",
+              dataKey: "value",
+            },
+            {
+              key: "visitations",
+              label: "Visitations",
+              description: "This chart shows total home visitations by month across the visible safehouses.",
+              chartType: "bar",
+              data: safehouseMetricTrendRows.map((row) => ({ label: row.label, value: row.visitations })),
+              rows: safehouseMetricTrendRows.map((row) => ({ label: row.label, value: row.visitations })),
+              labelKey: "label",
+              valueKey: "value",
+            },
+            {
+              key: "incidents",
+              label: "Incidents",
+              description: "This chart shows total incident counts by month across the visible safehouses.",
+              chartType: "bar",
+              data: safehouseMetricTrendRows.map((row) => ({ label: row.label, value: row.incidents })),
+              rows: safehouseMetricTrendRows.map((row) => ({ label: row.label, value: row.incidents })),
+              labelKey: "label",
+              valueKey: "value",
+            },
+          ],
+        },
       },
     } as Record<string, AnalyticsCardConfig>;
   }, [
@@ -7034,7 +7800,19 @@ export function AdminWorkspace() {
                   <TableBody>
                     {donationsTablePage.visibleRows.map((donation) => (
                       <TableRow key={donation.donation_id} className="cursor-pointer" onClick={() => openDonationDetail(donation.donation_id)}>
-                        <TableCell>{donation.supporter_id ? supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter)) : donation.supporter_name ?? "Anonymous"}</TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          {donation.supporter_id ? (
+                            <button
+                              type="button"
+                              className="font-medium text-foreground transition-colors hover:text-primary"
+                              onClick={() => openSupporterDetail(donation.supporter_id)}
+                            >
+                              {supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter))}
+                            </button>
+                          ) : (
+                            donation.supporter_name ?? "Anonymous"
+                          )}
+                        </TableCell>
                         <TableCell>{asDisplayDate(donation.donation_date)}</TableCell>
                         <TableCell>{asText(donation.donation_type)}</TableCell>
                         <TableCell
@@ -7705,48 +8483,7 @@ export function AdminWorkspace() {
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <KpiCard icon={Download} label="Export reports" value="4 packs" detail="Resident, donation, occupancy, and incident exports ready" />
-            <KpiCard icon={HandCoins} label="Donation reports" value={String(filteredDonations.length)} detail="Donation records currently in scope" />
-            <KpiCard icon={Users} label="Resident trends" value={String(workspace.residents.length)} detail="Residents feeding the trend dashboards" />
-            <KpiCard icon={Home} label="Occupancy trends" value={String(workspace.monthlyMetrics.length)} detail="Monthly safe house snapshots available" />
-          </div>
-
-          <div className="grid gap-6 xl:grid-cols-2">
-            <SectionCard title="Report export cards" description="A modular placeholder section designed for future report generators.">
-              <div className="grid gap-3 md:grid-cols-2">
-                {[
-                  { title: "Donation report", detail: "Campaign, supporter, and allocation summaries." },
-                  { title: "Resident trends", detail: "Admissions, case status, and risk movement." },
-                  { title: "Occupancy trends", detail: "Utilization by house and by month." },
-                  { title: "Incidents trends", detail: "Incident volume, severity, and closure speed." },
-                ].map((card) => (
-                  <div key={card.title} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
-                    <p className="font-medium text-foreground">{card.title}</p>
-                    <p className="mt-2 text-sm text-muted-foreground">{card.detail}</p>
-                    <Button variant="outline" className="mt-4 rounded-xl" aria-label={`Prepare export: ${card.title}`}>
-                      Prepare export
-                      <ChevronRight className="h-4 w-4" aria-hidden />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Trend overview" description="A clean placeholder chart block for trend reporting expansion.">
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={reportsTrendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="incidents" stroke="hsl(var(--secondary))" strokeWidth={3} />
-                  <Line type="monotone" dataKey="occupancy" stroke="hsl(var(--primary))" strokeWidth={3} />
-                  <Line type="monotone" dataKey="donations" stroke="hsl(var(--accent-foreground))" strokeWidth={3} />
-                </LineChart>
-              </ResponsiveContainer>
-            </SectionCard>
-          </div>
+          <ReportsAnalyticsPanel />
         </TabsContent>
 
         <TabsContent value="outreach" className="space-y-6">
@@ -7809,43 +8546,56 @@ export function AdminWorkspace() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={Boolean(expandedChart)} onOpenChange={(open) => !open && setExpandedChartKey(null)}>
-        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-2xl text-foreground">{expandedChart?.title ?? "Chart"}</DialogTitle>
-            <DialogDescription>{expandedChart?.subtitle ?? "Filter-aware analytics for the current table view."}</DialogDescription>
-          </DialogHeader>
-          {expandedChart ? (
-            <div className="space-y-5">
-              {expandedChart.modalOptions?.length ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  <label htmlFor="admin-expanded-chart-view" className="text-sm font-medium text-foreground">
-                    View:
-                  </label>
-                  <select
-                    id="admin-expanded-chart-view"
-                    value={expandedChart.selectedOption}
-                    onChange={(event) => expandedChart.onOptionChange?.(event.target.value)}
-                    className="h-10 rounded-full border border-input bg-background px-4 text-sm text-foreground"
-                    aria-label={`${expandedChart.title} data view`}
-                  >
-                    {expandedChart.modalOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : null}
-              <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-warm">
-                <div className="h-[360px]">
-                  <AnalyticsPreviewChart config={expandedChart} expanded />
+      {expandedChart?.detail ? (
+        <AnalyticsDetailDialog
+          detail={expandedChart.detail}
+          open={Boolean(expandedChart)}
+          onOpenChange={(open) => !open && setExpandedChartKey(null)}
+          onSupporterOpen={(supporterId) => {
+            if (!supporterId) return;
+            setExpandedChartKey(null);
+            openSupporterDetail(Number(supporterId));
+          }}
+        />
+      ) : (
+        <Dialog open={Boolean(expandedChart)} onOpenChange={(open) => !open && setExpandedChartKey(null)}>
+          <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+            <DialogHeader>
+              <DialogTitle className="font-heading text-2xl text-foreground">{expandedChart?.title ?? "Chart"}</DialogTitle>
+              <DialogDescription>{expandedChart?.subtitle ?? "Filter-aware analytics for the current table view."}</DialogDescription>
+            </DialogHeader>
+            {expandedChart ? (
+              <div className="space-y-5">
+                {expandedChart.modalOptions?.length ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label htmlFor="admin-expanded-chart-view" className="text-sm font-medium text-foreground">
+                      View:
+                    </label>
+                    <select
+                      id="admin-expanded-chart-view"
+                      value={expandedChart.selectedOption}
+                      onChange={(event) => expandedChart.onOptionChange?.(event.target.value)}
+                      className="h-10 rounded-full border border-input bg-background px-4 text-sm text-foreground"
+                      aria-label={`${expandedChart.title} data view`}
+                    >
+                      {expandedChart.modalOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+                <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-warm">
+                  <div className="h-[360px]">
+                    <AnalyticsPreviewChart config={expandedChart} expanded />
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      )}
 
       <Dialog open={supporterDetailModalOpen} onOpenChange={setSupporterDetailModalOpen}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
@@ -8078,6 +8828,103 @@ export function AdminWorkspace() {
                         variant="outline"
                         className="h-auto justify-start rounded-2xl border-border/80 px-4 py-4 text-left"
                         onClick={() => goToResidentSubview(action.subtab as ResidentsSubTab, selectedResidentDetail.resident_id)}
+                      >
+                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <span>{action.label}</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </SectionCard>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={supporterModalOpen} onOpenChange={(open) => (!open ? closeSupporterDetail() : setSupporterModalOpen(true))}>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl text-foreground">
+              {selectedSupporterDetail ? supporterLabel(selectedSupporterDetail) : "Supporter detail"}
+            </DialogTitle>
+            <DialogDescription>
+              Supporter profile information, donation history, and quick links into related donation workstreams.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSupporterDetail ? (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {(() => {
+                  const totalDonated = selectedSupporterDonations.reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0);
+                  const recurringShare = selectedSupporterDonations.length
+                    ? (selectedSupporterDonations.filter((donation) => String(donation.is_recurring).toLowerCase() === "true").length / selectedSupporterDonations.length) * 100
+                    : 0;
+                  const lastDonation = selectedSupporterDonations[0];
+                  return [
+                    { label: "Supporter ID", value: String(selectedSupporterDetail.supporter_id) },
+                    { label: "Status", value: asText(selectedSupporterDetail.status, "Not recorded") },
+                    { label: "Total donated", value: formatCurrency(totalDonated) },
+                    { label: "Donation count", value: String(selectedSupporterDonations.length) },
+                    { label: "Recurring share", value: formatPercentValue(recurringShare, 0) },
+                    { label: "First donation", value: asDisplayDate(selectedSupporterDetail.first_donation_date, "Not recorded") },
+                    { label: "Latest donation", value: asDisplayDate(lastDonation?.donation_date ?? lastDonation?.created_at, "No donations yet") },
+                    { label: "Acquisition channel", value: asText(selectedSupporterDetail.acquisition_channel, "Not recorded") },
+                    { label: "Email", value: asText(selectedSupporterDetail.email, "Not recorded") },
+                    { label: "Phone", value: asText(selectedSupporterDetail.phone, "Not recorded") },
+                    { label: "Region", value: `${asText(selectedSupporterDetail.region, "Unknown")} · ${asText(selectedSupporterDetail.country, "Unknown")}` },
+                    { label: "In-kind items", value: String(selectedSupporterInKind.length) },
+                  ];
+                })().map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/75">{item.label}</p>
+                    <p className="mt-2 text-sm font-medium text-foreground">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <SectionCard title="Recent donations" description="Most recent donations linked to this supporter.">
+                <div className="space-y-2">
+                  {selectedSupporterDonations.slice(0, 6).map((donation) => (
+                    <div key={donation.donation_id} className="rounded-xl bg-muted/25 px-4 py-3">
+                      <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                        <div>
+                          <p className="font-medium text-foreground">{asText(donation.campaign_name, "General donation")}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {asDisplayDate(donation.donation_date ?? donation.created_at)} • {asText(donation.channel_source, asText(donation.donation_type))}
+                          </p>
+                        </div>
+                        <p className="font-medium text-foreground">{formatCurrency(donation.amount ?? donation.estimated_value, donation.currency_code ?? "PHP")}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {!selectedSupporterDonations.length ? (
+                    <p className="text-sm text-muted-foreground">No donations are linked to this supporter yet.</p>
+                  ) : null}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Quick actions" description="Move into the related donation views while keeping this supporter in context.">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    { label: "Supporter record", subtab: "supporters" as DonationsSubTab, icon: Users },
+                    { label: "Donation history", subtab: "donations" as DonationsSubTab, icon: Wallet },
+                    { label: "In-kind items", subtab: "in-kind" as DonationsSubTab, icon: Gift },
+                    { label: "Allocations", subtab: "allocations" as DonationsSubTab, icon: HandCoins },
+                  ].map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <Button
+                        key={action.label}
+                        variant="outline"
+                        className="h-auto justify-start rounded-2xl border-border/80 px-4 py-4 text-left"
+                        onClick={() => {
+                          closeSupporterDetail();
+                          setParams({
+                            tab: "donations",
+                            donationsSubTab: action.subtab,
+                            supporterId: String(selectedSupporterDetail.supporter_id),
+                          });
+                        }}
                       >
                         <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                         <span>{action.label}</span>

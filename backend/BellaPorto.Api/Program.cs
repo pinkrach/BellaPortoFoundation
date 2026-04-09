@@ -2016,6 +2016,192 @@ app.MapPost("/api/ml/supporter-risk/refresh", async (
     }
 });
 
+app.MapGet("/api/reports/summary", async (
+    HttpRequest request,
+    string? dateFrom,
+    string? dateTo,
+    string? safehouseId,
+    string? campaignName,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var filters = new ReportsQuery
+        {
+            DateFrom = dateFrom,
+            DateTo = dateTo,
+            SafehouseId = safehouseId,
+            CampaignName = campaignName,
+        };
+        var summary = await BuildReportsSummaryAsync(
+            configuration,
+            httpClientFactory,
+            environment,
+            logger,
+            filters,
+            persistArtifact: true,
+            useCache: false);
+        return Results.Json(summary);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to build reports summary.");
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/reports/accomplishment-report", async (
+    HttpRequest request,
+    string? dateFrom,
+    string? dateTo,
+    string? safehouseId,
+    string? campaignName,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var report = await BuildAnnualAccomplishmentReportAsync(
+            configuration,
+            httpClientFactory,
+            environment,
+            logger,
+            new ReportsQuery
+            {
+                DateFrom = dateFrom,
+                DateTo = dateTo,
+                SafehouseId = safehouseId,
+                CampaignName = campaignName,
+            });
+        return Results.Json(report);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to build annual accomplishment report.");
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapPost("/api/reports/refresh", async (
+    ReportsQuery? requestBody,
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var filters = requestBody ?? new ReportsQuery();
+        var summary = await BuildReportsSummaryAsync(
+            configuration,
+            httpClientFactory,
+            environment,
+            logger,
+            filters,
+            persistArtifact: true,
+            useCache: false);
+        return Results.Json(summary);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to refresh reports summary.");
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/reports/export/csv", async (
+    HttpRequest request,
+    string section,
+    string? dateFrom,
+    string? dateTo,
+    string? safehouseId,
+    string? campaignName,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var summary = await BuildReportsSummaryAsync(
+            configuration,
+            httpClientFactory,
+            environment,
+            logger,
+            new ReportsQuery
+            {
+                DateFrom = dateFrom,
+                DateTo = dateTo,
+                SafehouseId = safehouseId,
+                CampaignName = campaignName,
+            },
+            persistArtifact: false);
+
+        var rows = GetExportRowsForSection(summary, section);
+        if (rows.Count == 0)
+        {
+            return Results.BadRequest(new { message = $"No rows were available for reports export section '{section}'." });
+        }
+
+        var csv = BuildCsv(rows);
+        return Results.File(
+            Encoding.UTF8.GetBytes(csv),
+            "text/csv; charset=utf-8",
+            $"reports-{section.Trim().ToLowerInvariant().Replace(' ', '-')}.csv");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to export reports CSV.");
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.Run();
 
 static string GetRepoRoot(IWebHostEnvironment environment)
@@ -2163,6 +2349,242 @@ static async Task<Dictionary<string, List<Dictionary<string, object?>>>> Resolve
         ["donation_allocations"] = allocations,
         ["donations"] = donations,
     };
+}
+
+static async Task<Dictionary<string, List<Dictionary<string, object?>>>> ResolveReportsPayloadAsync(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    string repoRoot,
+    ILogger logger)
+{
+    var settings = ResolveSupabaseSettings(configuration, repoRoot);
+    if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+    {
+        throw new InvalidOperationException(
+            "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+        );
+    }
+
+    logger.LogInformation("Fetching live reporting rows from Supabase.");
+    var client = httpClientFactory.CreateClient();
+
+    var tableNames = new[]
+    {
+        "residents",
+        "education_records",
+        "health_wellbeing_records",
+        "home_visitations",
+        "incident_reports",
+        "intervention_plans",
+        "process_recordings",
+        "safehouses",
+        "safehouse_monthly_metrics",
+        "supporters",
+        "donations",
+        "donation_allocations",
+        "social_media_posts",
+        "public_impact_snapshots",
+        "partner_assignments",
+    };
+
+    var tasks = tableNames.ToDictionary(
+        name => name,
+        name => FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, name));
+
+    await Task.WhenAll(tasks.Values);
+
+    return tasks.ToDictionary(
+        pair => pair.Key,
+        pair => pair.Value.Result);
+}
+
+static bool HasReportsFilters(ReportsQuery filters)
+{
+    return !string.IsNullOrWhiteSpace(filters.DateFrom)
+        || !string.IsNullOrWhiteSpace(filters.DateTo)
+        || !string.IsNullOrWhiteSpace(filters.SafehouseId)
+        || !string.IsNullOrWhiteSpace(filters.CampaignName);
+}
+
+static async Task<JsonNode> BuildReportsSummaryAsync(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    IWebHostEnvironment environment,
+    ILogger logger,
+    ReportsQuery filters,
+    bool persistArtifact,
+    bool useCache = true)
+{
+    var repoRoot = GetRepoRoot(environment);
+    var artifactDir = Path.Combine(repoRoot, "ml-pipelines", "artifacts");
+    Directory.CreateDirectory(artifactDir);
+    var summaryPath = Path.Combine(artifactDir, "reports_summary.json");
+
+    if (useCache && !HasReportsFilters(filters) && File.Exists(summaryPath))
+    {
+        var cached = JsonNode.Parse(await File.ReadAllTextAsync(summaryPath));
+        if (cached is not null)
+        {
+            return cached;
+        }
+    }
+
+    var payload = await ResolveReportsPayloadAsync(configuration, httpClientFactory, repoRoot, logger);
+    var input = new Dictionary<string, object?>
+    {
+        ["tables"] = payload,
+        ["filters"] = new Dictionary<string, object?>
+        {
+            ["dateFrom"] = filters.DateFrom,
+            ["dateTo"] = filters.DateTo,
+            ["safehouseId"] = filters.SafehouseId,
+            ["campaignName"] = filters.CampaignName,
+        },
+    };
+
+    var tempDir = Path.Combine(Path.GetTempPath(), "bella-porto-reports");
+    Directory.CreateDirectory(tempDir);
+
+    var inputPath = Path.Combine(tempDir, $"reports-input-{Guid.NewGuid():N}.json");
+    var outputPath = Path.Combine(tempDir, $"reports-output-{Guid.NewGuid():N}.json");
+    var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "reports_page_aggregations.py");
+
+    await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(input));
+    var node = await RunPythonJsonScriptAsync(
+        repoRoot,
+        scriptPath,
+        [
+            "--input",
+            inputPath,
+            "--output",
+            outputPath,
+            "--artifact-dir",
+            artifactDir,
+        ],
+        outputPath,
+        logger,
+        "Reports summary pipeline");
+
+    if (persistArtifact && !HasReportsFilters(filters))
+    {
+        await File.WriteAllTextAsync(summaryPath, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    return node;
+}
+
+static async Task<JsonNode> BuildAnnualAccomplishmentReportAsync(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    IWebHostEnvironment environment,
+    ILogger logger,
+    ReportsQuery filters)
+{
+    var repoRoot = GetRepoRoot(environment);
+    var payload = await ResolveReportsPayloadAsync(configuration, httpClientFactory, repoRoot, logger);
+    var input = new Dictionary<string, object?>
+    {
+        ["tables"] = payload,
+        ["filters"] = new Dictionary<string, object?>
+        {
+            ["dateFrom"] = filters.DateFrom,
+            ["dateTo"] = filters.DateTo,
+            ["safehouseId"] = filters.SafehouseId,
+            ["campaignName"] = filters.CampaignName,
+        },
+    };
+
+    var tempDir = Path.Combine(Path.GetTempPath(), "bella-porto-annual-report");
+    Directory.CreateDirectory(tempDir);
+
+    var inputPath = Path.Combine(tempDir, $"annual-report-input-{Guid.NewGuid():N}.json");
+    var outputPath = Path.Combine(tempDir, $"annual-report-output-{Guid.NewGuid():N}.json");
+    var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "annual_accomplishment_report_builder.py");
+
+    await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(input));
+    return await RunPythonJsonScriptAsync(
+        repoRoot,
+        scriptPath,
+        [
+            "--input",
+            inputPath,
+            "--output",
+            outputPath,
+        ],
+        outputPath,
+        logger,
+        "Annual accomplishment report pipeline");
+}
+
+static List<Dictionary<string, object?>> GetExportRowsForSection(JsonNode summary, string section)
+{
+    var normalized = string.IsNullOrWhiteSpace(section) ? "overview" : section.Trim();
+    var exportsNode = summary["exports"] as JsonObject;
+    if (exportsNode is null)
+    {
+        return [];
+    }
+
+    JsonNode? selected = null;
+    foreach (var pair in exportsNode)
+    {
+        if (pair.Key.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+        {
+            selected = pair.Value;
+            break;
+        }
+    }
+
+    if (selected is not JsonArray array)
+    {
+        return [];
+    }
+
+    var rows = new List<Dictionary<string, object?>>();
+    foreach (var item in array)
+    {
+        if (item is JsonObject obj)
+        {
+            rows.Add(obj.ToDictionary(pair => pair.Key, pair => JsonNodeToObject(pair.Value)));
+        }
+    }
+    return rows;
+}
+
+static object? JsonNodeToObject(JsonNode? node)
+{
+    if (node is null)
+    {
+        return null;
+    }
+
+    return JsonSerializer.Deserialize<object?>(node.ToJsonString(), JsonOptions());
+}
+
+static string BuildCsv(List<Dictionary<string, object?>> rows)
+{
+    var headers = rows
+        .SelectMany(row => row.Keys)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    var lines = new List<string>
+    {
+        string.Join(",", headers.Select(EscapeCsv)),
+    };
+
+    foreach (var row in rows)
+    {
+        lines.Add(string.Join(",", headers.Select(header => EscapeCsv(row.TryGetValue(header, out var value) ? value : null))));
+    }
+
+    return string.Join("\n", lines);
+}
+
+static string EscapeCsv(object? value)
+{
+    var text = value?.ToString() ?? string.Empty;
+    return $"\"{text.Replace("\"", "\"\"")}\"";
 }
 
 static async Task<JsonNode> RunPythonJsonScriptAsync(
@@ -4057,6 +4479,14 @@ sealed class SupporterRiskRefreshRequest
 {
     public string? CutoffDate { get; set; }
     public string? ModelDir { get; set; }
+}
+
+sealed class ReportsQuery
+{
+    public string? DateFrom { get; set; }
+    public string? DateTo { get; set; }
+    public string? SafehouseId { get; set; }
+    public string? CampaignName { get; set; }
 }
 
 sealed class ProfileRoleUpdateRequest
