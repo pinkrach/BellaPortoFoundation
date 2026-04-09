@@ -57,6 +57,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { ReportsAnalyticsPanel } from "@/components/admin/ReportsAnalyticsPanel";
+import { HarborLoadingState } from "@/components/HarborLoadingState";
 import {
   AnalyticsDetailDialog,
   type AnalyticsChartRow,
@@ -6431,14 +6432,15 @@ export function AdminWorkspace() {
         </Card>
       ) : null}
 
+      {workspaceQuery.isPending ? (
+        <HarborLoadingState
+          title="Loading admin workspace"
+          description="Charts, tables, and resident operations are docking into place for your current admin session."
+        />
+      ) : (
       <Tabs value={currentTab} onValueChange={(value) => setTab(value as MainTab)} className="space-y-6">
         <TabsContent value="dashboard" className="space-y-6 pb-6">
-          {workspaceQuery.isPending ? (
-            <p className="text-sm" style={{ color: BELLA.stone }}>Loading workspace data…</p>
-          ) : null}
-
-          {!workspaceQuery.isPending ? (
-            <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr] xl:items-stretch">
+          <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr] xl:items-stretch">
               <div className="space-y-4">
                 {/* OKR / success metrics */}
                 <section aria-label="Success metrics" className="space-y-3">
@@ -6660,7 +6662,6 @@ export function AdminWorkspace() {
                 </aside>
               </div>
             </div>
-          ) : null}
         </TabsContent>
 
         <TabsContent value="residents" className="space-y-6">
@@ -8562,6 +8563,7 @@ export function AdminWorkspace() {
           </SectionCard>
         </TabsContent>
       </Tabs>
+      )}
 
       {expandedChart?.detail ? (
         <AnalyticsDetailDialog

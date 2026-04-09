@@ -203,7 +203,8 @@ export const Navbar = () => {
                   onClick={() => setProfileOpen((current) => !current)}
                   className={profileButtonClass}
                   aria-expanded={profileOpen}
-                  aria-haspopup="menu"
+                  aria-haspopup="true"
+                  aria-controls="desktop-profile-menu"
                 >
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                     {initials}
@@ -220,6 +221,9 @@ export const Navbar = () => {
                 <AnimatePresence>
                   {profileOpen ? (
                     <motion.div
+                      id="desktop-profile-menu"
+                      role="region"
+                      aria-label="Account menu"
                       initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
@@ -281,7 +285,7 @@ export const Navbar = () => {
 
         <button
           type="button"
-          className={cn(navFocusRing, "md:hidden", navTextClass)}
+          className={cn(navFocusRing, "inline-flex min-h-11 min-w-11 items-center justify-center md:hidden", navTextClass)}
           onClick={() => setOpen(!open)}
           aria-expanded={open}
           aria-controls="primary-navigation-mobile"

@@ -55,10 +55,10 @@ const Impact = () => {
             <Link
               to={donateLink}
               title="Create an account to donate"
-              className="mt-8 inline-flex items-center justify-center gap-2 rounded-full bg-[#9B7FC0] px-8 py-3 text-base font-semibold text-white shadow-lg transition hover:scale-[1.02] hover:bg-[#8a6db5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#ad4f6e] px-8 py-3 text-base font-semibold text-white shadow-lg transition hover:scale-[1.02] hover:bg-[#9c4562] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             >
               Donate Now
-              <ArrowRight className="h-4 w-4" aria-hidden />
+              <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
             </Link>
           </motion.div>
         </div>
@@ -75,7 +75,14 @@ const Impact = () => {
           className="mb-10 rounded-3xl border border-border/60 bg-[hsl(40_42%_99%_/_0.45)] p-6 md:p-8"
         >
           <h2 className="font-heading text-2xl font-semibold text-[hsl(200_24%_18%)]">2026 fundraising goal</h2>
-          <div className="mt-5 w-full rounded-full bg-muted/40 h-3 overflow-hidden">
+          <div
+            role="progressbar"
+            aria-label="Yearly fundraising progress"
+            aria-valuemin={0}
+            aria-valuemax={YEARLY_GOAL}
+            aria-valuenow={Math.round(yearRaised)}
+            className="mt-5 h-3 w-full overflow-hidden rounded-full bg-muted/40"
+          >
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progressPercent}%` }}
@@ -105,7 +112,7 @@ const Impact = () => {
               variants={fadeUp}
               className="rounded-3xl border border-border/60 bg-background/60 p-5 flex items-center gap-4"
             >
-              <div className="w-12 h-12 rounded-2xl bg-muted/40 flex items-center justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/40" aria-hidden="true">
                 <kpi.icon className={`h-6 w-6 ${kpi.color}`} />
               </div>
               <div>
@@ -118,49 +125,73 @@ const Impact = () => {
 
         {/* Charts row */}
         <div className="grid md:grid-cols-2 gap-6 mb-10">
-          <div className="bg-card rounded-2xl p-6 shadow-warm">
-            <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Donations Over Time</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={donationsOverTime}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(36, 20%, 85%)" />
-                <XAxis dataKey="month" stroke="hsl(205, 20%, 40%)" fontSize={12} />
-                <YAxis stroke="hsl(205, 20%, 40%)" fontSize={12} />
-                <Tooltip />
-                <Line type="monotone" dataKey="amount" stroke="#5A8FA0" strokeWidth={3} dot={{ fill: "#5A8FA0" }} />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="rounded-2xl bg-card p-6 shadow-warm">
+            <h3 id="impact-chart-donations-time" className="mb-4 font-heading text-lg font-semibold text-foreground">
+              Donations Over Time
+            </h3>
+            <div
+              role="img"
+              aria-labelledby="impact-chart-donations-time"
+              className="min-h-[250px] w-full overflow-x-auto [-webkit-overflow-scrolling:touch]"
+            >
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={donationsOverTime}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(36, 20%, 85%)" />
+                  <XAxis dataKey="month" stroke="hsl(205, 20%, 40%)" fontSize={12} />
+                  <YAxis stroke="hsl(205, 20%, 40%)" fontSize={12} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="amount" stroke="#5A8FA0" strokeWidth={3} dot={{ fill: "#5A8FA0" }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="bg-card rounded-2xl p-6 shadow-warm">
-            <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Donation Types</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie data={donationTypes} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" paddingAngle={4}>
-                  {donationTypes.map((entry, idx) => (
-                    <Cell key={idx} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="rounded-2xl bg-card p-6 shadow-warm">
+            <h3 id="impact-chart-donation-types" className="mb-4 font-heading text-lg font-semibold text-foreground">
+              Donation Types
+            </h3>
+            <div
+              role="img"
+              aria-labelledby="impact-chart-donation-types"
+              className="min-h-[250px] w-full overflow-x-auto [-webkit-overflow-scrolling:touch]"
+            >
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie data={donationTypes} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" paddingAngle={4}>
+                    {donationTypes.map((entry, idx) => (
+                      <Cell key={idx} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
 
         {/* Bar chart */}
-        <div className="bg-card rounded-2xl p-6 shadow-warm mb-10">
-          <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Safehouse Impact by Month</h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={safehouseImpact}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(36, 20%, 85%)" />
-              <XAxis dataKey="month" stroke="hsl(205, 20%, 40%)" fontSize={12} />
-              <YAxis stroke="hsl(205, 20%, 40%)" fontSize={12} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="A" fill="#5A8FA0" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="B" fill="#C17A3A" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="C" fill="#9B7FC0" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="mb-10 rounded-2xl bg-card p-6 shadow-warm">
+          <h3 id="impact-chart-safehouse" className="mb-4 font-heading text-lg font-semibold text-foreground">
+            Safehouse Impact by Month
+          </h3>
+          <div
+            role="img"
+            aria-labelledby="impact-chart-safehouse"
+            className="min-h-[280px] w-full overflow-x-auto [-webkit-overflow-scrolling:touch]"
+          >
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={safehouseImpact}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(36, 20%, 85%)" />
+                <XAxis dataKey="month" stroke="hsl(205, 20%, 40%)" fontSize={12} />
+                <YAxis stroke="hsl(205, 20%, 40%)" fontSize={12} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="A" fill="#5A8FA0" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="B" fill="#C17A3A" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="C" fill="#9B7FC0" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
         {/* What donations are used for */}

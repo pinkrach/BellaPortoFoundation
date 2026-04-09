@@ -110,17 +110,17 @@ const Index = () => {
                 trafficking and abuse—offering safety, healing, and a place to begin again.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-4">
+              <div className="mt-8 flex flex-wrap gap-3 sm:gap-4">
                 <Link
                   to={donateLink}
                   title="Create an account to donate"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#9B7FC0] px-8 py-3 text-base font-semibold text-white shadow-lg transition hover:scale-105 hover:bg-[#8a6db5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#6a5288] px-8 py-3 text-base font-semibold text-white shadow-lg transition hover:scale-105 hover:bg-[#5d4778] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
                 >
-                  Help a girl heal <ArrowRight className="h-4 w-4" />
+                  Help a girl heal <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
                 </Link>
                 <a
                   href="#mission"
-                  className="inline-flex items-center gap-2 rounded-full border-2 border-white/70 px-8 py-3 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border-2 border-white/70 px-8 py-3 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
                 >
                   Learn our mission
                 </a>
@@ -179,7 +179,12 @@ const Index = () => {
                 Portofino photo carousel
               </h2>
 
-              <div className="mx-auto max-w-5xl">
+              <div
+                className="mx-auto max-w-5xl"
+                role="region"
+                aria-roledescription="carousel"
+                aria-labelledby="portofino-carousel-heading"
+              >
                 <div className="relative">
                   <div className="grid gap-4 md:grid-cols-3">
                     {visibleCarouselIndices.map((index, slot) => (
@@ -210,7 +215,7 @@ const Index = () => {
                   <button
                     type="button"
                     onClick={goPrev}
-                    className="absolute -left-2 top-1/2 -translate-y-1/2 rounded-full bg-background/80 p-2.5 text-[hsl(200_24%_18%)] shadow-sm backdrop-blur-sm transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] md:-left-4"
+                    className="absolute -left-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-[hsl(200_24%_18%)] shadow-sm backdrop-blur-sm transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] md:-left-4"
                     aria-label="Previous photo"
                   >
                     <ChevronLeft className="h-5 w-5" aria-hidden="true" />
@@ -218,26 +223,31 @@ const Index = () => {
                   <button
                     type="button"
                     onClick={goNext}
-                    className="absolute -right-2 top-1/2 -translate-y-1/2 rounded-full bg-background/80 p-2.5 text-[hsl(200_24%_18%)] shadow-sm backdrop-blur-sm transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] md:-right-4"
+                    className="absolute -right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-[hsl(200_24%_18%)] shadow-sm backdrop-blur-sm transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] md:-right-4"
                     aria-label="Next photo"
                   >
                     <ChevronRight className="h-5 w-5" aria-hidden="true" />
                   </button>
                 </div>
 
-                <div className="mt-5 flex items-center justify-center gap-2">
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-1">
                   {carouselImages.map((_, i) => (
                     <button
                       key={i}
                       type="button"
                       onClick={() => setCarouselIndex(i)}
-                      className={cn(
-                        "h-2.5 w-2.5 rounded-full transition",
-                        i === carouselIndex ? "bg-[hsl(200_24%_22%)]" : "bg-[hsl(200_10%_70%)] hover:bg-[hsl(200_16%_55%)]",
-                      )}
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2"
                       aria-label={`Go to photo ${i + 1}`}
                       aria-current={i === carouselIndex ? "true" : undefined}
-                    />
+                    >
+                      <span
+                        className={cn(
+                          "block h-2.5 w-2.5 rounded-full transition",
+                          i === carouselIndex ? "bg-[hsl(200_24%_22%)]" : "bg-[hsl(200_10%_70%)] hover:bg-[hsl(200_16%_55%)]",
+                        )}
+                        aria-hidden="true"
+                      />
+                    </button>
                   ))}
                 </div>
               </div>
@@ -356,7 +366,7 @@ const Index = () => {
                   <Link
                     to={donateLink}
                     title="Create an account to donate"
-                    className="inline-flex items-center justify-center rounded-full bg-[#4A7A52] px-7 py-2.5 text-sm font-semibold text-[#F5F0E8] shadow-md shadow-[hsl(150_24%_28%_/_0.22)] transition hover:brightness-110 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7A52]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F5F0E8]"
+                    className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#4A7A52] px-7 py-2.5 text-sm font-semibold text-[#F5F0E8] shadow-md shadow-[hsl(150_24%_28%_/_0.22)] transition hover:brightness-110 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7A52]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F5F0E8]"
                   >
                     Donate today
                   </Link>

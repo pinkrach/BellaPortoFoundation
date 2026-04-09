@@ -194,7 +194,7 @@ const PrivacyPolicy = () => (
     <section className="bg-muted -mt-1 pt-14 pb-10 md:pt-16 md:pb-12">
       <div className="container mx-auto px-4">
         <div className="inline-flex items-center gap-2 rounded-full bg-muted/50 px-4 py-2 text-xs font-medium tracking-wide text-[hsl(200_18%_30%)]">
-          <ShieldCheck className="h-4 w-4 text-[hsl(200_18%_34%)]" />
+          <ShieldCheck className="h-4 w-4 shrink-0 text-[hsl(200_18%_34%)]" aria-hidden="true" />
           Privacy & Data Protection
         </div>
         <h1 className="mt-5 font-heading text-3xl font-bold tracking-tight text-[hsl(200_24%_18%)] md:text-5xl">
@@ -205,7 +205,7 @@ const PrivacyPolicy = () => (
           whose information is processed through our platform, including donors, administrators, employees, residents,
           and other authorized users.
         </p>
-        <p className="mt-3 text-sm text-[hsl(200_12%_46%)]">Last Updated: April 6, 2026</p>
+        <p className="mt-3 text-sm text-[hsl(200_15%_32%)]">Last Updated: April 6, 2026</p>
       </div>
     </section>
 
@@ -233,7 +233,7 @@ const PrivacyPolicy = () => (
               <article key={section.title} className="scroll-mt-28">
                 <h2 className="font-heading text-2xl font-semibold text-[hsl(200_24%_18%)]">{section.title}</h2>
                 {section.subtitle ? (
-                  <h3 className="mt-2 text-xs font-semibold tracking-[0.14em] uppercase text-[hsl(200_12%_46%)]">
+                  <h3 className="mt-2 text-xs font-semibold tracking-[0.14em] uppercase text-[hsl(200_15%_32%)]">
                     {section.subtitle}
                   </h3>
                 ) : null}
@@ -262,7 +262,7 @@ const PrivacyPolicy = () => (
 
           <div className="mt-10 rounded-2xl bg-muted/40 p-6 md:p-8">
             <div className="flex items-start gap-3">
-              <Mail className="mt-0.5 h-5 w-5 text-[hsl(200_18%_34%)]" />
+              <Mail className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(200_18%_34%)]" aria-hidden="true" />
               <div>
                 <h3 className="font-heading text-xl font-semibold text-[hsl(200_24%_18%)]">Privacy Requests</h3>
                 <p className="mt-2 text-[hsl(200_14%_38%)]">

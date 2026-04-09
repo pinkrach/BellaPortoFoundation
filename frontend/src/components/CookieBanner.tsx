@@ -42,16 +42,25 @@ export const CookieBanner = () => {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 p-4">
-      <div className="mx-auto max-w-5xl rounded-xl bg-black/80 backdrop-blur border border-white/10 px-4 py-3">
+    <div className="fixed inset-x-0 bottom-0 z-50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div
+        className="mx-auto max-w-5xl rounded-xl bg-black/80 backdrop-blur border border-white/10 px-4 py-3"
+        role="region"
+        aria-labelledby="cookie-banner-title"
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="max-w-3xl">
-            <p className="text-sm font-semibold text-white">Cookie preferences</p>
+            <p id="cookie-banner-title" className="text-sm font-semibold text-white">
+              Cookie preferences
+            </p>
             <p className="mt-1 text-sm text-white/90">
               We use essential cookies to keep the site secure and remember basic preferences. Optional analytics
               cookies help us understand site performance. You can accept or reject optional cookies now, and read more
               in our{" "}
-              <Link to="/privacy" className="text-accent hover:underline">
+              <Link
+                to="/privacy"
+                className="font-semibold text-white underline underline-offset-2 hover:text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/80"
+              >
                 Privacy Policy
               </Link>
               .
@@ -61,17 +70,20 @@ export const CookieBanner = () => {
             <button
               type="button"
               onClick={() => handleConsent("rejected")}
-              className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+              className="min-h-11 rounded-full border border-white/20 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/80"
             >
               Reject optional
             </button>
-            <Link to="/privacy" className="text-accent hover:underline">
+            <Link
+              to="/privacy"
+              className="inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-white underline underline-offset-4 hover:text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/80"
+            >
               Learn more
             </Link>
             <button
               type="button"
               onClick={() => handleConsent("accepted")}
-              className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-warm transition-colors hover:brightness-95 hover:shadow-md active:brightness-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/80"
+              className="min-h-11 rounded-full bg-[#ad4f6e] px-5 py-2.5 text-sm font-semibold text-white shadow-warm transition-transform hover:scale-[1.02] hover:bg-[#9c4562] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/80"
             >
               Accept all
             </button>
