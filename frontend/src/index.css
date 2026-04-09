@@ -74,6 +74,13 @@
     margin: 0;
     padding: 0;
     background-color: hsl(var(--background));
+    /* Sticky/fixed nav + in-page anchors (#mission, etc.) */
+    scroll-padding-top: 5rem;
+  }
+  @media (max-width: 767px) {
+    html {
+      scroll-padding-top: 4.5rem;
+    }
   }
   body {
     @apply m-0 bg-background p-0 pb-0 text-foreground;

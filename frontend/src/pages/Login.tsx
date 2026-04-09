@@ -214,8 +214,7 @@ const Login = () => {
     <PublicLayout hideFooter hideNavbar>
       <Link
         to="/"
-        className="fixed left-4 top-4 z-50 inline-flex items-center gap-2 rounded-sm bg-background/70 px-2.5 py-1.5 text-[#1E2933] backdrop-blur-sm transition-colors hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        aria-label="Return to home page"
+        className="fixed left-4 top-4 z-50 inline-flex min-h-11 items-center gap-2 rounded-sm bg-background/70 px-2.5 py-1.5 text-[#1E2933] backdrop-blur-sm transition-colors hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <img src={houseLogo} alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
         <span className="font-heading text-lg font-semibold tracking-tight md:text-xl">
@@ -223,10 +222,10 @@ const Login = () => {
         </span>
       </Link>
       <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
-        <div className="absolute top-10 right-10 hidden text-accent/20 md:block">
+        <div className="pointer-events-none absolute top-10 right-10 hidden text-accent/20 md:block" aria-hidden="true">
           <Sailboat className="h-32 w-32 rotate-12" />
         </div>
-        <div className="absolute bottom-10 left-10 hidden text-lavender/20 md:block">
+        <div className="pointer-events-none absolute bottom-10 left-10 hidden text-lavender/20 md:block" aria-hidden="true">
           <Sailboat className="h-24 w-24 -rotate-6" />
         </div>
 
@@ -250,13 +249,16 @@ const Login = () => {
           {awaitingMfa ? (
             <form onSubmit={handleMfaVerify} className="space-y-4">
               {error && (
-                <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">{error}</div>
+                <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+                  {error}
+                </div>
               )}
               <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">
+                <label htmlFor="login-mfa-code" className="mb-1 block text-sm font-medium text-foreground">
                   Enter your 6-digit security code
                 </label>
                 <input
+                  id="login-mfa-code"
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
@@ -265,14 +267,14 @@ const Login = () => {
                   onChange={(e) => setMfaCode(digitsOnly(e.target.value).slice(0, 6))}
                   disabled={mfaVerifying}
                   placeholder="000000"
-                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow text-center text-lg tracking-widest font-mono"
+                  className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-center font-mono text-lg tracking-widest text-foreground placeholder:text-muted-foreground transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/30"
                   autoFocus
                 />
               </div>
               <button
                 type="submit"
                 disabled={mfaVerifying || mfaCode.length !== 6}
-                className="w-full bg-[#C06080] text-[#F5F0E8] font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none inline-flex items-center justify-center gap-2"
+                className="inline-flex w-full items-center justify-center rounded-full bg-[#ad4f6e] py-3 font-semibold text-white shadow-warm transition-transform hover:scale-[1.02] hover:bg-[#9c4562] disabled:pointer-events-none disabled:opacity-60"
               >
                 {mfaVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {mfaVerifying ? "Verifying…" : "Verify"}
@@ -289,28 +291,36 @@ const Login = () => {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">{error}</div>
+                <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+                  {error}
+                </div>
               )}
               <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">Email</label>
+                <label htmlFor="login-email" className="mb-1 block text-sm font-medium text-foreground">
+                  Email
+                </label>
                 <input
+                  id="login-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Email address"
-                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                  className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-foreground placeholder:text-muted-foreground transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/30"
                   required
                   autoComplete="email"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground mb-1 block">Password</label>
+                <label htmlFor="login-password" className="mb-1 block text-sm font-medium text-foreground">
+                  Password
+                </label>
                 <input
+                  id="login-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
-                  className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                  className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-foreground placeholder:text-muted-foreground transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/30"
                   required
                   autoComplete="current-password"
                 />
@@ -318,17 +328,23 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-[#C06080] text-[#F5F0E8] font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none"
+                className="w-full rounded-full bg-[#ad4f6e] py-3 font-semibold text-white shadow-warm transition-transform hover:scale-[1.02] hover:bg-[#9c4562] disabled:pointer-events-none disabled:opacity-60"
               >
                 {isSubmitting ? "Signing in..." : "Sign In"}
               </button>
               <div className="pt-1 space-y-2 text-center">
-                <Link to="/forgot-password" className="text-sm text-secondary hover:underline">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm font-medium text-[hsl(195_30%_32%)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(195_30%_32%)]/35 focus-visible:ring-offset-2"
+                >
                   Forgot password?
                 </Link>
                 <div className="text-sm text-muted-foreground">
                   Don&apos;t have an account?{" "}
-                  <Link to="/signup" className="text-secondary hover:underline">
+                  <Link
+                    to="/signup"
+                    className="font-medium text-[hsl(195_30%_32%)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(195_30%_32%)]/35 focus-visible:ring-offset-2"
+                  >
                     Sign Up
                   </Link>
                   <span className="text-muted-foreground"> in order to donate.</span>
