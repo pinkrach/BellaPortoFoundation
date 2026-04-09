@@ -1311,6 +1311,100 @@ app.MapPost("/api/ml/social/refresh", async (
     }
 });
 
+app.MapPost("/api/ml/social/score", async (
+    SocialPostScoreRequest? request,
+    HttpRequest httpRequest,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        if (request?.Payload is null || request.Payload.Count == 0)
+        {
+            return Results.BadRequest(new { message = "A post payload is required for scoring." });
+        }
+
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(httpRequest, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var rows = await ResolveSocialPostsAsync(null, configuration, httpClientFactory, repoRoot, logger);
+        if (rows.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No social media posts were available to train the scorer." });
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "bella-porto-social-score");
+        Directory.CreateDirectory(tempDir);
+
+        var postsInputPath = Path.Combine(tempDir, $"social-score-posts-{Guid.NewGuid():N}.json");
+        var payloadInputPath = Path.Combine(tempDir, $"social-score-payload-{Guid.NewGuid():N}.json");
+        var outputPath = Path.Combine(tempDir, $"social-score-output-{Guid.NewGuid():N}.json");
+        var artifactDir = Path.Combine(repoRoot, "ml-pipelines", "artifacts");
+        var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "social_media_post_scorer.py");
+
+        await File.WriteAllTextAsync(postsInputPath, JsonSerializer.Serialize(rows));
+        await File.WriteAllTextAsync(payloadInputPath, JsonSerializer.Serialize(request.Payload));
+
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "python3",
+                WorkingDirectory = repoRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            },
+        };
+        process.StartInfo.ArgumentList.Add(scriptPath);
+        process.StartInfo.ArgumentList.Add("--posts-input");
+        process.StartInfo.ArgumentList.Add(postsInputPath);
+        process.StartInfo.ArgumentList.Add("--payload-input");
+        process.StartInfo.ArgumentList.Add(payloadInputPath);
+        process.StartInfo.ArgumentList.Add("--output");
+        process.StartInfo.ArgumentList.Add(outputPath);
+        process.StartInfo.ArgumentList.Add("--artifact-dir");
+        process.StartInfo.ArgumentList.Add(artifactDir);
+
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        if (process.ExitCode != 0)
+        {
+            logger.LogError("Social scoring pipeline failed. stdout: {Stdout} stderr: {Stderr}", stdout, stderr);
+            return Results.Problem("The social draft scoring pipeline failed to run.");
+        }
+
+        if (!File.Exists(outputPath))
+        {
+            logger.LogError("Social scoring pipeline finished without producing an output file. stdout: {Stdout}", stdout);
+            return Results.Problem("The social draft scoring pipeline did not produce output.");
+        }
+
+        var node = JsonNode.Parse(await File.ReadAllTextAsync(outputPath));
+        return Results.Json(node);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to score social post payload.");
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.MapGet("/api/ml/social/community/latest", async (
     HttpRequest request,
     IHttpClientFactory httpClientFactory,
@@ -1420,6 +1514,100 @@ app.MapPost("/api/ml/social/community/refresh", async (
     catch (Exception ex)
     {
         logger.LogError(ex, "Unable to refresh community outreach analytics.");
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapPost("/api/ml/social/community/score", async (
+    SocialPostScoreRequest? request,
+    HttpRequest httpRequest,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        if (request?.Payload is null || request.Payload.Count == 0)
+        {
+            return Results.BadRequest(new { message = "A post payload is required for scoring." });
+        }
+
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(httpRequest, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var rows = await ResolveSocialPostsAsync(null, configuration, httpClientFactory, repoRoot, logger);
+        if (rows.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No social media posts were available to train the scorer." });
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "bella-porto-community-score");
+        Directory.CreateDirectory(tempDir);
+
+        var postsInputPath = Path.Combine(tempDir, $"community-score-posts-{Guid.NewGuid():N}.json");
+        var payloadInputPath = Path.Combine(tempDir, $"community-score-payload-{Guid.NewGuid():N}.json");
+        var outputPath = Path.Combine(tempDir, $"community-score-output-{Guid.NewGuid():N}.json");
+        var artifactDir = Path.Combine(repoRoot, "ml-pipelines", "artifacts");
+        var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "community_outreach_post_scorer.py");
+
+        await File.WriteAllTextAsync(postsInputPath, JsonSerializer.Serialize(rows));
+        await File.WriteAllTextAsync(payloadInputPath, JsonSerializer.Serialize(request.Payload));
+
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "python3",
+                WorkingDirectory = repoRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            },
+        };
+        process.StartInfo.ArgumentList.Add(scriptPath);
+        process.StartInfo.ArgumentList.Add("--posts-input");
+        process.StartInfo.ArgumentList.Add(postsInputPath);
+        process.StartInfo.ArgumentList.Add("--payload-input");
+        process.StartInfo.ArgumentList.Add(payloadInputPath);
+        process.StartInfo.ArgumentList.Add("--output");
+        process.StartInfo.ArgumentList.Add(outputPath);
+        process.StartInfo.ArgumentList.Add("--artifact-dir");
+        process.StartInfo.ArgumentList.Add(artifactDir);
+
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        if (process.ExitCode != 0)
+        {
+            logger.LogError("Community scoring pipeline failed. stdout: {Stdout} stderr: {Stderr}", stdout, stderr);
+            return Results.Problem("The community draft scoring pipeline failed to run.");
+        }
+
+        if (!File.Exists(outputPath))
+        {
+            logger.LogError("Community scoring pipeline finished without producing an output file. stdout: {Stdout}", stdout);
+            return Results.Problem("The community draft scoring pipeline did not produce output.");
+        }
+
+        var node = JsonNode.Parse(await File.ReadAllTextAsync(outputPath));
+        return Results.Json(node);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to score community outreach post payload.");
         return Results.Problem(ex.Message);
     }
 });
@@ -3068,6 +3256,11 @@ sealed class TableConfig
 sealed class SocialAnalyticsRefreshRequest
 {
     public List<Dictionary<string, object?>> Posts { get; set; } = [];
+}
+
+sealed class SocialPostScoreRequest
+{
+    public Dictionary<string, object?> Payload { get; set; } = [];
 }
 
 sealed class SupporterRiskRefreshRequest
