@@ -1,0 +1,625 @@
+{
+  "generatedAt": "2026-04-09T02:23:30.421620+00:00",
+  "dataset": {
+    "rowCount": 50,
+    "monthMin": "2023-01-01",
+    "monthMax": "2027-02-01"
+  },
+  "forecastMonth": "2027-03-01",
+  "model": {
+    "selectedModel": "LinearRegression",
+    "meanRmse": 1231.8024,
+    "meanMae": 1102.2974,
+    "meanR2": 0.25,
+    "targetMetrics": [
+      {
+        "target": "forecast_active_residents_served_next",
+        "rmse": 0.0,
+        "mae": 0.0,
+        "r2": 1.0
+      },
+      {
+        "target": "forecast_avg_health_score_next",
+        "rmse": 0.1695,
+        "mae": 0.1343,
+        "r2": 0.0
+      },
+      {
+        "target": "forecast_avg_education_progress_next",
+        "rmse": 4.2329,
+        "mae": 3.5011,
+        "r2": 0.0
+      },
+      {
+        "target": "forecast_total_donation_impact_next",
+        "rmse": 4922.8071,
+        "mae": 4405.5541,
+        "r2": 0.0
+      }
+    ],
+    "nextForecast": {
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": -0.33,
+      "avgEducationProgress": -6.29,
+      "totalDonationImpact": -217.51
+    },
+    "topDrivers": {
+      "forecast_active_residents_served_next": [
+        {
+          "feature": "num__month_num",
+          "importance": 0.0
+        },
+        {
+          "feature": "num__avg_education_progress_rolling3",
+          "importance": 0.0
+        },
+        {
+          "feature": "num__incident_pressure",
+          "importance": 0.0
+        },
+        {
+          "feature": "num__donation_to_allocation_ratio",
+          "importance": 0.0
+        },
+        {
+          "feature": "num__donation_count_rolling3",
+          "importance": 0.0
+        },
+        {
+          "feature": "num__donation_count_lag1",
+          "importance": 0.0
+        }
+      ],
+      "forecast_avg_health_score_next": [
+        {
+          "feature": "num__total_allocations_lag1",
+          "importance": 1.6901400903178743
+        },
+        {
+          "feature": "num__total_donations_value_rolling3",
+          "importance": 1.4875290814712852
+        },
+        {
+          "feature": "num__total_donations_value_lag1",
+          "importance": 1.4218692545515095
+        },
+        {
+          "feature": "num__total_allocations_rolling3",
+          "importance": 1.3645809329174101
+        },
+        {
+          "feature": "num__summary_length",
+          "importance": 0.8700136637959208
+        },
+        {
+          "feature": "num__avg_education_progress_lag1",
+          "importance": 0.522543518148307
+        }
+      ],
+      "forecast_avg_education_progress_next": [
+        {
+          "feature": "num__total_allocations_lag1",
+          "importance": 34.83688865200978
+        },
+        {
+          "feature": "num__total_donations_value_lag1",
+          "importance": 27.699913341422143
+        },
+        {
+          "feature": "num__summary_length",
+          "importance": 22.556969206195543
+        },
+        {
+          "feature": "num__avg_education_progress_lag1",
+          "importance": 13.534174540623793
+        },
+        {
+          "feature": "num__total_allocations_rolling3",
+          "importance": 12.816434092529978
+        },
+        {
+          "feature": "num__total_donations_value_rolling3",
+          "importance": 12.444704590518175
+        }
+      ],
+      "forecast_total_donation_impact_next": [
+        {
+          "feature": "num__total_donations_value_rolling3",
+          "importance": 15293.555279398772
+        },
+        {
+          "feature": "num__total_donations_value_lag1",
+          "importance": 12731.108309371131
+        },
+        {
+          "feature": "num__total_allocations_lag1",
+          "importance": 12613.15354814576
+        },
+        {
+          "feature": "num__total_allocations_rolling3",
+          "importance": 12403.574809046586
+        },
+        {
+          "feature": "num__avg_education_progress_rolling3",
+          "importance": 4273.841606456087
+        },
+        {
+          "feature": "num__month_num",
+          "importance": 2416.003673580891
+        }
+      ]
+    },
+    "artifacts": {
+      "forecastModelPath": "Website/BellaPortoFoundation/ml-pipelines/artifacts/public_impact_forecast_live.joblib"
+    }
+  },
+  "kpis": [
+    {
+      "label": "Forecast residents served",
+      "value": 60.0,
+      "detail": "Predicted active residents served for next month"
+    },
+    {
+      "label": "Forecast health score",
+      "value": -0.33,
+      "detail": "Predicted public average health score next month"
+    },
+    {
+      "label": "Forecast education progress",
+      "value": -6.29,
+      "detail": "Predicted public education progress next month"
+    },
+    {
+      "label": "Forecast donation impact",
+      "value": -217.51,
+      "detail": "Predicted total donation impact for the next public dashboard cycle",
+      "unit": "PHP"
+    }
+  ],
+  "impactTimeline": [
+    {
+      "month": "2023-01-01",
+      "label": "Jan 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.03,
+      "avgEducationProgress": 33.9,
+      "totalDonationImpact": 1379.92
+    },
+    {
+      "month": "2023-02-01",
+      "label": "Feb 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.13,
+      "avgEducationProgress": 51.05,
+      "totalDonationImpact": 2065.15
+    },
+    {
+      "month": "2023-03-01",
+      "label": "Mar 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.16,
+      "avgEducationProgress": 60.57,
+      "totalDonationImpact": 9577.83
+    },
+    {
+      "month": "2023-04-01",
+      "label": "Apr 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.2,
+      "avgEducationProgress": 69.15,
+      "totalDonationImpact": 5401.47
+    },
+    {
+      "month": "2023-05-01",
+      "label": "May 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.2,
+      "avgEducationProgress": 78.85,
+      "totalDonationImpact": 4862.09
+    },
+    {
+      "month": "2023-06-01",
+      "label": "Jun 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.23,
+      "avgEducationProgress": 78.91,
+      "totalDonationImpact": 1306.86
+    },
+    {
+      "month": "2023-07-01",
+      "label": "Jul 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.19,
+      "avgEducationProgress": 79.46,
+      "totalDonationImpact": 6592.33
+    },
+    {
+      "month": "2023-08-01",
+      "label": "Aug 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.13,
+      "avgEducationProgress": 81.2,
+      "totalDonationImpact": 4897.48
+    },
+    {
+      "month": "2023-09-01",
+      "label": "Sep 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.09,
+      "avgEducationProgress": 84.18,
+      "totalDonationImpact": 2676.03
+    },
+    {
+      "month": "2023-10-01",
+      "label": "Oct 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.12,
+      "avgEducationProgress": 79.91,
+      "totalDonationImpact": 4543.2
+    },
+    {
+      "month": "2023-11-01",
+      "label": "Nov 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.15,
+      "avgEducationProgress": 81.89,
+      "totalDonationImpact": 6302.16
+    },
+    {
+      "month": "2023-12-01",
+      "label": "Dec 2023",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.13,
+      "avgEducationProgress": 81.07,
+      "totalDonationImpact": 17960.36
+    },
+    {
+      "month": "2024-01-01",
+      "label": "Jan 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.08,
+      "avgEducationProgress": 74.59,
+      "totalDonationImpact": 5840.11
+    },
+    {
+      "month": "2024-02-01",
+      "label": "Feb 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.1,
+      "avgEducationProgress": 73.95,
+      "totalDonationImpact": 1875.32
+    },
+    {
+      "month": "2024-03-01",
+      "label": "Mar 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.11,
+      "avgEducationProgress": 76.67,
+      "totalDonationImpact": 2776.28
+    },
+    {
+      "month": "2024-04-01",
+      "label": "Apr 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.14,
+      "avgEducationProgress": 78.3,
+      "totalDonationImpact": 3833.67
+    },
+    {
+      "month": "2024-05-01",
+      "label": "May 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.17,
+      "avgEducationProgress": 77.23,
+      "totalDonationImpact": 767.63
+    },
+    {
+      "month": "2024-06-01",
+      "label": "Jun 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.12,
+      "avgEducationProgress": 71.84,
+      "totalDonationImpact": 3711.84
+    },
+    {
+      "month": "2024-07-01",
+      "label": "Jul 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.16,
+      "avgEducationProgress": 76.78,
+      "totalDonationImpact": 4109.89
+    },
+    {
+      "month": "2024-08-01",
+      "label": "Aug 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.15,
+      "avgEducationProgress": 76.61,
+      "totalDonationImpact": 7299.28
+    },
+    {
+      "month": "2024-09-01",
+      "label": "Sep 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.12,
+      "avgEducationProgress": 81.05,
+      "totalDonationImpact": 8020.51
+    },
+    {
+      "month": "2024-10-01",
+      "label": "Oct 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.1,
+      "avgEducationProgress": 75.73,
+      "totalDonationImpact": 13284.48
+    },
+    {
+      "month": "2024-11-01",
+      "label": "Nov 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.13,
+      "avgEducationProgress": 77.74,
+      "totalDonationImpact": 13158.83
+    },
+    {
+      "month": "2024-12-01",
+      "label": "Dec 2024",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.18,
+      "avgEducationProgress": 69.48,
+      "totalDonationImpact": 14273.06
+    },
+    {
+      "month": "2025-01-01",
+      "label": "Jan 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.2,
+      "avgEducationProgress": 77.8,
+      "totalDonationImpact": 5786.6
+    },
+    {
+      "month": "2025-02-01",
+      "label": "Feb 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.21,
+      "avgEducationProgress": 83.13,
+      "totalDonationImpact": 3300.97
+    },
+    {
+      "month": "2025-03-01",
+      "label": "Mar 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.17,
+      "avgEducationProgress": 84.18,
+      "totalDonationImpact": 7284.34
+    },
+    {
+      "month": "2025-04-01",
+      "label": "Apr 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.2,
+      "avgEducationProgress": 82.86,
+      "totalDonationImpact": 6328.14
+    },
+    {
+      "month": "2025-05-01",
+      "label": "May 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.28,
+      "avgEducationProgress": 88.67,
+      "totalDonationImpact": 3044.17
+    },
+    {
+      "month": "2025-06-01",
+      "label": "Jun 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.27,
+      "avgEducationProgress": 87.56,
+      "totalDonationImpact": 5309.04
+    },
+    {
+      "month": "2025-07-01",
+      "label": "Jul 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.33,
+      "avgEducationProgress": 85.87,
+      "totalDonationImpact": 10768.68
+    },
+    {
+      "month": "2025-08-01",
+      "label": "Aug 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.35,
+      "avgEducationProgress": 88.37,
+      "totalDonationImpact": 12394.8
+    },
+    {
+      "month": "2025-09-01",
+      "label": "Sep 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.36,
+      "avgEducationProgress": 79.41,
+      "totalDonationImpact": 3871.71
+    },
+    {
+      "month": "2025-10-01",
+      "label": "Oct 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.31,
+      "avgEducationProgress": 85.45,
+      "totalDonationImpact": 7802.06
+    },
+    {
+      "month": "2025-11-01",
+      "label": "Nov 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.34,
+      "avgEducationProgress": 82.01,
+      "totalDonationImpact": 12202.61
+    },
+    {
+      "month": "2025-12-01",
+      "label": "Dec 2025",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.38,
+      "avgEducationProgress": 79.53,
+      "totalDonationImpact": 9862.44
+    },
+    {
+      "month": "2026-01-01",
+      "label": "Jan 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.87,
+      "avgEducationProgress": 100.0,
+      "totalDonationImpact": 2527.99
+    },
+    {
+      "month": "2026-02-01",
+      "label": "Feb 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 3.94,
+      "avgEducationProgress": 100.0,
+      "totalDonationImpact": 3382.25
+    },
+    {
+      "month": "2026-03-01",
+      "label": "Mar 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 342.96
+    },
+    {
+      "month": "2026-04-01",
+      "label": "Apr 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 0.0
+    },
+    {
+      "month": "2026-05-01",
+      "label": "May 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 0.0
+    },
+    {
+      "month": "2026-06-01",
+      "label": "Jun 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 0.0
+    },
+    {
+      "month": "2026-07-01",
+      "label": "Jul 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 0.0
+    },
+    {
+      "month": "2026-08-01",
+      "label": "Aug 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 0.0
+    },
+    {
+      "month": "2026-09-01",
+      "label": "Sep 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 0.0
+    },
+    {
+      "month": "2026-10-01",
+      "label": "Oct 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 0.0
+    },
+    {
+      "month": "2026-11-01",
+      "label": "Nov 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 0.0
+    },
+    {
+      "month": "2026-12-01",
+      "label": "Dec 2026",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 0.0
+    },
+    {
+      "month": "2027-01-01",
+      "label": "Jan 2027",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 0.0
+    },
+    {
+      "month": "2027-02-01",
+      "label": "Feb 2027",
+      "activeResidentsServed": 60.0,
+      "avgHealthScore": 0.0,
+      "avgEducationProgress": 0.0,
+      "totalDonationImpact": 0.0
+    }
+  ],
+  "storyScores": [
+    {
+      "metricName": "Active residents served",
+      "latestValue": 60.0,
+      "predictedNextValue": 60.0,
+      "recentDelta": 0.0,
+      "trendStrength": 0.0,
+      "headlinePriorityScore": 0.255
+    },
+    {
+      "metricName": "Average health score",
+      "latestValue": 0.0,
+      "predictedNextValue": -0.33,
+      "recentDelta": -0.33,
+      "trendStrength": -0.33,
+      "headlinePriorityScore": 0.0585
+    },
+    {
+      "metricName": "Average education progress",
+      "latestValue": 0.0,
+      "predictedNextValue": -6.29,
+      "recentDelta": -6.29,
+      "trendStrength": -6.29,
+      "headlinePriorityScore": -3.1835
+    },
+    {
+      "metricName": "Donation impact",
+      "latestValue": 0.0,
+      "predictedNextValue": -217.51,
+      "recentDelta": -217.51,
+      "trendStrength": -217.51,
+      "headlinePriorityScore": -119.3455
+    }
+  ],
+  "summary": {
+    "headline": "Active residents served is projected to change by 0.00 next month, making it the strongest public dashboard story.",
+    "suggestedMetric": "Active residents served",
+    "suggestedHeadline": "Active residents served is projected to change by 0.00 next month, making it the strongest public dashboard story."
+  },
+  "recommendations": [
+    "Use the forecast cards to pre-stage next month\u2019s donor dashboard before publishing.",
+    "Keep the final headline human-reviewed so communications staff can validate tone and privacy.",
+    "Prioritize metrics with strong operational improvement and strong donor relevance rather than whichever number is easiest to explain."
+  ]
+}

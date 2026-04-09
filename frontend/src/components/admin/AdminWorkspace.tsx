@@ -1,8 +1,9 @@
-import { startTransition, type ReactNode, useDeferredValue, useId, useMemo, useState } from "react";
+import { startTransition, type ReactNode, useCallback, useDeferredValue, useEffect, useId, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  ArrowUpRight,
   BarChart3,
   Building2,
   Bed,
@@ -20,7 +21,6 @@ import {
   Home,
   LayoutDashboard,
   Megaphone,
-  MoreHorizontal,
   Pencil,
   Plus,
   Search,
@@ -38,6 +38,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Line,
   LineChart,
   Pie,
@@ -61,17 +62,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { PublicImpactMlPanel } from "@/components/admin/PublicImpactMlPanel";
+import { OutreachSocialMediaPanel } from "@/components/admin/OutreachSocialMediaPanel";
 import {
   Pagination,
   PaginationContent,
@@ -103,7 +100,7 @@ import {
 
 type MainTab = "dashboard" | "residents" | "donations" | "safe-houses" | "reports" | "outreach" | "settings";
 type ResidentsSubTab = "all-residents" | "process-records" | "visitations" | "education" | "health" | "interventions" | "incidents";
-type DonationsSubTab = "summary-statistics" | "supporters" | "donations" | "in-kind" | "allocations";
+type DonationsSubTab = "supporters" | "donations" | "in-kind" | "allocations";
 type SafeHousesSubTab = "safe-houses" | "allocation-history" | "monthly-metrics";
 type OutreachSubTab = "social-media" | "public-impact";
 
@@ -264,6 +261,26 @@ type WorkspaceData = {
   publicImpact: PublicImpactSnapshot[];
 };
 
+type AnalyticsDatum = Record<string, string | number | null>;
+
+type AnalyticsCardConfig = {
+  key: string;
+  title: string;
+  subtitle: string;
+  kpiLabel: string;
+  kpiValue: string;
+  kpiDetail: string;
+  data: AnalyticsDatum[];
+  xKey: string;
+  yKey: string;
+  type?: "bar" | "line" | "pie";
+  color?: string;
+  emptyMessage?: string;
+  modalOptions?: Array<{ value: string; label: string }>;
+  selectedOption?: string;
+  onOptionChange?: (value: string) => void;
+};
+
 type ResidentFormState = {
   case_control_no: string;
   internal_code: string;
@@ -356,12 +373,31 @@ type ProcessRecordFormState = {
   emotional_state_end: string;
   session_narrative: string;
   interventions_applied: string;
+  interventions_none: string;
   follow_up_actions: string;
+  follow_up_none: string;
   progress_noted: string;
   concerns_flagged: string;
   referral_made: string;
   notes_restricted: string;
 };
+
+function validateProcessRecordFormState(state: ProcessRecordFormState, isNewRecord: boolean): string | null {
+  if (!state.resident_id.trim()) return "Please select a resident.";
+  if (!state.session_date.trim()) return "Session date is required.";
+  if (!state.social_worker.trim()) return "Social worker is required.";
+  if (!state.session_type.trim()) return "Session type is required (Individual or Group).";
+  if (isNewRecord && state.session_type !== "Individual" && state.session_type !== "Group") {
+    return "For a new record, choose session type Individual or Group.";
+  }
+  if (!state.emotional_state_observed.trim()) return "Emotional state observed is required.";
+  if (!state.session_narrative.trim()) return "A narrative summary of the session is required.";
+  const interventionsOk = state.interventions_none === "true" || state.interventions_applied.trim().length > 0;
+  if (!interventionsOk) return "Enter interventions applied or check None.";
+  const followUpOk = state.follow_up_none === "true" || state.follow_up_actions.trim().length > 0;
+  if (!followUpOk) return "Enter follow-up actions or check None.";
+  return null;
+}
 
 type VisitationFormState = {
   resident_id: string;
@@ -443,12 +479,13 @@ const RESIDENT_SUBTABS: Array<{ value: ResidentsSubTab; label: string }> = [
 ];
 
 const DONATION_SUBTABS: Array<{ value: DonationsSubTab; label: string }> = [
-  { value: "summary-statistics", label: "Summary Statistics" },
   { value: "supporters", label: "Supporters" },
   { value: "donations", label: "Donations" },
   { value: "in-kind", label: "In-Kind" },
   { value: "allocations", label: "Allocations" },
 ];
+
+const DEFAULT_DONATIONS_SUBTAB: DonationsSubTab = "supporters";
 
 const SAFEHOUSE_SUBTABS: Array<{ value: SafeHousesSubTab; label: string }> = [
   { value: "safe-houses", label: "Safe Houses" },
@@ -599,8 +636,50 @@ function formatCurrency(value: unknown, currency = "PHP") {
   }).format(toNumber(value));
 }
 
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
 function residentLabel(resident: Resident) {
   return resident.internal_code?.trim() || resident.case_control_no?.trim() || `Resident ${resident.resident_id}`;
+}
+
+/** Parses CC-123 / cc-0001 style case numbers (must match DB trigger). */
+function parseCcCaseNumeric(caseControl: string | null | undefined): number | null {
+  const s = String(caseControl ?? "").trim().toLowerCase();
+  const m = s.match(/^cc-(\d+)$/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/** Next case control no. after max CC-######## in the table (same padding as Postgres: min 5 digits, CC-00001+). */
+function suggestNextCaseControlNoFromResidents(residents: Resident[]): string {
+  let maxNum = 0;
+  for (const r of residents) {
+    const n = parseCcCaseNumeric(r.case_control_no);
+    if (n != null && n > maxNum) maxNum = n;
+  }
+  const next = maxNum + 1;
+  const width = Math.max(5, String(next).length);
+  return `CC-${String(next).padStart(width, "0")}`;
+}
+
+/** Parses LS-0001 / ls-0001 style internal codes (case-insensitive). */
+function parseLsInternalNumeric(code: string | null | undefined): number | null {
+  const s = String(code ?? "").trim().toLowerCase();
+  const m = s.match(/^ls-(\d+)$/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/** Next internal code: LS- + 4-digit (wider if sequence exceeds 9999). */
+function suggestNextLsInternalCodeFromResidents(residents: Resident[]): string {
+  let maxNum = 0;
+  for (const r of residents) {
+    const n = parseLsInternalNumeric(r.internal_code);
+    if (n != null && n > maxNum) maxNum = n;
+  }
+  const next = maxNum + 1;
+  const width = Math.max(4, String(next).length);
+  return `LS-${String(next).padStart(width, "0")}`;
 }
 
 function supporterLabel(supporter: Supporter) {
@@ -618,6 +697,10 @@ function compareDatesDescending(a: unknown, b: unknown) {
   const aTime = Number.isNaN(aDate.getTime()) ? 0 : aDate.getTime();
   const bTime = Number.isNaN(bDate.getTime()) ? 0 : bDate.getTime();
   return bTime - aTime;
+}
+
+function startOfLocalDayMs(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
 function sortUpcomingThenRecent<T extends Record<string, unknown>>(rows: T[], dateKey: string) {
@@ -705,6 +788,177 @@ function exportRows(label: string, rows: Array<Record<string, unknown>>) {
   URL.revokeObjectURL(url);
 }
 
+function buildCountChart(rows: Array<Record<string, unknown>>, key: string) {
+  return Array.from(
+    rows.reduce<Map<string, number>>((accumulator, row) => {
+      const label = asText(row[key], "Unknown");
+      accumulator.set(label, (accumulator.get(label) ?? 0) + 1);
+      return accumulator;
+    }, new Map()),
+  ).map(([label, value]) => ({ label, value }));
+}
+
+function buildAverageChart(definitions: Array<{ label: string; values: number[] }>) {
+  return definitions.map((definition) => ({
+    label: definition.label,
+    value: definition.values.length
+      ? Number((definition.values.reduce((sum, value) => sum + value, 0) / definition.values.length).toFixed(1))
+      : 0,
+  }));
+}
+
+function buildMonthlySumChart(
+  rows: Array<Record<string, unknown>>,
+  dateKey: string,
+  valueSelector: (row: Record<string, unknown>) => number,
+) {
+  const monthly = new Map<string, number>();
+  rows.forEach((row) => {
+    const raw = String(row[dateKey] ?? "");
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return;
+    const key = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+    monthly.set(key, (monthly.get(key) ?? 0) + valueSelector(row));
+  });
+  return Array.from(monthly.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([label, value]) => ({ label, value: Math.round(value) }));
+}
+
+function AnalyticsPreviewChart({ config, expanded = false }: { config: AnalyticsCardConfig; expanded?: boolean }) {
+  if (!config.data.length) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 px-3 text-center text-xs text-muted-foreground">
+        {config.emptyMessage ?? "No chart data yet"}
+      </div>
+    );
+  }
+
+  if (config.type === "line") {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={config.data}>
+          {expanded ? <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" /> : null}
+          <XAxis
+            dataKey={config.xKey}
+            hide={!expanded}
+            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+            angle={expanded ? -20 : 0}
+            textAnchor={expanded ? "end" : "middle"}
+            height={expanded ? 60 : undefined}
+          />
+          <YAxis hide={!expanded} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+          <Tooltip formatter={(value: number | string) => [value, config.title]} />
+          {expanded ? <Legend /> : null}
+          <Line
+            name={config.title}
+            type="monotone"
+            dataKey={config.yKey}
+            stroke={config.color ?? "hsl(var(--primary))"}
+            strokeWidth={expanded ? 3 : 2.5}
+            dot={expanded}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  if (config.type === "pie") {
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={config.data}
+            dataKey={config.yKey}
+            nameKey={config.xKey}
+            innerRadius={expanded ? 70 : 24}
+            outerRadius={expanded ? 120 : 34}
+            paddingAngle={expanded ? 2 : 1}
+          >
+            {config.data.map((entry, index) => (
+              <Cell key={`${String(entry[config.xKey])}-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip formatter={(value: number | string, _name, item) => [value, String(item?.payload?.[config.xKey] ?? "")]} />
+          {expanded ? <Legend /> : null}
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={config.data}>
+        {expanded ? <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" /> : null}
+        <XAxis
+          dataKey={config.xKey}
+          hide={!expanded}
+          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+          angle={expanded ? -20 : 0}
+          textAnchor={expanded ? "end" : "middle"}
+          height={expanded ? 60 : undefined}
+        />
+        <YAxis hide={!expanded} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+        <Tooltip formatter={(value: number | string) => [value, config.title]} />
+        {expanded ? <Legend /> : null}
+        <Bar name={config.title} dataKey={config.yKey} fill={config.color ?? "hsl(var(--primary))"} radius={[8, 8, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function CompactAnalyticsCard({
+  config,
+  onClick,
+}: {
+  config: AnalyticsCardConfig;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Open expanded chart: ${config.title}`}
+      className="group relative w-[258px] overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-warm transition duration-200 hover:scale-[1.02] hover:shadow-lg"
+    >
+      <span
+        className="absolute right-2 top-2 z-10 rounded-full bg-background/90 p-1 text-muted-foreground shadow-sm transition-colors group-hover:text-foreground"
+        aria-hidden
+      >
+        <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+      </span>
+      <div className="h-[76px] bg-muted/20">
+        <AnalyticsPreviewChart config={config} />
+      </div>
+    </button>
+  );
+}
+
+function InsightRow({
+  config,
+  onChartClick,
+}: {
+  config: AnalyticsCardConfig;
+  onChartClick: () => void;
+}) {
+  return (
+    <div className="mb-1 rounded-2xl border border-border/70 bg-muted/20 px-4 py-2">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{config.kpiLabel}</p>
+          <div className="mt-0.5 flex items-end gap-2">
+            <p className="text-3xl font-semibold leading-none text-foreground">{config.kpiValue}</p>
+            <p className="pb-1 text-sm text-muted-foreground">{config.kpiDetail}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center">
+          <CompactAnalyticsCard config={config} onClick={onChartClick} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({
   title,
   description,
@@ -736,14 +990,23 @@ function SectionCard({
   return (
     <Card className="rounded-2xl border-border/70 bg-card shadow-warm">
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-        <div>
+        <div className="min-w-0 flex-1">
           <h2 className="font-heading text-xl font-semibold leading-none tracking-tight text-foreground">{title}</h2>
           {description ? <CardDescription className="mt-1">{description}</CardDescription> : null}
         </div>
-        {action}
+        {action ? <div className="flex shrink-0 flex-col items-end">{action}</div> : null}
       </CardHeader>
       <CardContent className={cn("pt-0", contentClassName)}>{children}</CardContent>
     </Card>
+  );
+}
+
+function TableAddButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <Button type="button" variant="default" className="gap-2 rounded-xl shadow-sm" onClick={onClick}>
+      <Plus className="h-4 w-4 shrink-0" aria-hidden />
+      {label}
+    </Button>
   );
 }
 
@@ -847,12 +1110,15 @@ function FilterCheckboxGroup({
   selected,
   onChange,
   allLabel,
+  getOptionLabel,
 }: {
   title: string;
   options: string[];
   selected: string[];
   onChange: (next: string[]) => void;
   allLabel: string;
+  /** When set, shown in the list instead of the raw option value (e.g. safe house id → name). */
+  getOptionLabel?: (value: string) => string;
 }) {
   const allSelected = options.length > 0 && selected.length === options.length;
 
@@ -866,11 +1132,11 @@ function FilterCheckboxGroup({
 
   return (
     <fieldset className="rounded-2xl border border-border/70 bg-background p-4">
-      <legend className="mb-3 w-full text-left text-xs font-semibold uppercase tracking-[0.2em] text-foreground/80">
+      <legend className="mb-3 w-full text-left text-sm font-semibold uppercase tracking-[0.14em] text-foreground/80">
         {title}
       </legend>
-      <div className="space-y-3 text-sm text-foreground">
-        <label className="flex items-center gap-3 font-medium">
+      <div className="space-y-3 text-sm font-medium text-foreground">
+        <label className="flex items-center gap-3">
           <input
             type="checkbox"
             checked={allSelected}
@@ -880,14 +1146,14 @@ function FilterCheckboxGroup({
           {allLabel}
         </label>
         {options.map((option) => (
-          <label key={option} className="flex items-center gap-3">
+          <label key={option} className="flex items-center gap-3 font-medium">
             <input
               type="checkbox"
               checked={selected.includes(option)}
               onChange={() => toggleValue(option)}
               className="h-4 w-4 rounded border-border"
             />
-            {option}
+            {getOptionLabel ? getOptionLabel(option) : option}
           </label>
         ))}
       </div>
@@ -951,42 +1217,50 @@ function Toolbar({
   const [open, setOpen] = useState(defaultOpen);
   const searchFieldId = useId();
   return (
-    <Card className="rounded-2xl border-border/70 bg-card shadow-warm">
+    <Card className="mb-12 rounded-2xl border-border/70 bg-card shadow-warm">
       <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className={cn(
-              "flex w-full items-center justify-between gap-3 text-left",
-              open ? "border-b border-border/70 px-4 py-4" : "px-4 py-1.5",
-            )}
-          >
-            <span className={cn("font-semibold text-foreground", open ? "text-2xl" : "text-xl")}>{title}</span>
-            <div className="flex items-center gap-3">
-              <span className={cn("flex items-center gap-2 font-medium text-foreground/75", open ? "text-sm" : "text-xs")}>
+        <div
+          className={cn(
+            "flex w-full items-center gap-2",
+            open ? "border-b border-border/70" : "",
+          )}
+        >
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "flex min-w-0 flex-1 items-center justify-between gap-3 text-left",
+                open ? "px-4 py-4" : "px-4 py-1.5",
+              )}
+            >
+              <span
+                className={cn(
+                  "text-foreground",
+                  open ? "text-sm font-semibold tracking-tight" : "text-xs font-medium tracking-wide text-muted-foreground",
+                )}
+              >
+                {title}
+              </span>
+              <span className={cn("flex shrink-0 items-center gap-2 font-medium text-muted-foreground", open ? "text-sm" : "text-xs")}>
                 {open ? "Hide" : "Show"}
                 {open ? <ChevronUp className="h-4 w-4 shrink-0" aria-hidden /> : <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />}
               </span>
-              {actionItems?.length ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
-                    <Button variant="outline" className={cn("rounded-full px-4", open ? "h-10" : "h-8 text-xs")}>
-                      <MoreHorizontal className="h-4 w-4" />
-                      Actions
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 rounded-xl">
-                    {actionItems.map((item) => (
-                      <DropdownMenuItem key={item.label} onClick={item.onClick}>
-                        {item.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
+            </button>
+          </CollapsibleTrigger>
+          {actionItems?.length ? (
+            <div className={cn("shrink-0 pr-4", open ? "py-4" : "py-1.5")}>
+              <Button
+                type="button"
+                variant="outline"
+                className={cn("gap-2 rounded-full px-4 font-medium", open ? "h-10 text-sm" : "h-8 text-xs")}
+                onClick={() => actionItems[0]?.onClick()}
+              >
+                <Download className={cn("shrink-0 opacity-80", open ? "h-4 w-4" : "h-3.5 w-3.5")} aria-hidden />
+                Export CSV
+              </Button>
             </div>
-          </button>
-        </CollapsibleTrigger>
+          ) : null}
+        </div>
         <CollapsibleContent>
           <CardContent className="p-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1001,12 +1275,12 @@ function Toolbar({
                     value={searchValue}
                     onChange={(event) => onSearchChange(event.target.value)}
                     placeholder={searchPlaceholder}
-                    className="h-11 rounded-full border-border/80 bg-background pl-9"
+                    className="h-11 rounded-full border-border/80 bg-background pl-9 text-sm"
                     autoComplete="off"
                   />
                 </div>
                 {onClearFilters ? (
-                  <Button variant="outline" className="h-11 rounded-full px-6" onClick={onClearFilters}>
+                  <Button variant="outline" className="h-11 rounded-full px-6 text-sm font-medium" onClick={onClearFilters}>
                     Clear filters
                   </Button>
                 ) : null}
@@ -1019,7 +1293,7 @@ function Toolbar({
                   id={`${searchFieldId}-sort`}
                   value={sortValue}
                   onChange={(event) => onSortChange(event.target.value)}
-                  className="h-11 rounded-full border border-input bg-background px-4 text-sm text-foreground"
+                  className="h-11 rounded-full border border-input bg-background px-4 text-sm font-medium text-foreground"
                 >
                   {sortOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -1057,6 +1331,75 @@ function PaginatedRows<T>({
     start: rows.length ? start + 1 : 0,
     end: Math.min(start + perPage, rows.length),
   };
+}
+
+type TableColumnSort = { key: string; dir: "asc" | "desc" };
+
+function compareSortValues(a: unknown, b: unknown): number {
+  if (a == null || a === "") {
+    if (b == null || b === "") return 0;
+    return 1;
+  }
+  if (b == null || b === "") return -1;
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+
+function sortRowsByColumn<T>(rows: T[], sort: TableColumnSort | undefined, getValue: (row: T, key: string) => unknown): T[] {
+  if (!sort?.key) return rows;
+  const mult = sort.dir === "asc" ? 1 : -1;
+  return [...rows].sort((rowA, rowB) => mult * compareSortValues(getValue(rowA, sort.key), getValue(rowB, sort.key)));
+}
+
+function SortableTableHead({
+  tableId,
+  columnKey,
+  children,
+  activeSort,
+  onToggle,
+  className,
+}: {
+  tableId: string;
+  columnKey: string;
+  children: ReactNode;
+  activeSort: TableColumnSort | undefined;
+  onToggle: (tableId: string, columnKey: string) => void;
+  className?: string;
+}) {
+  const active = activeSort?.key === columnKey;
+  const dir = activeSort?.dir;
+  const alignRight = Boolean(className?.includes("text-right"));
+  const sortLabel =
+    typeof children === "string" || typeof children === "number" ? String(children) : "this column";
+  return (
+    <TableHead
+      className={cn("select-none", className)}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        aria-label={
+          active
+            ? `Sorted ${dir === "asc" ? "ascending" : "descending"} by ${sortLabel}. Click to reverse.`
+            : `Sort by ${sortLabel}`
+        }
+        className={cn(
+          "inline-flex max-w-full items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-foreground hover:bg-muted/60",
+          alignRight ? "ms-auto w-full justify-end" : "-mx-2 -my-1 justify-start text-left",
+        )}
+        onClick={() => onToggle(tableId, columnKey)}
+      >
+        <span className="truncate">{children}</span>
+        {active ? (
+          dir === "asc" ? (
+            <ChevronUp className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+          )
+        ) : null}
+      </button>
+    </TableHead>
+  );
 }
 
 function TablePagination({
@@ -1121,6 +1464,7 @@ function TablePagination({
               <PaginationLink
                 href="#"
                 isActive={entry === page}
+                aria-label={`Go to page ${entry}`}
                 onClick={(event) => {
                   event.preventDefault();
                   onPageChange(entry);
@@ -1149,9 +1493,46 @@ function TablePagination({
 type FormField = {
   key: string;
   label: string;
-  type?: "text" | "date" | "number" | "textarea" | "select" | "email";
+  type?: "text" | "date" | "number" | "textarea" | "select" | "email" | "checkbox";
   options?: Array<{ value: string; label: string }>;
+  /** Show a red star and block submit when empty / invalid for this field type */
+  required?: boolean;
+  /** When this state key is the string "true", disable the text/textarea/select control */
+  disabledWhenKeyTrue?: string;
+  /** Visible text beside a checkbox (defaults to label) */
+  checkboxCaption?: string;
+  /** Smaller textarea, tighter label spacing */
+  compact?: boolean;
+  /** Smaller checkbox row, placed close to the field above */
+  checkboxCompact?: boolean;
+  /** Hint below the control */
+  helperText?: string;
+  /** User cannot edit (e.g. auto-assigned case number) */
+  readOnly?: boolean;
 };
+
+function stringOptionsFromDataOrFallbacks(observed: string[], fallbacks: string[]): Array<{ value: string; label: string }> {
+  const source = observed.length > 0 ? observed : fallbacks;
+  const unique = Array.from(new Set(source.map((s) => String(s).trim()).filter(Boolean)));
+  unique.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  return unique.map((v) => ({ value: v, label: v }));
+}
+
+const REQUIRED_FIELDS_MESSAGE = "Please fill in all required fields marked with a red star (*).";
+
+function isRequiredFieldValueMissing(value: string, field: FormField): boolean {
+  if (field.type === "checkbox") return false;
+  const trimmed = value.trim();
+  if (trimmed === "") return true;
+  if (field.type === "number") {
+    const n = Number(trimmed);
+    return !Number.isFinite(n);
+  }
+  if (field.type === "email") {
+    return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+  }
+  return false;
+}
 
 function EntityModal<T extends Record<string, string>>({
   open,
@@ -1164,6 +1545,7 @@ function EntityModal<T extends Record<string, string>>({
   onSubmit,
   submitLabel,
   pending,
+  extraValidate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1175,7 +1557,32 @@ function EntityModal<T extends Record<string, string>>({
   onSubmit: () => void;
   submitLabel: string;
   pending: boolean;
+  /** Return an error message to block submit, or null when OK (runs after required-field checks) */
+  extraValidate?: (state: T) => string | null;
 }) {
+  const handleSubmit = () => {
+    const missingRequired = fields.some((field) => {
+      if (!field.required) return false;
+      if (field.type === "checkbox") return false;
+      const pairNoneActive =
+        Boolean(field.disabledWhenKeyTrue) &&
+        String(state[field.disabledWhenKeyTrue as keyof T] ?? "") === "true";
+      if (pairNoneActive) return false;
+      const raw = state[field.key as keyof T];
+      return isRequiredFieldValueMissing(String(raw ?? ""), field);
+    });
+    if (missingRequired) {
+      toast.error(REQUIRED_FIELDS_MESSAGE);
+      return;
+    }
+    const extra = extraValidate?.(state);
+    if (extra) {
+      toast.error(extra);
+      return;
+    }
+    onSubmit();
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-2xl border-border/80 bg-background">
@@ -1184,44 +1591,152 @@ function EntityModal<T extends Record<string, string>>({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 md:grid-cols-2">
-          {fields.map((field) => (
-            <label key={field.key} className={cn("grid gap-2 text-sm", field.type === "textarea" ? "md:col-span-2" : "")}>
-              <span className="font-medium text-foreground">{field.label}</span>
-              {field.type === "textarea" ? (
-                <Textarea
-                  value={state[field.key as keyof T]}
-                  onChange={(event) => onChange(field.key as keyof T, event.target.value)}
-                  className="min-h-28 rounded-xl border-border/80 bg-background"
-                />
-              ) : field.type === "select" ? (
-                <select
-                  value={state[field.key as keyof T]}
-                  onChange={(event) => onChange(field.key as keyof T, event.target.value)}
-                  className="h-11 rounded-xl border border-input bg-background px-3 text-sm text-foreground"
+          {fields.map((field) => {
+            const pairNoneActive =
+              Boolean(field.disabledWhenKeyTrue) &&
+              String(state[field.disabledWhenKeyTrue as keyof T] ?? "") === "true";
+
+            const clearPairNoneOnFocus = () => {
+              if (
+                field.disabledWhenKeyTrue &&
+                String(state[field.disabledWhenKeyTrue as keyof T] ?? "") === "true"
+              ) {
+                onChange(field.disabledWhenKeyTrue as keyof T, "false");
+              }
+            };
+
+            if (field.type === "checkbox") {
+              return (
+                <label
+                  key={field.key}
+                  className={cn(
+                    "md:col-span-2 flex cursor-pointer items-center rounded-md border border-transparent text-foreground hover:bg-muted/30",
+                    field.checkboxCompact ? "-mt-1 gap-1.5 pl-0.5 pt-0.5 text-xs" : "gap-3 px-1 py-1 text-sm",
+                  )}
                 >
-                  <option value="">Select…</option>
-                  {field.options?.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  type={field.type ?? "text"}
-                  value={state[field.key as keyof T]}
-                  onChange={(event) => onChange(field.key as keyof T, event.target.value)}
-                  className="h-11 rounded-xl border-border/80 bg-background"
-                />
-              )}
-            </label>
-          ))}
+                  <input
+                    type="checkbox"
+                    checked={String(state[field.key as keyof T]) === "true"}
+                    onChange={(event) => onChange(field.key as keyof T, event.target.checked ? "true" : "false")}
+                    className={cn(
+                      "shrink-0 rounded border-border text-primary",
+                      field.checkboxCompact ? "h-3 w-3" : "h-4 w-4",
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      field.checkboxCompact ? "font-normal leading-snug text-muted-foreground" : "font-medium text-foreground",
+                    )}
+                  >
+                    {field.checkboxCaption ?? field.label}
+                  </span>
+                </label>
+              );
+            }
+
+            return (
+              <label
+                key={field.key}
+                className={cn(
+                  "grid text-sm",
+                  field.compact ? "gap-1" : "gap-2",
+                  field.type === "textarea" ? "md:col-span-2" : "",
+                )}
+              >
+                <span className="font-medium text-foreground">
+                  {field.label}
+                  {field.required ? (
+                    <span className="text-destructive" aria-hidden>
+                      {" "}
+                      *
+                    </span>
+                  ) : null}
+                </span>
+                {field.type === "textarea" ? (
+                  <>
+                    <Textarea
+                      value={String(state[field.key as keyof T] ?? "")}
+                      onChange={(event) => {
+                        if (field.readOnly) return;
+                        onChange(field.key as keyof T, event.target.value);
+                      }}
+                      onFocus={field.disabledWhenKeyTrue ? clearPairNoneOnFocus : undefined}
+                      readOnly={
+                        Boolean(field.readOnly) ? false : Boolean(field.disabledWhenKeyTrue) && pairNoneActive
+                      }
+                      disabled={Boolean(field.readOnly)}
+                      className={cn(
+                        "rounded-xl border-border/80 bg-background",
+                        field.compact ? "min-h-[4.5rem] text-xs leading-relaxed" : "min-h-28",
+                        field.disabledWhenKeyTrue && pairNoneActive && "cursor-pointer bg-muted/40",
+                        field.readOnly &&
+                          "cursor-not-allowed bg-muted/50 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-100",
+                      )}
+                      required={field.required}
+                      aria-required={field.required}
+                    />
+                    {field.helperText ? (
+                      <p className="text-xs leading-snug text-muted-foreground">{field.helperText}</p>
+                    ) : null}
+                  </>
+                ) : field.type === "select" ? (
+                  <>
+                    <select
+                      value={state[field.key as keyof T]}
+                      onChange={(event) => onChange(field.key as keyof T, event.target.value)}
+                      className="h-11 rounded-xl border border-input bg-background px-3 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                      required={field.required}
+                      aria-required={field.required}
+                      disabled={pairNoneActive}
+                    >
+                      <option value="">Select…</option>
+                      {field.options?.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    {field.helperText ? (
+                      <p className="text-xs leading-snug text-muted-foreground">{field.helperText}</p>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <Input
+                      type={field.type ?? "text"}
+                      value={String(state[field.key as keyof T] ?? "")}
+                      onChange={(event) => {
+                        if (field.readOnly) return;
+                        onChange(field.key as keyof T, event.target.value);
+                      }}
+                      onFocus={field.disabledWhenKeyTrue ? clearPairNoneOnFocus : undefined}
+                      readOnly={
+                        Boolean(field.readOnly) ? false : Boolean(field.disabledWhenKeyTrue) && pairNoneActive
+                      }
+                      disabled={Boolean(field.readOnly)}
+                      className={cn(
+                        "h-11 rounded-xl border-border/80 bg-background",
+                        field.disabledWhenKeyTrue && pairNoneActive && "cursor-pointer bg-muted/40",
+                        field.readOnly &&
+                          "cursor-not-allowed bg-muted/50 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-100",
+                      )}
+                      required={field.required}
+                      aria-required={field.required}
+                    />
+                    {field.helperText ? (
+                      <p className="text-xs leading-snug text-muted-foreground">{field.helperText}</p>
+                    ) : null}
+                  </>
+                )}
+              </label>
+            );
+          })}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
             Cancel
           </Button>
-          <Button onClick={onSubmit} disabled={pending} className="rounded-xl">
+          <Button type="button" onClick={handleSubmit} disabled={pending} className="rounded-xl">
             {pending ? "Saving..." : submitLabel}
           </Button>
         </DialogFooter>
@@ -1237,7 +1752,14 @@ export function AdminWorkspace() {
 
   const currentTab = (searchParams.get("tab") as MainTab | null) ?? "dashboard";
   const residentsSubTab = (searchParams.get("residentsSubTab") as ResidentsSubTab | null) ?? "all-residents";
-  const donationsSubTab = (searchParams.get("donationsSubTab") as DonationsSubTab | null) ?? "summary-statistics";
+  const donationsSubTabRaw = searchParams.get("donationsSubTab") as DonationsSubTab | null;
+  const donationsSubTab: DonationsSubTab =
+    donationsSubTabRaw === "supporters" ||
+    donationsSubTabRaw === "donations" ||
+    donationsSubTabRaw === "in-kind" ||
+    donationsSubTabRaw === "allocations"
+      ? donationsSubTabRaw
+      : DEFAULT_DONATIONS_SUBTAB;
   const safeHousesSubTab = (searchParams.get("safeHousesSubTab") as SafeHousesSubTab | null) ?? "safe-houses";
   const outreachSubTab = (searchParams.get("outreachSubTab") as OutreachSubTab | null) ?? "social-media";
   const selectedResidentIds = parseIds(searchParams.get("residentIds"));
@@ -1263,21 +1785,46 @@ export function AdminWorkspace() {
   const [incidentSeverityFilter, setIncidentSeverityFilter] = useState<string[]>([]);
 
   const [donationSearch, setDonationSearch] = useState("");
+  /** Supporters table: filter by linked supporter profile fields */
   const [donationTypeFilter, setDonationTypeFilter] = useState<string[]>([]);
   const [donationRelationshipFilter, setDonationRelationshipFilter] = useState<string[]>([]);
   const [donationStatusFilter, setDonationStatusFilter] = useState<string[]>([]);
   const [donationRegionFilter, setDonationRegionFilter] = useState<string[]>([]);
   const [donationCountryFilter, setDonationCountryFilter] = useState<string[]>([]);
+  /** Donations table: filter by gift row fields */
+  const [donationGiftTypeFilter, setDonationGiftTypeFilter] = useState<string[]>([]);
+  const [donationGiftRecurringFilter, setDonationGiftRecurringFilter] = useState<string[]>([]);
+  const [donationGiftCampaignFilter, setDonationGiftCampaignFilter] = useState<string[]>([]);
+  const [donationGiftChannelFilter, setDonationGiftChannelFilter] = useState<string[]>([]);
+  const [donationGiftCurrencyFilter, setDonationGiftCurrencyFilter] = useState<string[]>([]);
+  /** In-kind table */
+  const [inKindCategoryFilter, setInKindCategoryFilter] = useState<string[]>([]);
+  const [inKindConditionFilter, setInKindConditionFilter] = useState<string[]>([]);
+  const [inKindUnitFilter, setInKindUnitFilter] = useState<string[]>([]);
+  /** Allocations table */
+  const [allocationProgramFilter, setAllocationProgramFilter] = useState<string[]>([]);
+  const [allocationSafehouseFilter, setAllocationSafehouseFilter] = useState<string[]>([]);
   const [donationSort, setDonationSort] = useState("recent");
+  const [inKindSort, setInKindSort] = useState("recent");
+  const [allocationSort, setAllocationSort] = useState("recent");
   const deferredDonationSearch = useDeferredValue(donationSearch);
+
+  useEffect(() => {
+    if (donationsSubTab === "supporters" && donationSort === "amount") {
+      setDonationSort("recent");
+    }
+  }, [donationSort, donationsSubTab]);
 
   const [safehouseSearch, setSafehouseSearch] = useState("");
   const [safehouseStatusFilter, setSafehouseStatusFilter] = useState<string[]>([]);
   const [safehouseRegionFilter, setSafehouseRegionFilter] = useState<string[]>([]);
   const [safehouseSort, setSafehouseSort] = useState("occupancy");
+  /** Monthly metrics: occurred = month_start date strictly before today (local day); future = today or later; all = no date filter. */
+  const [monthlyMetricsPeriodFilter, setMonthlyMetricsPeriodFilter] = useState<"occurred" | "future" | "all">("occurred");
   const deferredSafehouseSearch = useDeferredValue(safehouseSearch);
   const [tablePages, setTablePages] = useState<Record<string, number>>({});
   const [tablePageSizes, setTablePageSizes] = useState<Record<string, number>>({});
+  const [tableColumnSort, setTableColumnSort] = useState<Record<string, TableColumnSort>>({});
 
   const [residentDetailId, setResidentDetailId] = useState<number | null>(null);
   const [residentModalOpen, setResidentModalOpen] = useState(false);
@@ -1386,7 +1933,9 @@ export function AdminWorkspace() {
     emotional_state_end: "",
     session_narrative: "",
     interventions_applied: "",
+    interventions_none: "false",
     follow_up_actions: "",
+    follow_up_none: "false",
     progress_noted: "false",
     concerns_flagged: "false",
     referral_made: "false",
@@ -1466,6 +2015,9 @@ export function AdminWorkspace() {
     reported_by: "",
     follow_up_required: "false",
   });
+  const [expandedChartKey, setExpandedChartKey] = useState<string | null>(null);
+  const [healthChartMetric, setHealthChartMetric] = useState("general_health_score");
+  const [monthlyMetricsChartMetric, setMonthlyMetricsChartMetric] = useState("active_residents");
 
   const workspaceQuery = useQuery({
     queryKey: ["admin-workspace"],
@@ -1492,6 +2044,16 @@ export function AdminWorkspace() {
       ),
     [safehouseMap, workspace.residents],
   );
+
+  /** Preview next auto-assigned case + internal codes while add-resident modal is open. */
+  useEffect(() => {
+    if (!residentFormOpen || editingResidentId != null) return;
+    setResidentForm((prev) => ({
+      ...prev,
+      internal_code: suggestNextLsInternalCodeFromResidents(workspace.residents),
+      case_control_no: suggestNextCaseControlNoFromResidents(workspace.residents),
+    }));
+  }, [residentFormOpen, editingResidentId, workspace.residents]);
 
   const supporterMap = useMemo(
     () => new Map(workspace.supporters.map((supporter) => [supporter.supporter_id, supporter])),
@@ -1527,6 +2089,45 @@ export function AdminWorkspace() {
   const donationCountryOptions = useMemo(
     () => Array.from(new Set(workspace.supporters.map((supporter) => supporter.country).filter(Boolean) as string[])).sort(),
     [workspace.supporters],
+  );
+  const donationGiftTypeOptions = useMemo(
+    () => Array.from(new Set(workspace.donations.map((d) => d.donation_type).filter(Boolean) as string[])).sort(),
+    [workspace.donations],
+  );
+  const donationGiftCampaignOptions = useMemo(
+    () => Array.from(new Set(workspace.donations.map((d) => d.campaign_name).filter(Boolean) as string[])).sort(),
+    [workspace.donations],
+  );
+  const donationGiftChannelOptions = useMemo(
+    () => Array.from(new Set(workspace.donations.map((d) => d.channel_source).filter(Boolean) as string[])).sort(),
+    [workspace.donations],
+  );
+  const donationGiftCurrencyOptions = useMemo(
+    () => Array.from(new Set(workspace.donations.map((d) => d.currency_code).filter(Boolean) as string[])).sort(),
+    [workspace.donations],
+  );
+  const inKindCategoryOptions = useMemo(
+    () => Array.from(new Set(workspace.inKind.map((row) => row.item_category).filter(Boolean) as string[])).sort(),
+    [workspace.inKind],
+  );
+  const inKindConditionOptions = useMemo(
+    () => Array.from(new Set(workspace.inKind.map((row) => row.received_condition).filter(Boolean) as string[])).sort(),
+    [workspace.inKind],
+  );
+  const inKindUnitOptions = useMemo(
+    () => Array.from(new Set(workspace.inKind.map((row) => row.unit_of_measure).filter(Boolean) as string[])).sort(),
+    [workspace.inKind],
+  );
+  const allocationProgramOptions = useMemo(
+    () => Array.from(new Set(workspace.allocations.map((row) => row.program_area).filter(Boolean) as string[])).sort(),
+    [workspace.allocations],
+  );
+  const allocationSafehouseIdOptions = useMemo(
+    () =>
+      [...workspace.safehouses]
+        .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
+        .map((sh) => String(sh.safehouse_id)),
+    [workspace.safehouses],
   );
   const safehouseStatusOptions = useMemo(
     () => Array.from(new Set(workspace.safehouses.map((safehouse) => safehouse.status).filter(Boolean) as string[])).sort(),
@@ -1577,6 +2178,109 @@ export function AdminWorkspace() {
     [workspace.incidents],
   );
 
+  const socialWorkersObserved = useMemo(() => {
+    const set = new Set<string>();
+    workspace.residents.forEach((r) => {
+      const w = String(r.assigned_social_worker ?? "").trim();
+      if (w) set.add(w);
+    });
+    workspace.processRecordings.forEach((row) => {
+      const w = String(row.social_worker ?? "").trim();
+      if (w) set.add(w);
+    });
+    workspace.visitations.forEach((row) => {
+      const w = String(row.social_worker ?? "").trim();
+      if (w) set.add(w);
+    });
+    return Array.from(set);
+  }, [workspace.processRecordings, workspace.residents, workspace.visitations]);
+
+  const caseCategoryFormOptions = useMemo(() => {
+    const observed = Array.from(
+      new Set(workspace.residents.map((r) => String(r.case_category ?? "").trim()).filter(Boolean)),
+    );
+    return stringOptionsFromDataOrFallbacks(observed, [
+      "Physical abuse",
+      "Sexual abuse",
+      "Neglect",
+      "Emotional abuse",
+      "Exploitation",
+      "At risk",
+      "Other",
+    ]);
+  }, [workspace.residents]);
+
+  const socialWorkerFormOptions = useMemo(
+    () =>
+      stringOptionsFromDataOrFallbacks(socialWorkersObserved, [
+        "Case manager",
+        "Supervising social worker",
+        "Psychosocial support staff",
+      ]),
+    [socialWorkersObserved],
+  );
+
+  const visitTypeFormOptions = useMemo(
+    () =>
+      stringOptionsFromDataOrFallbacks(visitationTypeOptions, [
+        "Home visit",
+        "Follow-up",
+        "School visit",
+        "Office visit",
+        "Conference",
+        "Court",
+        "Other",
+      ]),
+    [visitationTypeOptions],
+  );
+
+  const enrollmentStatusFormOptions = useMemo(
+    () =>
+      stringOptionsFromDataOrFallbacks(educationEnrollmentOptions, [
+        "Enrolled",
+        "Pending",
+        "Active",
+        "Suspended",
+        "Completed",
+        "Withdrawn",
+        "Not enrolled",
+      ]),
+    [educationEnrollmentOptions],
+  );
+
+  const planCategoryFormOptions = useMemo(
+    () =>
+      stringOptionsFromDataOrFallbacks(interventionCategoryOptions, [
+        "Education",
+        "Health",
+        "Psychosocial",
+        "Legal",
+        "Family reunification",
+        "Livelihood",
+        "Other",
+      ]),
+    [interventionCategoryOptions],
+  );
+
+  const incidentTypeFormOptions = useMemo(
+    () =>
+      stringOptionsFromDataOrFallbacks(incidentTypeOptions, [
+        "Medical",
+        "Behavioral",
+        "Safety",
+        "Conflict",
+        "AWOL",
+        "Substance-related",
+        "Other",
+      ]),
+    [incidentTypeOptions],
+  );
+
+  const incidentSeverityFormOptions = useMemo(
+    () => stringOptionsFromDataOrFallbacks(incidentSeverityOptions, ["Low", "Medium", "High", "Critical"]),
+    [incidentSeverityOptions],
+  );
+
   const selectedResidents = selectedResidentIds
     .map((residentId) => residentMap.get(residentId))
     .filter((resident): resident is ResidentWithSafehouse => Boolean(resident));
@@ -1601,6 +2305,16 @@ export function AdminWorkspace() {
     setTablePageSizes((current) => ({ ...current, [key]: size }));
     setTablePages((current) => ({ ...current, [key]: 1 }));
   };
+
+  const toggleTableColumnSort = useCallback((tableId: string, columnKey: string) => {
+    setTableColumnSort((prev) => {
+      const cur = prev[tableId];
+      if (cur?.key === columnKey) {
+        return { ...prev, [tableId]: { key: columnKey, dir: cur.dir === "asc" ? "desc" : "asc" } };
+      }
+      return { ...prev, [tableId]: { key: columnKey, dir: "asc" } };
+    });
+  }, []);
 
   const setTab = (tab: MainTab) => {
     setParams({ tab });
@@ -1921,60 +2635,153 @@ export function AdminWorkspace() {
             donation.donation_type,
             donation.campaign_name,
             donation.channel_source,
+            donation.currency_code,
+            String(donation.donation_id ?? ""),
+            donation.is_recurring == null ? "" : String(donation.is_recurring),
           ]
             .filter(Boolean)
             .join(" ")
             .toLowerCase()
             .includes(query);
-        const matchesType = donationTypeFilter.length === 0 || donationTypeFilter.includes(supporter?.supporter_type ?? "");
-        const matchesRelationship =
-          donationRelationshipFilter.length === 0 || donationRelationshipFilter.includes(supporter?.relationship_type ?? "");
-        const matchesStatus = donationStatusFilter.length === 0 || donationStatusFilter.includes(supporter?.status ?? "");
-        const matchesRegion = donationRegionFilter.length === 0 || donationRegionFilter.includes(supporter?.region ?? "");
-        const matchesCountry = donationCountryFilter.length === 0 || donationCountryFilter.includes(supporter?.country ?? "");
+        const recurringStr = donation.is_recurring == null ? "" : String(donation.is_recurring);
+        const matchesGiftType =
+          donationGiftTypeFilter.length === 0 || donationGiftTypeFilter.includes(donation.donation_type ?? "");
+        const matchesRecurring =
+          donationGiftRecurringFilter.length === 0 || donationGiftRecurringFilter.includes(recurringStr);
+        const matchesCampaign =
+          donationGiftCampaignFilter.length === 0 || donationGiftCampaignFilter.includes(donation.campaign_name ?? "");
+        const matchesChannel =
+          donationGiftChannelFilter.length === 0 || donationGiftChannelFilter.includes(donation.channel_source ?? "");
+        const matchesCurrency =
+          donationGiftCurrencyFilter.length === 0 || donationGiftCurrencyFilter.includes(donation.currency_code ?? "");
         const matchesSupporter = !selectedSupporterId || donation.supporter_id === selectedSupporterId;
-        return matchesSearch && matchesType && matchesRelationship && matchesStatus && matchesRegion && matchesCountry && matchesSupporter;
+        return (
+          matchesSearch &&
+          matchesGiftType &&
+          matchesRecurring &&
+          matchesCampaign &&
+          matchesChannel &&
+          matchesCurrency &&
+          matchesSupporter
+        );
       })
       .sort((left, right) => {
         if (donationSort === "amount") {
           return toNumber(right.amount ?? right.estimated_value) - toNumber(left.amount ?? left.estimated_value);
         }
+        if (donationSort === "name") {
+          const leftS = left.supporter_id ? supporterMap.get(left.supporter_id) : null;
+          const rightS = right.supporter_id ? supporterMap.get(right.supporter_id) : null;
+          return supporterLabel(leftS ?? ({} as Supporter)).localeCompare(supporterLabel(rightS ?? ({} as Supporter)));
+        }
         return compareDatesDescending(left.donation_date, right.donation_date);
       });
   }, [
     deferredDonationSearch,
-    donationCountryFilter,
-    donationRegionFilter,
-    donationRelationshipFilter,
+    donationGiftCampaignFilter,
+    donationGiftChannelFilter,
+    donationGiftCurrencyFilter,
+    donationGiftRecurringFilter,
+    donationGiftTypeFilter,
     donationSort,
-    donationStatusFilter,
-    donationTypeFilter,
     selectedSupporterId,
     supporterMap,
     workspace.donations,
   ]);
 
-  const filteredInKind = useMemo(
-    () =>
-      workspace.inKind.filter((item) => {
-        if (!selectedSupporterId) return true;
-        const donation = item.donation_id ? donationMap.get(item.donation_id) ?? null : null;
-        return donation?.supporter_id === selectedSupporterId;
-      }),
-    [donationMap, selectedSupporterId, workspace.inKind],
-  );
+  const filteredInKind = useMemo(() => {
+    const query = deferredDonationSearch.trim().toLowerCase();
+    return workspace.inKind
+      .filter((item) => {
+        if (selectedSupporterId) {
+          const donation = item.donation_id ? donationMap.get(item.donation_id) ?? null : null;
+          if (donation?.supporter_id !== selectedSupporterId) return false;
+        }
+        const matchesCategory =
+          inKindCategoryFilter.length === 0 || inKindCategoryFilter.includes(item.item_category ?? "");
+        const matchesCondition =
+          inKindConditionFilter.length === 0 || inKindConditionFilter.includes(item.received_condition ?? "");
+        const matchesUnit = inKindUnitFilter.length === 0 || inKindUnitFilter.includes(item.unit_of_measure ?? "");
+        const matchesSearch =
+          !query ||
+          [
+            item.item_name,
+            item.item_category,
+            item.intended_use,
+            item.received_condition,
+            String(item.donation_id ?? ""),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query);
+        return matchesCategory && matchesCondition && matchesUnit && matchesSearch;
+      })
+      .sort((left, right) => {
+        if (inKindSort === "name") {
+          return (left.item_name ?? "").localeCompare(right.item_name ?? "");
+        }
+        if (inKindSort === "donation") {
+          return toNumber(left.donation_id) - toNumber(right.donation_id);
+        }
+        return toNumber(right.item_id) - toNumber(left.item_id);
+      });
+  }, [
+    deferredDonationSearch,
+    donationMap,
+    inKindCategoryFilter,
+    inKindConditionFilter,
+    inKindSort,
+    inKindUnitFilter,
+    selectedSupporterId,
+    workspace.inKind,
+  ]);
 
-  const filteredAllocations = useMemo(
-    () =>
-      [...workspace.allocations]
-        .filter((allocation) => {
-          if (!selectedSupporterId) return true;
+  const filteredAllocations = useMemo(() => {
+    const query = deferredDonationSearch.trim().toLowerCase();
+    return [...workspace.allocations]
+      .filter((allocation) => {
+        if (selectedSupporterId) {
           const donation = allocation.donation_id ? donationMap.get(allocation.donation_id) ?? null : null;
-          return donation?.supporter_id === selectedSupporterId;
-        })
-        .sort((left, right) => compareDatesDescending(left.allocation_date, right.allocation_date)),
-    [donationMap, selectedSupporterId, workspace.allocations],
-  );
+          if (donation?.supporter_id !== selectedSupporterId) return false;
+        }
+        const shName = safehouseMap.get(allocation.safehouse_id ?? -1)?.name ?? "";
+        const matchesProgram =
+          allocationProgramFilter.length === 0 || allocationProgramFilter.includes(allocation.program_area ?? "");
+        const matchesSafehouse =
+          allocationSafehouseFilter.length === 0 ||
+          allocationSafehouseFilter.includes(String(allocation.safehouse_id ?? ""));
+        const matchesSearch =
+          !query ||
+          [
+            allocation.program_area,
+            allocation.allocation_notes,
+            String(allocation.donation_id ?? ""),
+            String(allocation.allocation_id ?? ""),
+            shName,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query);
+        return matchesProgram && matchesSafehouse && matchesSearch;
+      })
+      .sort((left, right) => {
+        if (allocationSort === "amount") {
+          return toNumber(right.amount_allocated) - toNumber(left.amount_allocated);
+        }
+        return compareDatesDescending(left.allocation_date, right.allocation_date);
+      });
+  }, [
+    allocationProgramFilter,
+    allocationSafehouseFilter,
+    allocationSort,
+    deferredDonationSearch,
+    donationMap,
+    safehouseMap,
+    selectedSupporterId,
+    workspace.allocations,
+  ]);
 
   const filteredSafehouses = useMemo(() => {
     const query = deferredSafehouseSearch.trim().toLowerCase();
@@ -2006,13 +2813,32 @@ export function AdminWorkspace() {
     [filteredAllocations, selectedSafehouseId],
   );
 
-  const safehouseMetrics = useMemo(
-    () =>
-      [...workspace.monthlyMetrics]
-        .filter((metric) => !selectedSafehouseId || metric.safehouse_id === selectedSafehouseId)
-        .sort((left, right) => compareDatesDescending(left.month_start, right.month_start)),
-    [selectedSafehouseId, workspace.monthlyMetrics],
-  );
+  const safehouseMetrics = useMemo(() => {
+    const todayStart = startOfLocalDayMs(new Date());
+    return [...workspace.monthlyMetrics]
+      .filter((metric) => !selectedSafehouseId || metric.safehouse_id === selectedSafehouseId)
+      .filter((metric) => {
+        if (monthlyMetricsPeriodFilter === "all") return true;
+        const parsed = metric.month_start ? new Date(String(metric.month_start)) : null;
+        if (!parsed || Number.isNaN(parsed.getTime())) return false;
+        const metricDay = startOfLocalDayMs(parsed);
+        if (monthlyMetricsPeriodFilter === "occurred") return metricDay < todayStart;
+        return metricDay >= todayStart;
+      })
+      .sort((left, right) => compareDatesDescending(left.month_start, right.month_start));
+  }, [monthlyMetricsPeriodFilter, selectedSafehouseId, workspace.monthlyMetrics]);
+
+  const safehouseTableStats = useMemo(() => {
+    const map = new Map<number, { residents: number; allocationsTotal: number }>();
+    for (const sh of workspace.safehouses) {
+      const residentsAssigned = workspace.residents.filter((resident) => resident.safehouse_id === sh.safehouse_id).length;
+      const donationAllocations = workspace.allocations
+        .filter((allocation) => allocation.safehouse_id === sh.safehouse_id)
+        .reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0);
+      map.set(sh.safehouse_id, { residents: residentsAssigned, allocationsTotal: donationAllocations });
+    }
+    return map;
+  }, [workspace.allocations, workspace.residents, workspace.safehouses]);
 
   const founderDashboardStats = useMemo(() => {
     const now = new Date();
@@ -2099,32 +2925,6 @@ export function AdminWorkspace() {
     workspace.visitations,
   ]);
 
-  const donationSummary = useMemo(() => {
-    const total = filteredDonations.reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0);
-    const recurring = filteredDonations.filter((donation) => donation.is_recurring).length;
-    const inKindValue = filteredInKind.reduce(
-      (sum, item) => sum + toNumber(item.quantity) * toNumber(item.estimated_unit_value),
-      0,
-    );
-    const allocated = filteredAllocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0);
-    return { total, recurring, inKindValue, allocated };
-  }, [filteredAllocations, filteredDonations, filteredInKind]);
-
-  const supporterDonationTotals = useMemo(() => {
-    const totals = new Map<number, number>();
-    filteredDonations.forEach((donation) => {
-      if (!donation.supporter_id) return;
-      totals.set(donation.supporter_id, (totals.get(donation.supporter_id) ?? 0) + toNumber(donation.amount ?? donation.estimated_value));
-    });
-    return Array.from(totals.entries())
-      .map(([supporterId, value]) => ({
-        name: supporterLabel(supporterMap.get(supporterId) ?? ({} as Supporter)),
-        value,
-      }))
-      .sort((left, right) => right.value - left.value)
-      .slice(0, 6);
-  }, [filteredDonations, supporterMap]);
-
   const outreachKpis = useMemo(() => {
     const totalImpressions = workspace.socialPosts.reduce((sum, post) => sum + toNumber(post.impressions), 0);
     const totalReferrals = workspace.socialPosts.reduce((sum, post) => sum + toNumber(post.donation_referrals), 0);
@@ -2157,19 +2957,6 @@ export function AdminWorkspace() {
       fill: CHART_COLORS[index % CHART_COLORS.length],
     }));
   }, [workspace.socialPosts]);
-
-  const publicImpactTimeline = useMemo(
-    () =>
-      [...workspace.publicImpact]
-        .sort((left, right) => compareDatesDescending(left.snapshot_date, right.snapshot_date))
-        .slice(0, 8)
-        .reverse()
-        .map((snapshot) => ({
-          label: asDisplayDate(snapshot.snapshot_date, "Unknown"),
-          published: String(snapshot.is_published).toLowerCase() === "true" ? 1 : 0,
-        })),
-    [workspace.publicImpact],
-  );
 
   const reportsTrendData = useMemo(() => {
     const byMonth = new Map<string, { incidents: number; occupancy: number; donations: number }>();
@@ -2215,70 +3002,745 @@ export function AdminWorkspace() {
       }));
   }, [workspace.donations, workspace.incidents, workspace.monthlyMetrics]);
 
-  const residentsTablePage = PaginatedRows({ rows: filteredResidentsTable, page: getPage("residents"), perPage: getPageSize("residents") });
-  const processTablePage = PaginatedRows({ rows: residentProcessSplit.currentAndPast, page: getPage("process-records"), perPage: getPageSize("process-records") });
-  const visitationsTablePage = PaginatedRows({ rows: residentVisitationSplit.currentAndPast, page: getPage("visitations"), perPage: getPageSize("visitations") });
-  const educationTablePage = PaginatedRows({ rows: residentEducationSplit.currentAndPast, page: getPage("education"), perPage: getPageSize("education") });
-  const healthTablePage = PaginatedRows({ rows: residentHealthSplit.currentAndPast, page: getPage("health"), perPage: getPageSize("health") });
-  const interventionsTablePage = PaginatedRows({ rows: residentInterventionSplit.currentAndPast, page: getPage("interventions"), perPage: getPageSize("interventions") });
-  const incidentsTablePage = PaginatedRows({ rows: residentIncidentSplit.currentAndPast, page: getPage("incidents"), perPage: getPageSize("incidents") });
-  const supportersTablePage = PaginatedRows({ rows: filteredSupporters, page: getPage("supporters"), perPage: getPageSize("supporters") });
-  const donationsTablePage = PaginatedRows({ rows: filteredDonations, page: getPage("donations"), perPage: getPageSize("donations") });
-  const inKindTablePage = PaginatedRows({ rows: filteredInKind, page: getPage("in-kind"), perPage: getPageSize("in-kind") });
-  const allocationsTablePage = PaginatedRows({ rows: filteredAllocations, page: getPage("allocations"), perPage: getPageSize("allocations") });
-  const safehousesTablePage = PaginatedRows({ rows: filteredSafehouses, page: getPage("safe-houses"), perPage: getPageSize("safe-houses") });
-  const allocationHistoryTablePage = PaginatedRows({ rows: safehouseAllocations, page: getPage("allocation-history"), perPage: getPageSize("allocation-history") });
-  const monthlyMetricsTablePage = PaginatedRows({ rows: safehouseMetrics, page: getPage("monthly-metrics"), perPage: getPageSize("monthly-metrics") });
+  const chartConfigs = useMemo(() => {
+    const donationsByMonth = buildMonthlySumChart(
+      filteredDonations as unknown as Array<Record<string, unknown>>,
+      "donation_date",
+      (row) => toNumber(row.amount ?? row.estimated_value),
+    );
+
+    const healthMetricDefinitions: Record<string, { label: string; extractor: (row: RecordRow) => number }> = {
+      general_health_score: { label: "General Health", extractor: (row) => toNumber(row.general_health_score) },
+      nutrition_score: { label: "Nutrition", extractor: (row) => toNumber(row.nutrition_score) },
+      sleep_quality_score: { label: "Sleep", extractor: (row) => toNumber(row.sleep_quality_score) },
+      energy_level_score: { label: "Energy", extractor: (row) => toNumber(row.energy_level_score) },
+    };
+
+    const currentHealthMetric = healthMetricDefinitions[healthChartMetric] ?? healthMetricDefinitions.general_health_score;
+    const monthlyMetricLabels: Record<string, string> = {
+      active_residents: "Active Residents",
+      avg_education_progress: "Education Progress",
+      avg_health_score: "Health Score",
+      home_visitation_count: "Visitations",
+      incident_count: "Incidents",
+    };
+
+    return {
+      "residents-all": {
+        key: "residents-all",
+        title: "Case status mix",
+        subtitle: "Resident case status distribution",
+        kpiLabel: "Visible Residents",
+        kpiValue: String(filteredResidentsTable.length),
+        kpiDetail: `${filteredResidentsTable.filter((resident) => (resident.case_status ?? "").toLowerCase() === "active").length} active in this view`,
+        data: buildCountChart(
+          filteredResidentsTable.map((resident) => ({ case_status: resident.case_status ?? "Unknown" })),
+          "case_status",
+        ),
+        xKey: "label",
+        yKey: "value",
+        type: "pie",
+      },
+      "residents-process": {
+        key: "residents-process",
+        title: "Session types",
+        subtitle: "Current process record mix",
+        kpiLabel: "Follow-Up Queue",
+        kpiValue: String(residentProcessSplit.currentAndPast.filter((row) => String(row.follow_up_actions ?? "").trim()).length),
+        kpiDetail: `${residentProcessSplit.currentAndPast.length} visible process records`,
+        data: buildCountChart(residentProcessSplit.currentAndPast, "session_type"),
+        xKey: "label",
+        yKey: "value",
+      },
+      "residents-visitations": {
+        key: "residents-visitations",
+        title: "Visit outcomes",
+        subtitle: "Outcome distribution for visible visitations",
+        kpiLabel: "Upcoming Events",
+        kpiValue: String(residentUpcomingEvents.length),
+        kpiDetail: `${residentVisitationSplit.currentAndPast.length} completed or current visit rows`,
+        data: buildCountChart(residentVisitationSplit.currentAndPast, "visit_outcome"),
+        xKey: "label",
+        yKey: "value",
+        type: "pie",
+      },
+      "residents-education": {
+        key: "residents-education",
+        title: "Education progress",
+        subtitle: "Average progress by education level",
+        kpiLabel: "Average Progress",
+        kpiValue: `${residentEducationSplit.currentAndPast.length ? Math.round(residentEducationSplit.currentAndPast.reduce((sum, row) => sum + toNumber(row.progress_percent), 0) / residentEducationSplit.currentAndPast.length) : 0}%`,
+        kpiDetail: `${residentEducationSplit.currentAndPast.length} visible education records`,
+        data: buildAverageChart(
+          educationLevelOptions.map((option) => ({
+            label: option,
+            values: residentEducationSplit.currentAndPast
+              .filter((row) => String(row.education_level ?? "") === option)
+              .map((row) => toNumber(row.progress_percent))
+              .filter((value) => value > 0),
+          })),
+        ).filter((entry) => entry.value > 0),
+        xKey: "label",
+        yKey: "value",
+      },
+      "residents-health": {
+        key: "residents-health",
+        title: currentHealthMetric.label,
+        subtitle: "Visible health records by resident",
+        kpiLabel: "Average Health",
+        kpiValue: `${residentHealthSplit.currentAndPast.length ? (residentHealthSplit.currentAndPast.reduce((sum, row) => sum + currentHealthMetric.extractor(row), 0) / residentHealthSplit.currentAndPast.length).toFixed(1) : "0.0"}`,
+        kpiDetail: `${residentHealthSplit.currentAndPast.length} visible health records`,
+        data: residentHealthSplit.currentAndPast
+          .map((row) => ({
+            label: residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident)),
+            value: currentHealthMetric.extractor(row),
+          }))
+          .filter((entry) => entry.value > 0)
+          .slice(0, 10),
+        xKey: "label",
+        yKey: "value",
+        modalOptions: Object.entries(healthMetricDefinitions).map(([value, meta]) => ({ value, label: meta.label })),
+        selectedOption: healthChartMetric,
+        onOptionChange: setHealthChartMetric,
+      },
+      "residents-interventions": {
+        key: "residents-interventions",
+        title: "Intervention status",
+        subtitle: "Plan status across visible interventions",
+        kpiLabel: "Overdue Plans",
+        kpiValue: String(
+          residentInterventionSplit.currentAndPast.filter((row) => {
+            const date = new Date(String(row.target_date ?? ""));
+            return !Number.isNaN(date.getTime()) && date < new Date() && String(row.status ?? "").toLowerCase() !== "completed";
+          }).length,
+        ),
+        kpiDetail: `${residentInterventionSplit.currentAndPast.length} visible intervention plans`,
+        data: buildCountChart(residentInterventionSplit.currentAndPast, "status"),
+        xKey: "label",
+        yKey: "value",
+        type: "pie",
+      },
+      "residents-incidents": {
+        key: "residents-incidents",
+        title: "Incident severity",
+        subtitle: "Severity mix for visible incidents",
+        kpiLabel: "Open Incidents",
+        kpiValue: String(residentIncidentSplit.currentAndPast.filter((row) => String(row.resolved ?? "").toLowerCase() !== "true").length),
+        kpiDetail: `${residentIncidentSplit.currentAndPast.length} visible incidents`,
+        data: buildCountChart(residentIncidentSplit.currentAndPast, "severity"),
+        xKey: "label",
+        yKey: "value",
+        color: "hsl(var(--secondary))",
+        type: "pie",
+      },
+      "donations-supporters": {
+        key: "donations-supporters",
+        title: "Supporter status",
+        subtitle: "Current visible supporter mix",
+        kpiLabel: "Active Supporters",
+        kpiValue: String(filteredSupporters.filter((supporter) => (supporter.status ?? "").toLowerCase() === "active").length),
+        kpiDetail: `${filteredSupporters.length} visible supporters`,
+        data: buildCountChart(filteredSupporters.map((supporter) => ({ status: supporter.status ?? "Unknown" })), "status"),
+        xKey: "label",
+        yKey: "value",
+        type: "pie",
+      },
+      "donations-donations": {
+        key: "donations-donations",
+        title: "Donation trend",
+        subtitle: "Monthly donation value in scope",
+        kpiLabel: "Recurring Share",
+        kpiValue: `${filteredDonations.length ? Math.round((filteredDonations.filter((donation) => String(donation.is_recurring).toLowerCase() === "true").length / filteredDonations.length) * 100) : 0}%`,
+        kpiDetail: `${formatCurrency(filteredDonations.reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0))} in current scope`,
+        data: donationsByMonth,
+        xKey: "label",
+        yKey: "value",
+        type: "line",
+      },
+      "donations-in-kind": {
+        key: "donations-in-kind",
+        title: "In-kind categories",
+        subtitle: "Visible in-kind item mix",
+        kpiLabel: "In-Kind Items",
+        kpiValue: String(filteredInKind.length),
+        kpiDetail: `${formatCompactNumber(filteredInKind.reduce((sum, item) => sum + toNumber(item.quantity), 0))} total units in view`,
+        data: buildCountChart(filteredInKind as unknown as Array<Record<string, unknown>>, "item_category"),
+        xKey: "label",
+        yKey: "value",
+        type: "pie",
+      },
+      "donations-allocations": {
+        key: "donations-allocations",
+        title: "Allocation areas",
+        subtitle: "Program area totals",
+        kpiLabel: "Allocated Value",
+        kpiValue: formatCurrency(filteredAllocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0)),
+        kpiDetail: `${filteredAllocations.length} visible allocation records`,
+        data: Array.from(
+          filteredAllocations.reduce<Map<string, number>>((accumulator, allocation) => {
+            const label = asText(allocation.program_area, "Unassigned");
+            accumulator.set(label, (accumulator.get(label) ?? 0) + toNumber(allocation.amount_allocated));
+            return accumulator;
+          }, new Map()),
+        ).map(([label, value]) => ({ label, value: Math.round(value) })),
+        xKey: "label",
+        yKey: "value",
+      },
+      "safehouses-overview": {
+        key: "safehouses-overview",
+        title: "Occupancy by house",
+        subtitle: "Current occupancy across visible houses",
+        kpiLabel: "Average Occupancy",
+        kpiValue: `${filteredSafehouses.length ? Math.round(filteredSafehouses.reduce((sum, safehouse) => sum + (toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1)) * 100, 0) / filteredSafehouses.length) : 0}%`,
+        kpiDetail: `${filteredSafehouses.length} visible safe houses`,
+        data: filteredSafehouses.map((safehouse) => ({
+          label: asText(safehouse.name, `House ${safehouse.safehouse_id}`),
+          value: Math.round((toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1)) * 100),
+        })),
+        xKey: "label",
+        yKey: "value",
+      },
+      "safehouses-allocations": {
+        key: "safehouses-allocations",
+        title: "Allocation areas",
+        subtitle: "Visible allocation history by program",
+        kpiLabel: "Allocated To Houses",
+        kpiValue: formatCurrency(safehouseAllocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0)),
+        kpiDetail: `${safehouseAllocations.length} visible allocation records`,
+        data: Array.from(
+          safehouseAllocations.reduce<Map<string, number>>((accumulator, allocation) => {
+            const label = asText(allocation.program_area, "Unassigned");
+            accumulator.set(label, (accumulator.get(label) ?? 0) + toNumber(allocation.amount_allocated));
+            return accumulator;
+          }, new Map()),
+        ).map(([label, value]) => ({ label, value: Math.round(value) })),
+        xKey: "label",
+        yKey: "value",
+      },
+      "safehouses-metrics": {
+        key: "safehouses-metrics",
+        title: monthlyMetricLabels[monthlyMetricsChartMetric] ?? "Monthly metrics",
+        subtitle: "Visible monthly metric trend",
+        kpiLabel: "Latest Snapshot",
+        kpiValue: String(
+          safehouseMetrics.length
+            ? toNumber(safehouseMetrics[0][monthlyMetricsChartMetric as keyof MonthlyMetric]).toFixed(
+                monthlyMetricsChartMetric.includes("avg_") ? 1 : 0,
+              )
+            : 0,
+        ),
+        kpiDetail: monthlyMetricLabels[monthlyMetricsChartMetric] ?? "Monthly metrics",
+        data: safehouseMetrics
+          .map((metric) => ({
+            label: String(metric.month_start ?? "").slice(0, 7) || asDisplayDate(metric.month_start),
+            value: toNumber(metric[monthlyMetricsChartMetric as keyof MonthlyMetric]),
+          }))
+          .filter((entry) => entry.label),
+        xKey: "label",
+        yKey: "value",
+        type: "line",
+        modalOptions: Object.entries(monthlyMetricLabels).map(([value, label]) => ({ value, label })),
+        selectedOption: monthlyMetricsChartMetric,
+        onOptionChange: setMonthlyMetricsChartMetric,
+      },
+    } as Record<string, AnalyticsCardConfig>;
+  }, [
+    educationLevelOptions,
+    filteredAllocations,
+    filteredDonations,
+    filteredInKind,
+    filteredResidentsTable,
+    filteredSafehouses,
+    filteredSupporters,
+    healthChartMetric,
+    monthlyMetricsChartMetric,
+    residentEducationSplit.currentAndPast,
+    residentHealthSplit.currentAndPast,
+    residentIncidentSplit.currentAndPast,
+    residentInterventionSplit.currentAndPast,
+    residentMap,
+    residentProcessSplit.currentAndPast,
+    residentUpcomingEvents,
+    residentVisitationSplit.currentAndPast,
+    safehouseAllocations,
+    safehouseMetrics,
+  ]);
+
+  const residentsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredResidentsTable, tableColumnSort.residents, (r, key) => {
+        switch (key) {
+          case "name":
+            return residentLabel(r);
+          case "age":
+            return toNumber(r.present_age);
+          case "case_status":
+            return r.case_status ?? "";
+          case "safe_house":
+            return safehouseMap.get(r.safehouse_id ?? -1)?.name ?? "";
+          case "latest_visitation": {
+            const d = latestVisitationByResident.get(r.resident_id)?.visit_date;
+            if (!d) return 0;
+            const t = new Date(String(d)).getTime();
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "risk":
+            return r.current_risk_level ?? "";
+          case "date_added": {
+            if (!r.created_at) return 0;
+            const t = new Date(String(r.created_at)).getTime();
+            return Number.isNaN(t) ? 0 : t;
+          }
+          default:
+            return r.resident_id;
+        }
+      }),
+    [filteredResidentsTable, latestVisitationByResident, safehouseMap, tableColumnSort.residents],
+  );
+
+  const processRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentProcessSplit.currentAndPast, tableColumnSort["process-records"], (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "session_date": {
+            const t = row.session_date ? new Date(String(row.session_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "social_worker":
+            return String(row.social_worker ?? "");
+          case "session_type":
+            return String(row.session_type ?? "");
+          case "concerns_flagged":
+            return String(row.concerns_flagged).toLowerCase() === "true" ? 1 : 0;
+          case "follow_up":
+            return String(row.follow_up_actions ?? "");
+          default:
+            return row.recording_id;
+        }
+      }),
+    [residentMap, residentProcessSplit.currentAndPast, tableColumnSort["process-records"]],
+  );
+
+  const visitationsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentVisitationSplit.currentAndPast, tableColumnSort.visitations, (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "visit_date": {
+            const t = row.visit_date ? new Date(String(row.visit_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "visit_type":
+            return String(row.visit_type ?? "");
+          case "location":
+            return String(row.location_visited ?? "");
+          case "social_worker":
+            return String(row.social_worker ?? "");
+          case "outcome":
+            return String(row.visit_outcome ?? "");
+          default:
+            return row.visitation_id;
+        }
+      }),
+    [residentMap, residentVisitationSplit.currentAndPast, tableColumnSort.visitations],
+  );
+
+  const educationRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentEducationSplit.currentAndPast, tableColumnSort.education, (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "record_date": {
+            const t = row.record_date ? new Date(String(row.record_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "level":
+            return String(row.education_level ?? "");
+          case "school":
+            return String(row.school_name ?? "");
+          case "enrollment":
+            return String(row.enrollment_status ?? "");
+          case "progress":
+            return toNumber(row.progress_percent);
+          default:
+            return row.education_record_id;
+        }
+      }),
+    [residentMap, residentEducationSplit.currentAndPast, tableColumnSort.education],
+  );
+
+  const healthRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentHealthSplit.currentAndPast, tableColumnSort.health, (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "record_date": {
+            const t = row.record_date ? new Date(String(row.record_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "health_score":
+            return toNumber(row.general_health_score);
+          case "nutrition":
+            return toNumber(row.nutrition_score);
+          case "sleep":
+            return toNumber(row.sleep_quality_score);
+          case "bmi":
+            return toNumber(row.bmi);
+          default:
+            return row.health_record_id;
+        }
+      }),
+    [residentMap, residentHealthSplit.currentAndPast, tableColumnSort.health],
+  );
+
+  const interventionsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentInterventionSplit.currentAndPast, tableColumnSort.interventions, (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "category":
+            return String(row.plan_category ?? "");
+          case "target_date": {
+            const t = row.target_date ? new Date(String(row.target_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "status":
+            return String(row.status ?? "");
+          case "conference_date": {
+            const t = row.case_conference_date ? new Date(String(row.case_conference_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "services":
+            return String(row.services_provided ?? "");
+          default:
+            return row.plan_id;
+        }
+      }),
+    [residentMap, residentInterventionSplit.currentAndPast, tableColumnSort.interventions],
+  );
+
+  const incidentsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(residentIncidentSplit.currentAndPast, tableColumnSort.incidents, (row, key) => {
+        switch (key) {
+          case "resident":
+            return residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident));
+          case "incident_date": {
+            const t = row.incident_date ? new Date(String(row.incident_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "incident_type":
+            return String(row.incident_type ?? "");
+          case "severity":
+            return String(row.severity ?? "");
+          case "reported_by":
+            return String(row.reported_by ?? "");
+          case "resolved":
+            return String(row.resolved).toLowerCase() === "true" ? 1 : 0;
+          default:
+            return row.incident_id;
+        }
+      }),
+    [residentMap, residentIncidentSplit.currentAndPast, tableColumnSort.incidents],
+  );
+
+  const supportersRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredSupporters, tableColumnSort.supporters, (s, key) => {
+        switch (key) {
+          case "name":
+            return supporterLabel(s);
+          case "type":
+            return String(s.supporter_type ?? "");
+          case "status":
+            return String(s.status ?? "");
+          case "region":
+            return String(s.region ?? "");
+          case "first_donation": {
+            const t = s.first_donation_date ? new Date(String(s.first_donation_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "channel":
+            return String(s.acquisition_channel ?? "");
+          default:
+            return s.supporter_id;
+        }
+      }),
+    [filteredSupporters, tableColumnSort.supporters],
+  );
+
+  const donationsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredDonations, tableColumnSort["donations-tab"], (row, key) => {
+        switch (key) {
+          case "supporter":
+            return row.supporter_id
+              ? supporterLabel(supporterMap.get(row.supporter_id) ?? ({} as Supporter))
+              : row.supporter_name ?? "Anonymous";
+          case "donation_date": {
+            const t = row.donation_date ? new Date(String(row.donation_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "donation_type":
+            return String(row.donation_type ?? "");
+          case "campaign":
+            return String(row.campaign_name ?? "");
+          case "channel":
+            return String(row.channel_source ?? "");
+          case "amount":
+            return toNumber(row.amount ?? row.estimated_value);
+          default:
+            return row.donation_id;
+        }
+      }),
+    [filteredDonations, supporterMap, tableColumnSort["donations-tab"]],
+  );
+
+  const inKindRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredInKind, tableColumnSort["in-kind"], (item, key) => {
+        switch (key) {
+          case "donation":
+            return toNumber(item.donation_id);
+          case "item":
+            return String(item.item_name ?? "");
+          case "category":
+            return String(item.item_category ?? "");
+          case "quantity":
+            return toNumber(item.quantity);
+          case "intended_use":
+            return String(item.intended_use ?? "");
+          case "condition":
+            return String(item.received_condition ?? "");
+          default:
+            return item.item_id;
+        }
+      }),
+    [filteredInKind, tableColumnSort["in-kind"]],
+  );
+
+  const allocationsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredAllocations, tableColumnSort.allocations, (allocation, key) => {
+        switch (key) {
+          case "donation":
+            return toNumber(allocation.donation_id);
+          case "safe_house":
+            return safehouseMap.get(allocation.safehouse_id ?? -1)?.name ?? "";
+          case "program_area":
+            return String(allocation.program_area ?? "");
+          case "allocation_date": {
+            const t = allocation.allocation_date ? new Date(String(allocation.allocation_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "amount":
+            return toNumber(allocation.amount_allocated);
+          default:
+            return allocation.allocation_id;
+        }
+      }),
+    [filteredAllocations, safehouseMap, tableColumnSort.allocations],
+  );
+
+  const safehousesRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(filteredSafehouses, tableColumnSort["safe-houses"], (sh, key) => {
+        const stats = safehouseTableStats.get(sh.safehouse_id) ?? { residents: 0, allocationsTotal: 0 };
+        switch (key) {
+          case "name":
+            return asText(sh.name, "");
+          case "region":
+            return [sh.city, sh.region].filter(Boolean).join(", ");
+          case "status":
+            return String(sh.status ?? "");
+          case "capacity":
+            return toNumber(sh.capacity_girls);
+          case "occupancy":
+            return toNumber(sh.current_occupancy);
+          case "residents_assigned":
+            return stats.residents;
+          case "donation_allocations":
+            return stats.allocationsTotal;
+          default:
+            return sh.safehouse_id;
+        }
+      }),
+    [filteredSafehouses, safehouseTableStats, tableColumnSort["safe-houses"]],
+  );
+
+  const allocationHistoryRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(safehouseAllocations, tableColumnSort["allocation-history"], (allocation, key) => {
+        switch (key) {
+          case "safe_house":
+            return safehouseMap.get(allocation.safehouse_id ?? -1)?.name ?? "";
+          case "donation":
+            return toNumber(allocation.donation_id);
+          case "program_area":
+            return String(allocation.program_area ?? "");
+          case "allocation_date": {
+            const t = allocation.allocation_date ? new Date(String(allocation.allocation_date)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "amount":
+            return toNumber(allocation.amount_allocated);
+          default:
+            return allocation.allocation_id;
+        }
+      }),
+    [safehouseAllocations, safehouseMap, tableColumnSort["allocation-history"]],
+  );
+
+  const monthlyMetricsRowsSorted = useMemo(
+    () =>
+      sortRowsByColumn(safehouseMetrics, tableColumnSort["monthly-metrics"], (metric, key) => {
+        switch (key) {
+          case "safe_house":
+            return safehouseMap.get(metric.safehouse_id ?? -1)?.name ?? "";
+          case "month": {
+            const t = metric.month_start ? new Date(String(metric.month_start)).getTime() : 0;
+            return Number.isNaN(t) ? 0 : t;
+          }
+          case "active_residents":
+            return toNumber(metric.active_residents);
+          case "education_progress":
+            return toNumber(metric.avg_education_progress);
+          case "health_score":
+            return toNumber(metric.avg_health_score);
+          case "visitations":
+            return toNumber(metric.home_visitation_count);
+          case "incidents":
+            return toNumber(metric.incident_count);
+          default:
+            return metric.metric_id;
+        }
+      }),
+    [safehouseMap, safehouseMetrics, tableColumnSort["monthly-metrics"]],
+  );
+
+  const outreachPostsRowsSorted = useMemo(() => {
+    const base = [...workspace.socialPosts];
+    if (!tableColumnSort["social-posts"]?.key) {
+      return base.sort((left, right) => compareDatesDescending(left.created_at, right.created_at));
+    }
+    return sortRowsByColumn(base, tableColumnSort["social-posts"], (post, key) => {
+      switch (key) {
+        case "platform":
+          return String(post.platform ?? "");
+        case "date": {
+          const t = post.created_at ? new Date(String(post.created_at)).getTime() : 0;
+          return Number.isNaN(t) ? 0 : t;
+        }
+        case "post_type":
+          return String(post.post_type ?? "");
+        case "impressions":
+          return toNumber(post.impressions);
+        case "estimated_value":
+          return toNumber(post.estimated_donation_value_php);
+        default:
+          return post.post_id;
+      }
+    });
+  }, [tableColumnSort, workspace.socialPosts]);
+
+  const residentsTablePage = PaginatedRows({ rows: residentsRowsSorted, page: getPage("residents"), perPage: getPageSize("residents") });
+  const processTablePage = PaginatedRows({ rows: processRowsSorted, page: getPage("process-records"), perPage: getPageSize("process-records") });
+  const visitationsTablePage = PaginatedRows({ rows: visitationsRowsSorted, page: getPage("visitations"), perPage: getPageSize("visitations") });
+  const educationTablePage = PaginatedRows({ rows: educationRowsSorted, page: getPage("education"), perPage: getPageSize("education") });
+  const healthTablePage = PaginatedRows({ rows: healthRowsSorted, page: getPage("health"), perPage: getPageSize("health") });
+  const interventionsTablePage = PaginatedRows({ rows: interventionsRowsSorted, page: getPage("interventions"), perPage: getPageSize("interventions") });
+  const incidentsTablePage = PaginatedRows({ rows: incidentsRowsSorted, page: getPage("incidents"), perPage: getPageSize("incidents") });
+  const supportersTablePage = PaginatedRows({ rows: supportersRowsSorted, page: getPage("supporters"), perPage: getPageSize("supporters") });
+  const donationsTablePage = PaginatedRows({ rows: donationsRowsSorted, page: getPage("donations"), perPage: getPageSize("donations") });
+  const inKindTablePage = PaginatedRows({ rows: inKindRowsSorted, page: getPage("in-kind"), perPage: getPageSize("in-kind") });
+  const allocationsTablePage = PaginatedRows({ rows: allocationsRowsSorted, page: getPage("allocations"), perPage: getPageSize("allocations") });
+  const safehousesTablePage = PaginatedRows({ rows: safehousesRowsSorted, page: getPage("safe-houses"), perPage: getPageSize("safe-houses") });
+  const allocationHistoryTablePage = PaginatedRows({ rows: allocationHistoryRowsSorted, page: getPage("allocation-history"), perPage: getPageSize("allocation-history") });
+  const monthlyMetricsTablePage = PaginatedRows({ rows: monthlyMetricsRowsSorted, page: getPage("monthly-metrics"), perPage: getPageSize("monthly-metrics") });
   const outreachPostsTablePage = PaginatedRows({
-    rows: [...workspace.socialPosts].sort((left, right) => compareDatesDescending(left.created_at, right.created_at)),
+    rows: outreachPostsRowsSorted,
     page: getPage("social-posts"),
     perPage: getPageSize("social-posts"),
   });
 
-  const residentFields: FormField[] = [
-    { key: "case_control_no", label: "Case Control No." },
-    { key: "internal_code", label: "Internal Code" },
-    {
-      key: "safehouse_id",
-      label: "Safe House",
-      type: "select",
-      options: workspace.safehouses.map((safehouse) => ({
-        value: String(safehouse.safehouse_id),
-        label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
-      })),
-    },
-    {
-      key: "case_status",
-      label: "Case Status",
-      type: "select",
-      options: ["Active", "Open", "Closed", "Transferred"].map((entry) => ({ value: entry, label: entry })),
-    },
-    {
-      key: "sex",
-      label: "Sex",
-      type: "select",
-      options: ["F", "M"].map((entry) => ({ value: entry, label: entry })),
-    },
-    { key: "date_of_birth", label: "Date of Birth", type: "date" },
-    { key: "place_of_birth", label: "Place of Birth" },
-    { key: "religion", label: "Religion" },
-    { key: "case_category", label: "Case Category" },
-    { key: "date_of_admission", label: "Intake Date", type: "date" },
-    { key: "assigned_social_worker", label: "Assigned Social Worker" },
-    {
-      key: "current_risk_level",
-      label: "Risk Status",
-      type: "select",
-      options: ["Low", "Medium", "High", "Critical"].map((entry) => ({ value: entry, label: entry })),
-    },
-    { key: "notes_restricted", label: "Notes", type: "textarea" },
-  ];
+  const residentFields: FormField[] = useMemo(
+    () => [
+      {
+        key: "case_control_no",
+        label: "Case Control No.",
+        readOnly: true,
+      },
+      {
+        key: "internal_code",
+        label: "Internal Code",
+        readOnly: true,
+      },
+      {
+        key: "safehouse_id",
+        label: "Safe House",
+        type: "select",
+        required: true,
+        options: workspace.safehouses.map((safehouse) => ({
+          value: String(safehouse.safehouse_id),
+          label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
+        })),
+      },
+      {
+        key: "case_status",
+        label: "Case Status",
+        type: "select",
+        required: true,
+        options: ["Active", "Open", "Closed", "Transferred"].map((entry) => ({ value: entry, label: entry })),
+      },
+      {
+        key: "sex",
+        label: "Sex",
+        type: "select",
+        required: true,
+        options: ["F", "M"].map((entry) => ({ value: entry, label: entry })),
+      },
+      { key: "date_of_birth", label: "Date of Birth", type: "date" },
+      { key: "place_of_birth", label: "Place of Birth" },
+      { key: "religion", label: "Religion" },
+      {
+        key: "case_category",
+        label: "Case Category",
+        type: "select",
+        required: true,
+        options: caseCategoryFormOptions,
+      },
+      { key: "date_of_admission", label: "Intake Date", type: "date", required: true },
+      {
+        key: "assigned_social_worker",
+        label: "Assigned Social Worker",
+        type: "select",
+        required: true,
+        options: socialWorkerFormOptions,
+      },
+      {
+        key: "current_risk_level",
+        label: "Risk Status",
+        type: "select",
+        required: true,
+        options: ["Low", "Medium", "High", "Critical"].map((entry) => ({ value: entry, label: entry })),
+      },
+      { key: "notes_restricted", label: "Notes", type: "textarea" },
+    ],
+    [caseCategoryFormOptions, socialWorkerFormOptions, workspace.safehouses],
+  );
 
   const supporterFields: FormField[] = [
     {
       key: "supporter_type",
       label: "Supporter Type",
       type: "select",
+      required: true,
       options: [
         "MonetaryDonor",
         "InKindDonor",
@@ -2293,63 +3755,86 @@ export function AdminWorkspace() {
     { key: "last_name", label: "Last Name" },
     { key: "relationship_type", label: "Relationship Type" },
     { key: "region", label: "Region" },
-    { key: "country", label: "Country" },
+    { key: "country", label: "Country", required: true },
     { key: "email", label: "Email", type: "email" },
     { key: "phone", label: "Phone" },
-    { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"].map((entry) => ({ value: entry, label: entry })) },
+    {
+      key: "status",
+      label: "Status",
+      type: "select",
+      required: true,
+      options: ["Active", "Inactive"].map((entry) => ({ value: entry, label: entry })),
+    },
     { key: "first_donation_date", label: "First Donation Date", type: "date" },
     { key: "acquisition_channel", label: "Acquisition Channel" },
   ];
 
-  const donationFields: FormField[] = [
-    {
-      key: "supporter_id",
-      label: "Supporter",
-      type: "select",
-      options: workspace.supporters.map((supporter) => ({
-        value: String(supporter.supporter_id),
-        label: supporterLabel(supporter),
-      })),
-    },
-    {
-      key: "donation_type",
-      label: "Donation Type",
-      type: "select",
-      options: ["Monetary", "InKind"].map((entry) => ({ value: entry, label: entry })),
-    },
-    { key: "donation_date", label: "Donation Date", type: "date" },
-    {
-      key: "is_recurring",
-      label: "Recurring",
-      type: "select",
-      options: [
-        { value: "true", label: "Yes" },
-        { value: "false", label: "No" },
-      ],
-    },
-    { key: "campaign_name", label: "Campaign Name" },
-    { key: "channel_source", label: "Channel Source" },
-    { key: "currency_code", label: "Currency Code" },
-    { key: "amount", label: "Amount", type: "number" },
-    { key: "estimated_value", label: "Estimated Value", type: "number" },
-    { key: "impact_unit", label: "Impact Unit" },
-    { key: "notes", label: "Notes", type: "textarea" },
-    { key: "referral_post_id", label: "Referral Post ID" },
-  ];
+  const donationFields: FormField[] = useMemo(
+    () => [
+      {
+        key: "supporter_id",
+        label: "Supporter",
+        type: "select" as const,
+        required: true,
+        options: workspace.supporters.map((supporter) => ({
+          value: String(supporter.supporter_id),
+          label: supporterLabel(supporter),
+        })),
+      },
+      {
+        key: "donation_type",
+        label: "Donation Type",
+        type: "select" as const,
+        required: true,
+        options: ["Monetary", "InKind"].map((entry) => ({ value: entry, label: entry })),
+      },
+      { key: "donation_date", label: "Donation Date", type: "date" as const, required: true },
+      {
+        key: "is_recurring",
+        label: "Recurring",
+        type: "select" as const,
+        required: true,
+        options: [
+          { value: "true", label: "Yes" },
+          { value: "false", label: "No" },
+        ],
+      },
+      { key: "campaign_name", label: "Campaign Name" },
+      { key: "channel_source", label: "Channel Source" },
+      { key: "currency_code", label: "Currency Code", required: true },
+      {
+        key: "amount",
+        label: "Amount",
+        type: "number" as const,
+        required: donationForm.donation_type === "Monetary",
+      },
+      {
+        key: "estimated_value",
+        label: "Estimated Value",
+        type: "number" as const,
+        required: donationForm.donation_type === "InKind",
+      },
+      { key: "impact_unit", label: "Impact Unit" },
+      { key: "notes", label: "Notes", type: "textarea" as const },
+      { key: "referral_post_id", label: "Referral Post ID" },
+    ],
+    [donationForm.donation_type, workspace.supporters],
+  );
 
   const inKindFields: FormField[] = [
     {
       key: "donation_id",
       label: "Donation",
       type: "select",
+      required: true,
       options: workspace.donations.map((donation) => ({
         value: String(donation.donation_id),
         label: `Donation #${donation.donation_id}`,
       })),
     },
-    { key: "item_name", label: "Item Name" },
-    { key: "item_category", label: "Category" },
-    { key: "quantity", label: "Quantity", type: "number" },
+    { key: "item_name", label: "Item Name", required: true },
+    { key: "item_category", label: "Category", required: true },
+    { key: "quantity", label: "Quantity", type: "number", required: true },
     { key: "unit_of_measure", label: "Unit of Measure" },
     { key: "estimated_unit_value", label: "Estimated Unit Value", type: "number" },
     { key: "intended_use", label: "Intended Use" },
@@ -2361,6 +3846,7 @@ export function AdminWorkspace() {
       key: "donation_id",
       label: "Donation",
       type: "select",
+      required: true,
       options: workspace.donations.map((donation) => ({
         value: String(donation.donation_id),
         label: `Donation #${donation.donation_id}`,
@@ -2370,83 +3856,178 @@ export function AdminWorkspace() {
       key: "safehouse_id",
       label: "Safe House",
       type: "select",
+      required: true,
       options: workspace.safehouses.map((safehouse) => ({
         value: String(safehouse.safehouse_id),
         label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
       })),
     },
-    { key: "program_area", label: "Program Area" },
-    { key: "amount_allocated", label: "Amount Allocated", type: "number" },
-    { key: "allocation_date", label: "Allocation Date", type: "date" },
+    { key: "program_area", label: "Program Area", required: true },
+    { key: "amount_allocated", label: "Amount Allocated", type: "number", required: true },
+    { key: "allocation_date", label: "Allocation Date", type: "date", required: true },
     { key: "allocation_notes", label: "Allocation Notes", type: "textarea" },
   ];
 
   const safehouseFields: FormField[] = [
-    { key: "safehouse_code", label: "Safe House Code" },
-    { key: "name", label: "Name" },
-    { key: "region", label: "Region" },
-    { key: "city", label: "City" },
+    { key: "safehouse_code", label: "Safe House Code", required: true },
+    { key: "name", label: "Name", required: true },
+    { key: "region", label: "Region", required: true },
+    { key: "city", label: "City", required: true },
     { key: "province", label: "Province" },
-    { key: "country", label: "Country" },
+    { key: "country", label: "Country", required: true },
     { key: "open_date", label: "Open Date", type: "date" },
-    { key: "status", label: "Status", type: "select", options: ["Active", "Inactive"].map((entry) => ({ value: entry, label: entry })) },
-    { key: "capacity_girls", label: "Capacity Girls", type: "number" },
-    { key: "capacity_staff", label: "Capacity Staff", type: "number" },
-    { key: "current_occupancy", label: "Current Occupancy", type: "number" },
+    {
+      key: "status",
+      label: "Status",
+      type: "select",
+      required: true,
+      options: ["Active", "Inactive"].map((entry) => ({ value: entry, label: entry })),
+    },
+    { key: "capacity_girls", label: "Capacity Girls", type: "number", required: true },
+    { key: "capacity_staff", label: "Capacity Staff", type: "number", required: true },
+    { key: "current_occupancy", label: "Current Occupancy", type: "number", required: true },
     { key: "notes", label: "Notes", type: "textarea" },
   ];
-  const residentSelectOptions = workspace.residents.map((resident) => ({
-    value: String(resident.resident_id),
-    label: residentLabel(resident),
-  }));
-  const processFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "session_date", label: "Session Date", type: "date" },
-    { key: "social_worker", label: "Social Worker" },
-    { key: "session_type", label: "Session Type" },
-    { key: "session_duration_minutes", label: "Duration (minutes)", type: "number" },
-    { key: "emotional_state_observed", label: "Emotional State Observed" },
-    { key: "emotional_state_end", label: "Emotional State End" },
-    { key: "session_narrative", label: "Session Narrative", type: "textarea" },
-    { key: "interventions_applied", label: "Interventions Applied" },
-    { key: "follow_up_actions", label: "Follow-up Actions" },
-    { key: "progress_noted", label: "Progress Noted", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "concerns_flagged", label: "Concerns Flagged", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "referral_made", label: "Referral Made", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "notes_restricted", label: "Notes", type: "textarea" },
-  ];
-  const visitationFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "visit_date", label: "Visit Date", type: "date" },
-    { key: "social_worker", label: "Social Worker" },
-    { key: "visit_type", label: "Visit Type" },
-    { key: "location_visited", label: "Location Visited" },
-    { key: "family_members_present", label: "Family Members Present" },
-    { key: "purpose", label: "Purpose", type: "textarea" },
-    { key: "observations", label: "Observations", type: "textarea" },
-    { key: "family_cooperation_level", label: "Family Cooperation" },
-    { key: "safety_concerns_noted", label: "Safety Concerns", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "follow_up_needed", label: "Follow-up Needed", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "follow_up_notes", label: "Follow-up Notes", type: "textarea" },
-    { key: "visit_outcome", label: "Visit Outcome" },
-  ];
-  const educationFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "record_date", label: "Record Date", type: "date" },
-    { key: "education_level", label: "Education Level" },
-    { key: "school_name", label: "School Name" },
-    { key: "enrollment_status", label: "Enrollment Status" },
-    { key: "attendance_rate", label: "Attendance Rate", type: "number" },
-    { key: "progress_percent", label: "Progress Percent", type: "number" },
-    { key: "completion_status", label: "Completion Status" },
-    { key: "notes", label: "Notes", type: "textarea" },
-  ];
+  const residentSelectOptions = useMemo(
+    () => workspace.residents.map((resident) => ({ value: String(resident.resident_id), label: residentLabel(resident) })),
+    [workspace.residents],
+  );
+
+  const processSessionTypeSelectOptions = useMemo(() => {
+    const base = [
+      { value: "Individual", label: "Individual" },
+      { value: "Group", label: "Group" },
+    ];
+    const cur = processForm.session_type.trim();
+    if (cur && !base.some((o) => o.value === cur)) {
+      return [...base, { value: cur, label: `${cur} (saved value)` }];
+    }
+    return base;
+  }, [processForm.session_type]);
+
+  const processFields: FormField[] = useMemo(
+    () => [
+      { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+      { key: "session_date", label: "Session Date", type: "date", required: true },
+      {
+        key: "social_worker",
+        label: "Social Worker",
+        type: "select",
+        required: true,
+        options: socialWorkerFormOptions,
+      },
+      {
+        key: "session_type",
+        label: "Session Type",
+        type: "select",
+        required: true,
+        options: processSessionTypeSelectOptions,
+      },
+      { key: "emotional_state_observed", label: "Emotional State Observed", required: true },
+      {
+        key: "session_narrative",
+        label: "Narrative Summary of Session",
+        type: "textarea",
+        required: true,
+      },
+      {
+        key: "interventions_applied",
+        label: "Interventions Applied",
+        type: "textarea",
+        required: true,
+        compact: true,
+        disabledWhenKeyTrue: "interventions_none",
+      },
+      {
+        key: "interventions_none",
+        label: "None",
+        type: "checkbox",
+        checkboxCompact: true,
+        checkboxCaption: "None — no interventions applied",
+      },
+      {
+        key: "follow_up_actions",
+        label: "Follow-up Actions",
+        type: "textarea",
+        required: true,
+        compact: true,
+        disabledWhenKeyTrue: "follow_up_none",
+      },
+      {
+        key: "follow_up_none",
+        label: "None",
+        type: "checkbox",
+        checkboxCompact: true,
+        checkboxCaption: "None — no follow-up actions",
+      },
+      { key: "session_duration_minutes", label: "Duration (minutes)", type: "number" },
+      { key: "emotional_state_end", label: "Emotional State End" },
+      { key: "progress_noted", label: "Progress Noted", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "concerns_flagged", label: "Concerns Flagged", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "referral_made", label: "Referral Made", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "notes_restricted", label: "Notes", type: "textarea" },
+    ],
+    [processSessionTypeSelectOptions, residentSelectOptions, socialWorkerFormOptions],
+  );
+
+  const visitationFields: FormField[] = useMemo(
+    () => [
+      { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+      { key: "visit_date", label: "Visit Date", type: "date", required: true },
+      {
+        key: "social_worker",
+        label: "Social Worker",
+        type: "select",
+        required: true,
+        options: socialWorkerFormOptions,
+      },
+      {
+        key: "visit_type",
+        label: "Visit Type",
+        type: "select",
+        required: true,
+        options: visitTypeFormOptions,
+      },
+      { key: "location_visited", label: "Location Visited", required: true },
+      { key: "family_members_present", label: "Family Members Present" },
+      { key: "purpose", label: "Purpose", type: "textarea" },
+      { key: "observations", label: "Observations", type: "textarea" },
+      { key: "family_cooperation_level", label: "Family Cooperation" },
+      { key: "safety_concerns_noted", label: "Safety Concerns", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "follow_up_needed", label: "Follow-up Needed", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "follow_up_notes", label: "Follow-up Notes", type: "textarea" },
+      { key: "visit_outcome", label: "Visit Outcome" },
+    ],
+    [residentSelectOptions, socialWorkerFormOptions, visitTypeFormOptions],
+  );
+
+  const educationFields: FormField[] = useMemo(
+    () => [
+      { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+      { key: "record_date", label: "Record Date", type: "date", required: true },
+      { key: "education_level", label: "Education Level", required: true },
+      { key: "school_name", label: "School Name", required: true },
+      {
+        key: "enrollment_status",
+        label: "Enrollment Status",
+        type: "select",
+        required: true,
+        options: enrollmentStatusFormOptions,
+      },
+      { key: "attendance_rate", label: "Attendance Rate", type: "number" },
+      { key: "progress_percent", label: "Progress Percent", type: "number" },
+      { key: "completion_status", label: "Completion Status" },
+      { key: "notes", label: "Notes", type: "textarea" },
+    ],
+    [enrollmentStatusFormOptions, residentSelectOptions],
+  );
+
   const healthFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "record_date", label: "Record Date", type: "date" },
-    { key: "general_health_score", label: "General Health Score", type: "number" },
-    { key: "nutrition_score", label: "Nutrition Score", type: "number" },
-    { key: "sleep_quality_score", label: "Sleep Quality Score", type: "number" },
+    { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+    { key: "record_date", label: "Record Date", type: "date", required: true },
+    { key: "general_health_score", label: "General Health Score", type: "number", required: true },
+    { key: "nutrition_score", label: "Nutrition Score", type: "number", required: true },
+    { key: "sleep_quality_score", label: "Sleep Quality Score", type: "number", required: true },
     { key: "energy_level_score", label: "Energy Score", type: "number" },
     { key: "height_cm", label: "Height (cm)", type: "number" },
     { key: "weight_kg", label: "Weight (kg)", type: "number" },
@@ -2456,35 +4037,107 @@ export function AdminWorkspace() {
     { key: "psychological_checkup_done", label: "Psychological Checkup", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
     { key: "notes", label: "Notes", type: "textarea" },
   ];
-  const interventionFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "plan_category", label: "Plan Category" },
-    { key: "plan_description", label: "Plan Description", type: "textarea" },
-    { key: "services_provided", label: "Services Provided" },
-    { key: "target_value", label: "Target Value", type: "number" },
-    { key: "target_date", label: "Target Date", type: "date" },
-    { key: "status", label: "Status" },
-    { key: "case_conference_date", label: "Case Conference Date", type: "date" },
-  ];
-  const incidentFields: FormField[] = [
-    { key: "resident_id", label: "Resident", type: "select", options: residentSelectOptions },
-    { key: "safehouse_id", label: "Safe House", type: "select", options: workspace.safehouses.map((safehouse) => ({ value: String(safehouse.safehouse_id), label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}` })) },
-    { key: "incident_date", label: "Incident Date", type: "date" },
-    { key: "incident_type", label: "Incident Type" },
-    { key: "severity", label: "Severity" },
-    { key: "description", label: "Description", type: "textarea" },
-    { key: "response_taken", label: "Response Taken", type: "textarea" },
-    { key: "resolved", label: "Resolved", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-    { key: "resolution_date", label: "Resolution Date", type: "date" },
-    { key: "reported_by", label: "Reported By" },
-    { key: "follow_up_required", label: "Follow-up Required", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
-  ];
+
+  const interventionFields: FormField[] = useMemo(
+    () => [
+      { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+      {
+        key: "plan_category",
+        label: "Plan Category",
+        type: "select",
+        required: true,
+        options: planCategoryFormOptions,
+      },
+      { key: "plan_description", label: "Plan Description", type: "textarea", required: true },
+      { key: "services_provided", label: "Services Provided" },
+      { key: "target_value", label: "Target Value", type: "number" },
+      { key: "target_date", label: "Target Date", type: "date", required: true },
+      { key: "status", label: "Status", required: true },
+      { key: "case_conference_date", label: "Case Conference Date", type: "date" },
+    ],
+    [planCategoryFormOptions, residentSelectOptions],
+  );
+
+  const incidentFields: FormField[] = useMemo(
+    () => [
+      { key: "resident_id", label: "Resident", type: "select", required: true, options: residentSelectOptions },
+      {
+        key: "safehouse_id",
+        label: "Safe House",
+        type: "select",
+        required: true,
+        options: workspace.safehouses.map((safehouse) => ({
+          value: String(safehouse.safehouse_id),
+          label: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
+        })),
+      },
+      { key: "incident_date", label: "Incident Date", type: "date", required: true },
+      {
+        key: "incident_type",
+        label: "Incident Type",
+        type: "select",
+        required: true,
+        options: incidentTypeFormOptions,
+      },
+      {
+        key: "severity",
+        label: "Severity",
+        type: "select",
+        required: true,
+        options: incidentSeverityFormOptions,
+      },
+      { key: "description", label: "Description", type: "textarea", required: true },
+      { key: "response_taken", label: "Response Taken", type: "textarea" },
+      { key: "resolved", label: "Resolved", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+      { key: "resolution_date", label: "Resolution Date", type: "date" },
+      { key: "reported_by", label: "Reported By", required: true },
+      { key: "follow_up_required", label: "Follow-up Required", type: "select", options: [{ value: "true", label: "Yes" }, { value: "false", label: "No" }] },
+    ],
+    [incidentSeverityFormOptions, incidentTypeFormOptions, residentSelectOptions, workspace.safehouses],
+  );
+
+  const validateSupporterIdentity = (s: SupporterFormState): string | null => {
+    const hasDisplay = s.display_name.trim().length > 0;
+    const hasOrg = s.organization_name.trim().length > 0;
+    const hasBothNames = s.first_name.trim().length > 0 && s.last_name.trim().length > 0;
+    if (!hasDisplay && !hasOrg && !hasBothNames) {
+      return "Enter a display name, organization name, or both first and last name.";
+    }
+    if (s.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.email.trim())) {
+      return "Enter a valid email address or leave email blank.";
+    }
+    return null;
+  };
+
+  const validateDonationAmounts = (s: DonationFormState): string | null => {
+    if (s.donation_type === "Monetary") {
+      const raw = s.amount.trim();
+      if (!raw || !Number.isFinite(Number(raw))) {
+        return "Enter a valid amount for monetary donations.";
+      }
+    } else if (s.donation_type === "InKind") {
+      const raw = s.estimated_value.trim();
+      if (!raw || !Number.isFinite(Number(raw))) {
+        return "Enter a valid estimated value for in-kind donations.";
+      }
+    }
+    const ref = s.referral_post_id.trim();
+    if (ref && !Number.isFinite(Number(ref))) {
+      return "Referral post ID must be a valid number or left blank.";
+    }
+    return null;
+  };
 
   const openResidentForm = (resident?: Resident) => {
     setEditingResidentId(resident?.resident_id ?? null);
+    const isNewResident = resident == null;
     setResidentForm({
-      case_control_no: resident?.case_control_no ?? "",
-      internal_code: resident?.internal_code ?? "",
+      case_control_no: isNewResident
+        ? suggestNextCaseControlNoFromResidents(workspace.residents)
+        : String(resident.case_control_no ?? ""),
+      internal_code: isNewResident
+        ? suggestNextLsInternalCodeFromResidents(workspace.residents)
+        : String(resident.internal_code ?? ""),
       safehouse_id: resident?.safehouse_id ? String(resident.safehouse_id) : "",
       case_status: resident?.case_status ?? "Active",
       sex: resident?.sex ?? "F",
@@ -2588,6 +4241,12 @@ export function AdminWorkspace() {
 
   const openProcessForm = (row?: RecordRow) => {
     setEditingProcessId(row ? toNumber(row.recording_id) : null);
+    const interventionsRaw = String(row?.interventions_applied ?? "").trim();
+    const followUpRaw = String(row?.follow_up_actions ?? "").trim();
+    const interventionsIsNone =
+      !interventionsRaw || interventionsRaw.toLowerCase() === "none" || interventionsRaw.toLowerCase() === "n/a";
+    const followUpIsNone =
+      !followUpRaw || followUpRaw.toLowerCase() === "none" || followUpRaw.toLowerCase() === "n/a";
     setProcessForm({
       resident_id: row?.resident_id ? String(row.resident_id) : selectedResidentIds[0] ? String(selectedResidentIds[0]) : "",
       session_date: String(row?.session_date ?? ""),
@@ -2597,8 +4256,10 @@ export function AdminWorkspace() {
       emotional_state_observed: String(row?.emotional_state_observed ?? ""),
       emotional_state_end: String(row?.emotional_state_end ?? ""),
       session_narrative: String(row?.session_narrative ?? ""),
-      interventions_applied: String(row?.interventions_applied ?? ""),
-      follow_up_actions: String(row?.follow_up_actions ?? ""),
+      interventions_applied: interventionsIsNone ? "" : interventionsRaw,
+      interventions_none: interventionsIsNone ? "true" : "false",
+      follow_up_actions: followUpIsNone ? "" : followUpRaw,
+      follow_up_none: followUpIsNone ? "true" : "false",
       progress_noted: toBooleanString(row?.progress_noted),
       concerns_flagged: toBooleanString(row?.concerns_flagged),
       referral_made: toBooleanString(row?.referral_made),
@@ -2697,9 +4358,7 @@ export function AdminWorkspace() {
   };
 
   const submitResidentForm = () => {
-    const payload = {
-      case_control_no: residentForm.case_control_no || null,
-      internal_code: residentForm.internal_code || null,
+    const payload: Record<string, unknown> = {
       safehouse_id: toNullableNumber(residentForm.safehouse_id),
       case_status: residentForm.case_status || null,
       sex: residentForm.sex || null,
@@ -2715,6 +4374,8 @@ export function AdminWorkspace() {
     if (editingResidentId) {
       updateMutation.mutate({ table: "residents", id: editingResidentId, payload });
     } else {
+      payload.case_control_no = null;
+      payload.internal_code = null;
       createMutation.mutate({ table: "residents", payload });
     }
     setResidentFormOpen(false);
@@ -2824,8 +4485,10 @@ export function AdminWorkspace() {
       emotional_state_observed: processForm.emotional_state_observed || null,
       emotional_state_end: processForm.emotional_state_end || null,
       session_narrative: processForm.session_narrative || null,
-      interventions_applied: processForm.interventions_applied || null,
-      follow_up_actions: processForm.follow_up_actions || null,
+      interventions_applied:
+        processForm.interventions_none === "true" ? "None" : processForm.interventions_applied.trim() || null,
+      follow_up_actions:
+        processForm.follow_up_none === "true" ? "None" : processForm.follow_up_actions.trim() || null,
       progress_noted: toNullableBoolean(processForm.progress_noted),
       concerns_flagged: toNullableBoolean(processForm.concerns_flagged),
       referral_made: toNullableBoolean(processForm.referral_made),
@@ -3056,31 +4719,6 @@ export function AdminWorkspace() {
         onSortChange={setResidentSort}
         actionItems={[
           {
-            label:
-              residentsSubTab === "all-residents"
-                ? "Add resident"
-                : residentsSubTab === "process-records"
-                  ? "Add process record"
-                  : residentsSubTab === "visitations"
-                    ? "Add visitation"
-                    : residentsSubTab === "education"
-                      ? "Add education record"
-                      : residentsSubTab === "health"
-                        ? "Add health record"
-                        : residentsSubTab === "interventions"
-                          ? "Add intervention"
-                          : "Add incident",
-            onClick: () => {
-              if (residentsSubTab === "all-residents") openResidentForm();
-              else if (residentsSubTab === "process-records") openProcessForm();
-              else if (residentsSubTab === "visitations") openVisitationForm();
-              else if (residentsSubTab === "education") openEducationForm();
-              else if (residentsSubTab === "health") openHealthForm();
-              else if (residentsSubTab === "interventions") openInterventionForm();
-              else openIncidentForm();
-            },
-          },
-          {
             label: "Export current view as CSV",
             onClick: () => {
               if (residentsSubTab === "all-residents") exportRows("Residents", filteredResidentsTable.map((resident) => ({
@@ -3104,6 +4742,421 @@ export function AdminWorkspace() {
       />
     );
   };
+
+  const renderDonationsToolbar = () => {
+    const supporterFilters = (
+      <>
+        <FilterCheckboxGroup
+          title="Supporter type"
+          options={donationTypeOptions}
+          selected={donationTypeFilter}
+          onChange={setDonationTypeFilter}
+          allLabel="All supporter types"
+        />
+        <FilterCheckboxGroup
+          title="Relationship"
+          options={donationRelationshipOptions}
+          selected={donationRelationshipFilter}
+          onChange={setDonationRelationshipFilter}
+          allLabel="All relationships"
+        />
+        <FilterCheckboxGroup
+          title="Status"
+          options={donationStatusOptions}
+          selected={donationStatusFilter}
+          onChange={setDonationStatusFilter}
+          allLabel="All statuses"
+        />
+        <FilterCheckboxGroup
+          title="Region"
+          options={donationRegionOptions}
+          selected={donationRegionFilter}
+          onChange={setDonationRegionFilter}
+          allLabel="All regions"
+        />
+        <FilterCheckboxGroup
+          title="Country"
+          options={donationCountryOptions}
+          selected={donationCountryFilter}
+          onChange={setDonationCountryFilter}
+          allLabel="All countries"
+        />
+      </>
+    );
+
+    const donationRowFilters = (
+      <>
+        <FilterCheckboxGroup
+          title="Gift type"
+          options={donationGiftTypeOptions}
+          selected={donationGiftTypeFilter}
+          onChange={setDonationGiftTypeFilter}
+          allLabel="All gift types"
+        />
+        <FilterCheckboxGroup
+          title="Recurring"
+          options={["true", "false"]}
+          selected={donationGiftRecurringFilter}
+          onChange={setDonationGiftRecurringFilter}
+          allLabel="All"
+          getOptionLabel={(v) => (v === "true" ? "Yes" : "No")}
+        />
+        <FilterCheckboxGroup
+          title="Campaign"
+          options={donationGiftCampaignOptions}
+          selected={donationGiftCampaignFilter}
+          onChange={setDonationGiftCampaignFilter}
+          allLabel="All campaigns"
+        />
+        <FilterCheckboxGroup
+          title="Channel"
+          options={donationGiftChannelOptions}
+          selected={donationGiftChannelFilter}
+          onChange={setDonationGiftChannelFilter}
+          allLabel="All channels"
+        />
+        <FilterCheckboxGroup
+          title="Currency"
+          options={donationGiftCurrencyOptions}
+          selected={donationGiftCurrencyFilter}
+          onChange={setDonationGiftCurrencyFilter}
+          allLabel="All currencies"
+        />
+      </>
+    );
+
+    const inKindRowFilters = (
+      <>
+        <FilterCheckboxGroup
+          title="Category"
+          options={inKindCategoryOptions}
+          selected={inKindCategoryFilter}
+          onChange={setInKindCategoryFilter}
+          allLabel="All categories"
+        />
+        <FilterCheckboxGroup
+          title="Condition"
+          options={inKindConditionOptions}
+          selected={inKindConditionFilter}
+          onChange={setInKindConditionFilter}
+          allLabel="All conditions"
+        />
+        <FilterCheckboxGroup
+          title="Unit"
+          options={inKindUnitOptions}
+          selected={inKindUnitFilter}
+          onChange={setInKindUnitFilter}
+          allLabel="All units"
+        />
+      </>
+    );
+
+    const allocationRowFilters = (
+      <>
+        <FilterCheckboxGroup
+          title="Program area"
+          options={allocationProgramOptions}
+          selected={allocationProgramFilter}
+          onChange={setAllocationProgramFilter}
+          allLabel="All program areas"
+        />
+        <FilterCheckboxGroup
+          title="Safe house"
+          options={allocationSafehouseIdOptions}
+          selected={allocationSafehouseFilter}
+          onChange={setAllocationSafehouseFilter}
+          allLabel="All safe houses"
+          getOptionLabel={(id) => safehouseMap.get(Number(id))?.name ?? `House #${id}`}
+        />
+      </>
+    );
+
+    const searchPlaceholder =
+      donationsSubTab === "supporters"
+        ? "Search supporter name, type, region, status, or channel"
+        : donationsSubTab === "donations"
+          ? "Search supporter, campaign, channel, currency, or donation id"
+          : donationsSubTab === "in-kind"
+            ? "Search item name, category, donation id, or intended use"
+            : "Search program area, safe house, donation id, or notes";
+
+    const filtersForTab =
+      donationsSubTab === "supporters"
+        ? supporterFilters
+        : donationsSubTab === "donations"
+          ? donationRowFilters
+          : donationsSubTab === "in-kind"
+            ? inKindRowFilters
+            : allocationRowFilters;
+
+    const clearFiltersForTab = () => {
+      setDonationSearch("");
+      if (donationsSubTab === "supporters") {
+        setDonationTypeFilter([]);
+        setDonationRelationshipFilter([]);
+        setDonationStatusFilter([]);
+        setDonationRegionFilter([]);
+        setDonationCountryFilter([]);
+      } else if (donationsSubTab === "donations") {
+        setDonationGiftTypeFilter([]);
+        setDonationGiftRecurringFilter([]);
+        setDonationGiftCampaignFilter([]);
+        setDonationGiftChannelFilter([]);
+        setDonationGiftCurrencyFilter([]);
+      } else if (donationsSubTab === "in-kind") {
+        setInKindCategoryFilter([]);
+        setInKindConditionFilter([]);
+        setInKindUnitFilter([]);
+      } else {
+        setAllocationProgramFilter([]);
+        setAllocationSafehouseFilter([]);
+      }
+      setParams({ supporterId: null });
+    };
+
+    const sortValue =
+      donationsSubTab === "in-kind" ? inKindSort : donationsSubTab === "allocations" ? allocationSort : donationSort;
+    const sortOptions =
+      donationsSubTab === "supporters"
+        ? [
+            { value: "recent", label: "Newest supporters first" },
+            { value: "name", label: "Name (A–Z)" },
+          ]
+        : donationsSubTab === "donations"
+          ? [
+              { value: "recent", label: "Most recent gift date" },
+              { value: "amount", label: "Highest value first" },
+              { value: "name", label: "Supporter name (A–Z)" },
+            ]
+          : donationsSubTab === "in-kind"
+            ? [
+                { value: "recent", label: "Newest items first" },
+                { value: "name", label: "Item name (A–Z)" },
+                { value: "donation", label: "Donation id (low to high)" },
+              ]
+            : [
+                { value: "recent", label: "Most recent allocation date" },
+                { value: "amount", label: "Largest amount first" },
+              ];
+    const onSortChange = (value: string) => {
+      if (donationsSubTab === "in-kind") setInKindSort(value);
+      else if (donationsSubTab === "allocations") setAllocationSort(value);
+      else setDonationSort(value);
+    };
+
+    return (
+      <Toolbar
+        defaultOpen={false}
+        searchValue={donationSearch}
+        onSearchChange={setDonationSearch}
+        searchPlaceholder={searchPlaceholder}
+        filters={filtersForTab}
+        onClearFilters={clearFiltersForTab}
+        bottomContent={
+          donationsSubTab === "supporters" ? null : (
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 flex-col gap-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <HandCoins className="h-4 w-4 text-primary" />
+                  Active supporter:
+                </div>
+                {selectedSupporterId ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setParams({ supporterId: null })}
+                      className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
+                    >
+                      {supporterLabel(supporterMap.get(selectedSupporterId) ?? ({} as Supporter))}
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No supporter filter applied. Click a supporter row to narrow this table to one donor.
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <StatusBadge value={selectedSupporterId ? "Filter active" : "All supporters"} tone={selectedSupporterId ? "default" : "outline"} />
+                <Button variant="outline" className="rounded-xl" onClick={() => setParams({ supporterId: null })} disabled={!selectedSupporterId}>
+                  Clear supporter filter
+                </Button>
+              </div>
+            </div>
+          )
+        }
+        sortValue={sortValue}
+        sortOptions={sortOptions}
+        onSortChange={onSortChange}
+        actionItems={[
+          {
+            label: "Export current view as CSV",
+            onClick: () => {
+              if (donationsSubTab === "supporters") exportRows("Supporters", filteredSupporters as unknown as Array<Record<string, unknown>>);
+              else if (donationsSubTab === "donations") exportRows("Donations", filteredDonations as unknown as Array<Record<string, unknown>>);
+              else if (donationsSubTab === "in-kind") exportRows("In Kind", filteredInKind as unknown as Array<Record<string, unknown>>);
+              else exportRows("Allocations", filteredAllocations as unknown as Array<Record<string, unknown>>);
+            },
+          },
+        ]}
+      />
+    );
+  };
+
+  const renderSafehousesToolbar = () => (
+    <Toolbar
+      defaultOpen={false}
+      searchValue={safehouseSearch}
+      onSearchChange={setSafehouseSearch}
+      searchPlaceholder="Search safe houses, regions, status, or city"
+      filters={
+        <>
+          {safeHousesSubTab === "monthly-metrics" ? (
+            <fieldset className="rounded-2xl border border-border/70 bg-background p-4">
+              <legend className="mb-3 w-full text-left text-sm font-semibold uppercase tracking-[0.14em] text-foreground/80">
+                Metric period
+              </legend>
+              <div className="space-y-3 text-sm font-medium text-foreground">
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="radio"
+                    name="monthly-metrics-period"
+                    checked={monthlyMetricsPeriodFilter === "occurred"}
+                    onChange={() => setMonthlyMetricsPeriodFilter("occurred")}
+                    className="h-4 w-4 border-border text-primary"
+                  />
+                  Occurred
+                </label>
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="radio"
+                    name="monthly-metrics-period"
+                    checked={monthlyMetricsPeriodFilter === "future"}
+                    onChange={() => setMonthlyMetricsPeriodFilter("future")}
+                    className="h-4 w-4 border-border text-primary"
+                  />
+                  Future
+                </label>
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="radio"
+                    name="monthly-metrics-period"
+                    checked={monthlyMetricsPeriodFilter === "all"}
+                    onChange={() => setMonthlyMetricsPeriodFilter("all")}
+                    className="h-4 w-4 border-border text-primary"
+                  />
+                  All
+                </label>
+              </div>
+            </fieldset>
+          ) : null}
+          <FilterCheckboxGroup title="Status" options={safehouseStatusOptions} selected={safehouseStatusFilter} onChange={setSafehouseStatusFilter} allLabel="All statuses" />
+          <FilterCheckboxGroup title="Region" options={safehouseRegionOptions} selected={safehouseRegionFilter} onChange={setSafehouseRegionFilter} allLabel="All regions" />
+        </>
+      }
+      onClearFilters={() => {
+        setSafehouseSearch("");
+        setSafehouseStatusFilter([]);
+        setSafehouseRegionFilter([]);
+        setMonthlyMetricsPeriodFilter("occurred");
+        setParams({ safehouseId: null });
+      }}
+      bottomContent={
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-1 flex-col gap-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Building2 className="h-4 w-4 text-primary" />
+              Active safe house:
+            </div>
+            {selectedSafehouseId ? (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setParams({ safehouseId: null })}
+                  aria-label={`Clear safe house filter: ${safehouseMap.get(selectedSafehouseId)?.name ?? `Safe House ${selectedSafehouseId}`}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
+                >
+                  {safehouseMap.get(selectedSafehouseId)?.name ?? `Safe House ${selectedSafehouseId}`}
+                  <X className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No safe house filter applied. Click a safe house row to narrow allocation history and monthly metrics to that location.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <StatusBadge value={selectedSafehouseId ? "Filter active" : "All safe houses"} tone={selectedSafehouseId ? "default" : "outline"} />
+            <Button variant="outline" className="rounded-xl" onClick={() => setParams({ safehouseId: null })} disabled={!selectedSafehouseId}>
+              Clear safe house filter
+            </Button>
+          </div>
+        </div>
+      }
+      sortValue={safehouseSort}
+      sortOptions={[
+        { value: "occupancy", label: "Highest occupancy first" },
+        { value: "name", label: "Name" },
+        { value: "recent", label: "Most recently opened" },
+      ]}
+      onSortChange={setSafehouseSort}
+      actionItems={[
+        {
+          label: "Export current view as CSV",
+          onClick: () => {
+            if (safeHousesSubTab === "safe-houses") {
+              exportRows("Safe Houses", filteredSafehouses as unknown as Array<Record<string, unknown>>);
+            } else if (safeHousesSubTab === "allocation-history") {
+              exportRows("Allocation History", safehouseAllocations as unknown as Array<Record<string, unknown>>);
+            } else {
+              exportRows("Monthly Metrics", safehouseMetrics as unknown as Array<Record<string, unknown>>);
+            }
+          },
+        },
+      ]}
+    />
+  );
+
+  const renderInsightRow = (chartKey: string) => {
+    const config = chartConfigs[chartKey];
+    if (!config) return null;
+    return <InsightRow config={config} onChartClick={() => setExpandedChartKey(chartKey)} />;
+  };
+
+  const residentInsightKey =
+    residentsSubTab === "all-residents"
+      ? "residents-all"
+      : residentsSubTab === "process-records"
+        ? "residents-process"
+        : residentsSubTab === "visitations"
+          ? "residents-visitations"
+          : residentsSubTab === "education"
+            ? "residents-education"
+            : residentsSubTab === "health"
+              ? "residents-health"
+              : residentsSubTab === "interventions"
+                ? "residents-interventions"
+                : "residents-incidents";
+
+  const donationsInsightKey =
+    donationsSubTab === "supporters"
+      ? "donations-supporters"
+      : donationsSubTab === "donations"
+        ? "donations-donations"
+        : donationsSubTab === "in-kind"
+          ? "donations-in-kind"
+          : "donations-allocations";
+
+  const safehousesInsightKey =
+    safeHousesSubTab === "allocation-history"
+      ? "safehouses-allocations"
+      : safeHousesSubTab === "monthly-metrics"
+        ? "safehouses-metrics"
+        : "safehouses-overview";
+
+  const expandedChart = expandedChartKey ? chartConfigs[expandedChartKey] ?? null : null;
 
   return (
     <div className="space-y-6">
@@ -3232,6 +5285,7 @@ export function AdminWorkspace() {
 
         <TabsContent value="residents" className="space-y-6">
           <Tabs value={residentsSubTab} onValueChange={(value) => setParams({ residentsSubTab: value })} className="space-y-6">
+            {renderInsightRow(residentInsightKey)}
             <TabsList
               aria-label="Resident record views"
               className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
@@ -3251,19 +5305,69 @@ export function AdminWorkspace() {
               <SectionCard
                 title="Residents"
                 description="Row click opens the resident detail modal and applies the resident to the global cross-tab filter."
+                action={<TableAddButton label="Add resident" onClick={() => openResidentForm()} />}
               >
                 {renderResidentToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Select</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Age</TableHead>
-                      <TableHead>Case Status</TableHead>
-                      <TableHead>Safe House</TableHead>
-                      <TableHead>Latest Visitation</TableHead>
-                      <TableHead>Risk Status</TableHead>
-                      <TableHead>Date Added</TableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="name"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Name
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="age"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Age
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="case_status"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Case Status
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="safe_house"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Safe House
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="latest_visitation"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Latest Visitation
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="risk"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Risk Status
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="residents"
+                        columnKey="date_added"
+                        activeSort={tableColumnSort.residents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Date Added
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3347,6 +5451,7 @@ export function AdminWorkspace() {
               <SectionCard
                 title="Process records"
                 description={selectedResidents.length ? "Process records are filtered to the selected resident set." : "Showing current and past process records. Future-dated sessions are separated below."}
+                action={<TableAddButton label="Add process record" onClick={() => openProcessForm()} />}
               >
                 {renderResidentToolbar()}
                 {residentProcessSplit.upcoming.length ? (
@@ -3369,12 +5474,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Session Date</TableHead>
-                      <TableHead>Social Worker</TableHead>
-                      <TableHead>Session Type</TableHead>
-                      <TableHead>Concerns Flagged</TableHead>
-                      <TableHead>Follow-up</TableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="resident"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="session_date"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Session Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="social_worker"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Social Worker
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="session_type"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Session Type
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="concerns_flagged"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Concerns Flagged
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="process-records"
+                        columnKey="follow_up"
+                        activeSort={tableColumnSort["process-records"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Follow-up
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3427,7 +5574,11 @@ export function AdminWorkspace() {
             </TabsContent>
 
             <TabsContent value="visitations">
-              <SectionCard title="Visitations & conferences" description={selectedResidents.length ? "Visitations are filtered to the selected resident set." : "All visitations are sorted upcoming first and then newest completed visits."}>
+              <SectionCard
+                title="Visitations & conferences"
+                description={selectedResidents.length ? "Visitations are filtered to the selected resident set." : "All visitations are sorted upcoming first and then newest completed visits."}
+                action={<TableAddButton label="Add visitation" onClick={() => openVisitationForm()} />}
+              >
                 {renderResidentToolbar()}
                 {residentUpcomingEvents.length ? (
                   <div className="mb-4">
@@ -3449,12 +5600,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Visit Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Social Worker</TableHead>
-                      <TableHead>Outcome</TableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="resident"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="visit_date"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Visit Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="visit_type"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Type
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="location"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Location
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="social_worker"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Social Worker
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="visitations"
+                        columnKey="outcome"
+                        activeSort={tableColumnSort.visitations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Outcome
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3507,7 +5700,11 @@ export function AdminWorkspace() {
             </TabsContent>
 
             <TabsContent value="education">
-              <SectionCard title="Education records" description={selectedResidents.length ? "Education records are filtered to the selected resident set." : "All education records are sorted upcoming first and then newest first."}>
+              <SectionCard
+                title="Education records"
+                description={selectedResidents.length ? "Education records are filtered to the selected resident set." : "All education records are sorted upcoming first and then newest first."}
+                action={<TableAddButton label="Add education record" onClick={() => openEducationForm()} />}
+              >
                 {renderResidentToolbar()}
                 {residentEducationSplit.upcoming.length ? (
                   <div className="mb-4">
@@ -3529,12 +5726,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Record Date</TableHead>
-                      <TableHead>Level</TableHead>
-                      <TableHead>School</TableHead>
-                      <TableHead>Enrollment</TableHead>
-                      <TableHead>Progress</TableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="resident"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="record_date"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Record Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="level"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Level
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="school"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        School
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="enrollment"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Enrollment
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="education"
+                        columnKey="progress"
+                        activeSort={tableColumnSort.education}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Progress
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3587,7 +5826,11 @@ export function AdminWorkspace() {
             </TabsContent>
 
             <TabsContent value="health">
-              <SectionCard title="Health & well-being" description={selectedResidents.length ? "Health records are filtered to the selected resident set." : "All health records are sorted upcoming first and then newest first."}>
+              <SectionCard
+                title="Health & well-being"
+                description={selectedResidents.length ? "Health records are filtered to the selected resident set." : "All health records are sorted upcoming first and then newest first."}
+                action={<TableAddButton label="Add health record" onClick={() => openHealthForm()} />}
+              >
                 {renderResidentToolbar()}
                 {residentHealthSplit.upcoming.length ? (
                   <div className="mb-4">
@@ -3609,12 +5852,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Record Date</TableHead>
-                      <TableHead>Health Score</TableHead>
-                      <TableHead>Nutrition</TableHead>
-                      <TableHead>Sleep</TableHead>
-                      <TableHead>BMI</TableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="resident"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="record_date"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Record Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="health_score"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Health Score
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="nutrition"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Nutrition
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="sleep"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Sleep
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="health"
+                        columnKey="bmi"
+                        activeSort={tableColumnSort.health}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        BMI
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3667,7 +5952,11 @@ export function AdminWorkspace() {
             </TabsContent>
 
             <TabsContent value="interventions">
-              <SectionCard title="Interventions" description={selectedResidents.length ? "Interventions are filtered to the selected resident set." : "All interventions are sorted by upcoming target first and then newest first."}>
+              <SectionCard
+                title="Interventions"
+                description={selectedResidents.length ? "Interventions are filtered to the selected resident set." : "All interventions are sorted by upcoming target first and then newest first."}
+                action={<TableAddButton label="Add intervention" onClick={() => openInterventionForm()} />}
+              >
                 {renderResidentToolbar()}
                 {residentInterventionSplit.upcoming.length ? (
                   <div className="mb-4">
@@ -3689,12 +5978,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Target Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Conference Date</TableHead>
-                      <TableHead>Services</TableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="resident"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="category"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Category
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="target_date"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Target Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="status"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Status
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="conference_date"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Conference Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="interventions"
+                        columnKey="services"
+                        activeSort={tableColumnSort.interventions}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Services
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3747,7 +6078,11 @@ export function AdminWorkspace() {
             </TabsContent>
 
             <TabsContent value="incidents">
-              <SectionCard title="Incidents" description={selectedResidents.length ? "Incidents are filtered to the selected resident set." : "All incident reports are sorted upcoming first and then newest first."}>
+              <SectionCard
+                title="Incidents"
+                description={selectedResidents.length ? "Incidents are filtered to the selected resident set." : "All incident reports are sorted upcoming first and then newest first."}
+                action={<TableAddButton label="Add incident" onClick={() => openIncidentForm()} />}
+              >
                 {renderResidentToolbar()}
                 {residentIncidentSplit.upcoming.length ? (
                   <div className="mb-4">
@@ -3769,12 +6104,54 @@ export function AdminWorkspace() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Resident</TableHead>
-                      <TableHead>Incident Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Severity</TableHead>
-                      <TableHead>Reported By</TableHead>
-                      <TableHead>Resolved</TableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="resident"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resident
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="incident_date"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Incident Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="incident_type"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Type
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="severity"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Severity
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="reported_by"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Reported By
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="incidents"
+                        columnKey="resolved"
+                        activeSort={tableColumnSort.incidents}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Resolved
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3829,85 +6206,8 @@ export function AdminWorkspace() {
         </TabsContent>
 
         <TabsContent value="donations" className="space-y-6">
-          <Toolbar
-            defaultOpen={false}
-            searchValue={donationSearch}
-            onSearchChange={setDonationSearch}
-            searchPlaceholder="Search supporters, donations, channels, or campaigns"
-            filters={
-              <>
-                <FilterCheckboxGroup title="Type" options={donationTypeOptions} selected={donationTypeFilter} onChange={setDonationTypeFilter} allLabel="All types" />
-                <FilterCheckboxGroup title="Relationship" options={donationRelationshipOptions} selected={donationRelationshipFilter} onChange={setDonationRelationshipFilter} allLabel="All relationships" />
-                <FilterCheckboxGroup title="Status" options={donationStatusOptions} selected={donationStatusFilter} onChange={setDonationStatusFilter} allLabel="All statuses" />
-                <FilterCheckboxGroup title="Region" options={donationRegionOptions} selected={donationRegionFilter} onChange={setDonationRegionFilter} allLabel="All regions" />
-                <FilterCheckboxGroup title="Country" options={donationCountryOptions} selected={donationCountryFilter} onChange={setDonationCountryFilter} allLabel="All countries" />
-              </>
-            }
-            onClearFilters={() => {
-              setDonationSearch("");
-              setDonationTypeFilter([]);
-              setDonationRelationshipFilter([]);
-              setDonationStatusFilter([]);
-              setDonationRegionFilter([]);
-              setDonationCountryFilter([]);
-              setParams({ supporterId: null });
-            }}
-            sortValue={donationSort}
-            sortOptions={[
-              { value: "recent", label: "Most recent first" },
-              { value: "amount", label: "Highest amount first" },
-              { value: "name", label: "Supporter name" },
-            ]}
-            onSortChange={setDonationSort}
-            actionItems={[
-              {
-                label:
-                  donationsSubTab === "supporters"
-                    ? "Add supporter"
-                    : donationsSubTab === "in-kind"
-                      ? "Add in-kind item"
-                      : donationsSubTab === "allocations"
-                        ? "Add allocation"
-                        : "Add donation",
-                onClick: () => {
-                  if (donationsSubTab === "supporters") openSupporterForm();
-                  else if (donationsSubTab === "donations") openDonationForm();
-                  else if (donationsSubTab === "in-kind") openInKindForm();
-                  else if (donationsSubTab === "allocations") openAllocationForm();
-                  else openDonationForm();
-                },
-              },
-              {
-                label: "Export current view as CSV",
-                onClick: () => {
-                  if (donationsSubTab === "supporters") exportRows("Supporters", filteredSupporters as unknown as Array<Record<string, unknown>>);
-                  else if (donationsSubTab === "donations") exportRows("Donations", filteredDonations as unknown as Array<Record<string, unknown>>);
-                  else if (donationsSubTab === "in-kind") exportRows("In Kind", filteredInKind as unknown as Array<Record<string, unknown>>);
-                  else if (donationsSubTab === "allocations") exportRows("Allocations", filteredAllocations as unknown as Array<Record<string, unknown>>);
-                  else exportRows("Donations Summary", filteredDonations as unknown as Array<Record<string, unknown>>);
-                },
-              },
-            ]}
-          />
-
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-warm">
-            <p className="text-sm font-medium text-foreground">Supporter filter:</p>
-            {selectedSupporterId ? (
-              <button
-                type="button"
-                onClick={() => setParams({ supporterId: null })}
-                className="inline-flex items-center gap-2 rounded-full border border-secondary/20 bg-secondary/10 px-3 py-1.5 text-sm font-medium text-secondary"
-                aria-label={`Remove supporter filter: ${supporterLabel(supporterMap.get(selectedSupporterId) ?? ({} as Supporter))}`}
-              >
-                {supporterLabel(supporterMap.get(selectedSupporterId) ?? ({} as Supporter))}
-                <X className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              </button>
-            ) : (
-              <span className="text-sm text-muted-foreground">No supporter filter applied.</span>
-            )}
-          </div>
-
           <Tabs value={donationsSubTab} onValueChange={(value) => setParams({ donationsSubTab: value })} className="space-y-6">
+            {renderInsightRow(donationsInsightKey)}
             <TabsList
               aria-label="Donation workspace sections"
               className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
@@ -3923,65 +6223,64 @@ export function AdminWorkspace() {
               ))}
             </TabsList>
 
-            <TabsContent value="summary-statistics" className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <KpiCard icon={HandCoins} label="Total donation value" value={formatCurrency(donationSummary.total)} detail="Current filtered donation value" />
-                <KpiCard icon={Heart} label="Recurring gifts" value={String(donationSummary.recurring)} detail="Recurring donation records" />
-                <KpiCard icon={ClipboardList} label="In-kind estimated value" value={formatCurrency(donationSummary.inKindValue)} detail="Estimated total from in-kind items" />
-                <KpiCard icon={Building2} label="Allocated value" value={formatCurrency(donationSummary.allocated)} detail="Donation value already assigned to programs" />
-              </div>
-              <div className="grid gap-6 xl:grid-cols-2">
-                <SectionCard title="Top supporter value" description="Supporters currently contributing the most value in this filtered view.">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={supporterDonationTotals}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" hide />
-                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                      <Bar dataKey="value" radius={[8, 8, 0, 0]} fill="hsl(var(--primary))" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </SectionCard>
-                <SectionCard title="Donation mix" description="Monetary versus in-kind donation composition in the current view.">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
-                      <Pie
-                        data={[
-                          {
-                            name: "Monetary",
-                            value: filteredDonations.filter((donation) => donation.donation_type === "Monetary").length,
-                          },
-                          {
-                            name: "In-Kind",
-                            value: filteredDonations.filter((donation) => donation.donation_type === "InKind").length,
-                          },
-                        ]}
-                        dataKey="value"
-                        innerRadius={60}
-                        outerRadius={100}
-                      >
-                        {CHART_COLORS.slice(0, 2).map((color) => (
-                          <Cell key={color} fill={color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </SectionCard>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="supporters">
-              <SectionCard title="Supporters" description="Click a supporter row to filter all donation subtabs to that supporter.">
+            <TabsContent value="supporters" className="space-y-6">
+              <SectionCard
+                title="Supporters"
+                description="Click a supporter row to filter all donation subtabs to that supporter."
+                action={<TableAddButton label="Add supporter" onClick={() => openSupporterForm()} />}
+              >
+                {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Region</TableHead>
-                      <TableHead>First Donation</TableHead>
-                      <TableHead>Channel</TableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="name"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Name
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="type"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Type
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="status"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Status
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="region"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Region
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="first_donation"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        First Donation
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="supporters"
+                        columnKey="channel"
+                        activeSort={tableColumnSort.supporters}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Channel
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4039,17 +6338,65 @@ export function AdminWorkspace() {
               </SectionCard>
             </TabsContent>
 
-            <TabsContent value="donations">
-              <SectionCard title="Donations" description="The same table and action pattern used elsewhere in the admin workspace.">
+            <TabsContent value="donations" className="space-y-6">
+              <SectionCard
+                title="Donations"
+                description="Every monetary and in-kind gift: date, supporter, campaign, channel, and value. Filter with the toolbar above; when a supporter is selected, only their donations appear."
+                action={<TableAddButton label="Add donation" onClick={() => openDonationForm()} />}
+              >
+                {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Supporter</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Campaign</TableHead>
-                      <TableHead>Channel</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="supporter"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Supporter
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="donation_date"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="donation_type"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Type
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="campaign"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Campaign
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="channel"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Channel
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
+                        columnKey="amount"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                        className="text-right"
+                      >
+                        Amount
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4101,17 +6448,64 @@ export function AdminWorkspace() {
               </SectionCard>
             </TabsContent>
 
-            <TabsContent value="in-kind">
-              <SectionCard title="In-kind items" description="Itemized in-kind inventory remains in the same add, edit, delete flow.">
+            <TabsContent value="in-kind" className="space-y-6">
+              <SectionCard
+                title="In-kind items"
+                description="Line items tied to donation records—what was received, quantity, condition, and estimated value. Scoped to the active supporter filter when one is chosen."
+                action={<TableAddButton label="Add in-kind item" onClick={() => openInKindForm()} />}
+              >
+                {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Donation</TableHead>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Intended Use</TableHead>
-                      <TableHead>Condition</TableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="donation"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Donation
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="item"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Item
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="category"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Category
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="quantity"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Quantity
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="intended_use"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Intended Use
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="in-kind"
+                        columnKey="condition"
+                        activeSort={tableColumnSort["in-kind"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Condition
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4163,16 +6557,57 @@ export function AdminWorkspace() {
               </SectionCard>
             </TabsContent>
 
-            <TabsContent value="allocations">
-              <SectionCard title="Allocations" description="Donation allocations stay in the same action pattern and inherit the active supporter filter.">
+            <TabsContent value="allocations" className="space-y-6">
+              <SectionCard
+                title="Allocations"
+                description="How donation funds are assigned to safe houses and program areas, with amounts and dates. Rows respect the supporter filter so you see allocations for that donor’s gifts only."
+                action={<TableAddButton label="Add allocation" onClick={() => openAllocationForm()} />}
+              >
+                {renderDonationsToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Donation</TableHead>
-                      <TableHead>Safe House</TableHead>
-                      <TableHead>Program Area</TableHead>
-                      <TableHead>Allocation Date</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <SortableTableHead
+                        tableId="allocations"
+                        columnKey="donation"
+                        activeSort={tableColumnSort.allocations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Donation
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocations"
+                        columnKey="safe_house"
+                        activeSort={tableColumnSort.allocations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Safe House
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocations"
+                        columnKey="program_area"
+                        activeSort={tableColumnSort.allocations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Program Area
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocations"
+                        columnKey="allocation_date"
+                        activeSort={tableColumnSort.allocations}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Allocation Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocations"
+                        columnKey="amount"
+                        activeSort={tableColumnSort.allocations}
+                        onToggle={toggleTableColumnSort}
+                        className="text-right"
+                      >
+                        Amount
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4226,64 +6661,8 @@ export function AdminWorkspace() {
         </TabsContent>
 
         <TabsContent value="safe-houses" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <KpiCard icon={Building2} label="Safe houses in view" value={String(filteredSafehouses.length)} detail="Safe houses after search and status filters" />
-            <KpiCard icon={Users} label="Residents assigned" value={String(filteredSafehouses.reduce((sum, safehouse) => sum + workspace.residents.filter((resident) => resident.safehouse_id === safehouse.safehouse_id).length, 0))} detail="Current residents assigned to visible houses" />
-            <KpiCard icon={Home} label="Average occupancy" value={`${filteredSafehouses.length ? Math.round(filteredSafehouses.reduce((sum, safehouse) => sum + (toNumber(safehouse.current_occupancy) / Math.max(toNumber(safehouse.capacity_girls), 1)) * 100, 0) / filteredSafehouses.length) : 0}%`} detail="Average occupancy rate across the visible houses" />
-            <KpiCard icon={HandCoins} label="Allocation history rows" value={String(safehouseAllocations.length)} detail="Allocation records tied to the current safe house scope" />
-          </div>
-
-          <Toolbar
-            defaultOpen={false}
-            searchValue={safehouseSearch}
-            onSearchChange={setSafehouseSearch}
-            searchPlaceholder="Search safe houses, regions, status, or city"
-            filters={
-              <>
-                <FilterCheckboxGroup title="Status" options={safehouseStatusOptions} selected={safehouseStatusFilter} onChange={setSafehouseStatusFilter} allLabel="All statuses" />
-                <FilterCheckboxGroup title="Region" options={safehouseRegionOptions} selected={safehouseRegionFilter} onChange={setSafehouseRegionFilter} allLabel="All regions" />
-              </>
-            }
-            onClearFilters={() => {
-              setSafehouseSearch("");
-              setSafehouseStatusFilter([]);
-              setSafehouseRegionFilter([]);
-              setParams({ safehouseId: null });
-            }}
-            sortValue={safehouseSort}
-            sortOptions={[
-              { value: "occupancy", label: "Highest occupancy first" },
-              { value: "name", label: "Name" },
-              { value: "recent", label: "Most recently opened" },
-            ]}
-            onSortChange={setSafehouseSort}
-            actionItems={[
-              { label: "Add safe house", onClick: () => openSafehouseForm() },
-              {
-                label: "Export current view as CSV",
-                onClick: () => exportRows("Safe Houses", filteredSafehouses as unknown as Array<Record<string, unknown>>),
-              },
-            ]}
-          />
-
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-card p-4 shadow-warm">
-            <p className="text-sm font-medium text-foreground">Safe house filter:</p>
-            {selectedSafehouseId ? (
-              <button
-                type="button"
-                onClick={() => setParams({ safehouseId: null })}
-                className="inline-flex items-center gap-2 rounded-full border border-secondary/20 bg-secondary/10 px-3 py-1.5 text-sm font-medium text-secondary"
-                aria-label={`Remove safe house filter: ${safehouseMap.get(selectedSafehouseId)?.name ?? `Safe House ${selectedSafehouseId}`}`}
-              >
-                {safehouseMap.get(selectedSafehouseId)?.name ?? `Safe House ${selectedSafehouseId}`}
-                <X className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              </button>
-            ) : (
-              <span className="text-sm text-muted-foreground">No safe house filter applied.</span>
-            )}
-          </div>
-
           <Tabs value={safeHousesSubTab} onValueChange={(value) => setParams({ safeHousesSubTab: value })} className="space-y-6">
+            {renderInsightRow(safehousesInsightKey)}
             <TabsList
               aria-label="Safe house workspace sections"
               className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
@@ -4299,18 +6678,72 @@ export function AdminWorkspace() {
               ))}
             </TabsList>
 
-            <TabsContent value="safe-houses">
-              <SectionCard title="Safe houses" description="Click a safe house row to filter related allocations and monthly metrics.">
+            <TabsContent value="safe-houses" className="space-y-6">
+              <SectionCard
+                title="Safe houses"
+                description="Click a safe house row to filter related allocations and monthly metrics."
+                action={<TableAddButton label="Add safe house" onClick={() => openSafehouseForm()} />}
+              >
+                {renderSafehousesToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Region</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Capacity</TableHead>
-                      <TableHead>Occupancy</TableHead>
-                      <TableHead>Residents Assigned</TableHead>
-                      <TableHead>Donation Allocations</TableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="name"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Name
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="region"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Region
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="status"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Status
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="capacity"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Capacity
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="occupancy"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Occupancy
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="residents_assigned"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Residents Assigned
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="safe-houses"
+                        columnKey="donation_allocations"
+                        activeSort={tableColumnSort["safe-houses"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Donation Allocations
+                      </SortableTableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -4375,16 +6808,53 @@ export function AdminWorkspace() {
               </SectionCard>
             </TabsContent>
 
-            <TabsContent value="allocation-history">
+            <TabsContent value="allocation-history" className="space-y-6">
               <SectionCard title="Allocation history" description="Filtered to the selected safe house when one is active.">
+                {renderSafehousesToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Safe House</TableHead>
-                      <TableHead>Donation</TableHead>
-                      <TableHead>Program Area</TableHead>
-                      <TableHead>Allocation Date</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <SortableTableHead
+                        tableId="allocation-history"
+                        columnKey="safe_house"
+                        activeSort={tableColumnSort["allocation-history"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Safe House
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocation-history"
+                        columnKey="donation"
+                        activeSort={tableColumnSort["allocation-history"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Donation
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocation-history"
+                        columnKey="program_area"
+                        activeSort={tableColumnSort["allocation-history"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Program Area
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocation-history"
+                        columnKey="allocation_date"
+                        activeSort={tableColumnSort["allocation-history"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Allocation Date
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="allocation-history"
+                        columnKey="amount"
+                        activeSort={tableColumnSort["allocation-history"]}
+                        onToggle={toggleTableColumnSort}
+                        className="text-right"
+                      >
+                        Amount
+                      </SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -4412,18 +6882,68 @@ export function AdminWorkspace() {
               </SectionCard>
             </TabsContent>
 
-            <TabsContent value="monthly-metrics">
+            <TabsContent value="monthly-metrics" className="space-y-6">
               <SectionCard title="Monthly metrics" description="Occupancy, education, health, visitations, and incident snapshots by month.">
+                {renderSafehousesToolbar()}
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Safe House</TableHead>
-                      <TableHead>Month</TableHead>
-                      <TableHead>Active Residents</TableHead>
-                      <TableHead>Education Progress</TableHead>
-                      <TableHead>Health Score</TableHead>
-                      <TableHead>Visitations</TableHead>
-                      <TableHead>Incidents</TableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="safe_house"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Safe House
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="month"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Month
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="active_residents"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Active Residents
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="education_progress"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Education Progress
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="health_score"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Health Score
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="visitations"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Visitations
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="monthly-metrics"
+                        columnKey="incidents"
+                        activeSort={tableColumnSort["monthly-metrics"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Incidents
+                      </SortableTableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -4518,100 +7038,11 @@ export function AdminWorkspace() {
             </TabsList>
 
             <TabsContent value="social-media" className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <KpiCard icon={Share2} label="Impressions" value={outreachKpis.totalImpressions.toLocaleString()} detail="Total campaign impressions" />
-                <KpiCard icon={BarChart3} label="Avg. engagement" value={`${(outreachKpis.avgEngagementRate * 100).toFixed(1)}%`} detail="Average engagement rate across posts" />
-                <KpiCard icon={Heart} label="Donations from outreach" value={formatCurrency(outreachKpis.totalEstimatedValue)} detail="Estimated donation value from tracked social referrals" />
-                <KpiCard icon={Megaphone} label="Referrals" value={String(outreachKpis.totalReferrals)} detail="Donation referrals attributed to outreach content" />
-              </div>
-
-              <div className="grid gap-6 xl:grid-cols-2">
-                <SectionCard title="Campaign performance" description="Performance by platform across impressions and donation referrals.">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={outreachPlatformChart}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="platform" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                      <Tooltip />
-                      <Bar dataKey="impressions" radius={[8, 8, 0, 0]} fill="hsl(var(--primary))" />
-                      <Bar dataKey="referrals" radius={[8, 8, 0, 0]} fill="hsl(var(--secondary))" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </SectionCard>
-
-                <SectionCard title="Recent social activity" description="Newest social posts and their direct fundraising contribution.">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Platform</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Post Type</TableHead>
-                        <TableHead>Impressions</TableHead>
-                        <TableHead className="text-right">Estimated Value</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {outreachPostsTablePage.visibleRows.map((post) => (
-                          <TableRow key={post.post_id}>
-                            <TableCell>{asText(post.platform)}</TableCell>
-                            <TableCell>{asDisplayDate(post.created_at)}</TableCell>
-                            <TableCell>{asText(post.post_type)}</TableCell>
-                            <TableCell>{toNumber(post.impressions).toLocaleString()}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(post.estimated_donation_value_php)}</TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                  <TablePagination
-                    page={outreachPostsTablePage.safePage}
-                    totalPages={outreachPostsTablePage.totalPages}
-                    totalRows={workspace.socialPosts.length}
-                    start={outreachPostsTablePage.start}
-                    end={outreachPostsTablePage.end}
-                    perPage={getPageSize("social-posts")}
-                    onPerPageChange={(size) => setPageSize("social-posts", size)}
-                    onPageChange={(page) => setPage("social-posts", page)}
-                  />
-                </SectionCard>
-              </div>
+              <OutreachSocialMediaPanel socialPosts={workspace.socialPosts} />
             </TabsContent>
 
-            <TabsContent value="public-impact">
-              <div className="grid gap-6 xl:grid-cols-2">
-                <SectionCard title="Public impact publishing" description="Snapshot publication history and visibility trends.">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <LineChart data={publicImpactTimeline}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} allowDecimals={false} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="published" stroke="hsl(var(--primary))" strokeWidth={3} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </SectionCard>
-
-                <SectionCard title="Public impact snapshots" description="Impact headlines and summaries ready for reuse in future reporting flows.">
-                  <div className="space-y-3">
-                    {[...workspace.publicImpact]
-                      .sort((left, right) => compareDatesDescending(left.snapshot_date, right.snapshot_date))
-                      .slice(0, 8)
-                      .map((snapshot) => (
-                        <div key={snapshot.snapshot_id} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <p className="font-medium text-foreground">{asText(snapshot.headline)}</p>
-                              <p className="mt-2 text-sm text-muted-foreground">{asText(snapshot.summary_text)}</p>
-                            </div>
-                            <StatusBadge
-                              value={String(snapshot.is_published).toLowerCase() === "true" ? "Published" : "Draft"}
-                              tone={String(snapshot.is_published).toLowerCase() === "true" ? "default" : "outline"}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </SectionCard>
-              </div>
+            <TabsContent value="public-impact" className="space-y-6">
+              <PublicImpactMlPanel />
             </TabsContent>
           </Tabs>
         </TabsContent>
@@ -4649,6 +7080,44 @@ export function AdminWorkspace() {
         </TabsContent>
       </Tabs>
 
+      <Dialog open={Boolean(expandedChart)} onOpenChange={(open) => !open && setExpandedChartKey(null)}>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl text-foreground">{expandedChart?.title ?? "Chart"}</DialogTitle>
+            <DialogDescription>{expandedChart?.subtitle ?? "Filter-aware analytics for the current table view."}</DialogDescription>
+          </DialogHeader>
+          {expandedChart ? (
+            <div className="space-y-5">
+              {expandedChart.modalOptions?.length ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <label htmlFor="admin-expanded-chart-view" className="text-sm font-medium text-foreground">
+                    View:
+                  </label>
+                  <select
+                    id="admin-expanded-chart-view"
+                    value={expandedChart.selectedOption}
+                    onChange={(event) => expandedChart.onOptionChange?.(event.target.value)}
+                    className="h-10 rounded-full border border-input bg-background px-4 text-sm text-foreground"
+                    aria-label={`${expandedChart.title} data view`}
+                  >
+                    {expandedChart.modalOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-warm">
+                <div className="h-[360px]">
+                  <AnalyticsPreviewChart config={expandedChart} expanded />
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={residentModalOpen} onOpenChange={setResidentModalOpen}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
           <DialogHeader>
@@ -4656,20 +7125,60 @@ export function AdminWorkspace() {
               {selectedResidentDetail ? residentLabel(selectedResidentDetail) : "Resident detail"}
             </DialogTitle>
             <DialogDescription>
-              Personal context, demographics, case status, safe house assignment, notes, and fast navigation into the resident record workstreams.
+              Full resident record fields, notes, and quick navigation into related workstreams.
             </DialogDescription>
           </DialogHeader>
           {selectedResidentDetail ? (
             <div className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {[
-                  { label: "Personal information", value: `${asText(selectedResidentDetail.sex)} • ${asText(selectedResidentDetail.present_age, "Age unavailable")}` },
-                  { label: "Demographics", value: `${asText(selectedResidentDetail.place_of_birth)} • ${asText(selectedResidentDetail.religion)}` },
-                  { label: "Case status", value: `${asText(selectedResidentDetail.case_status)} • ${asText(selectedResidentDetail.case_category)}` },
-                  { label: "Safe house", value: safehouseMap.get(selectedResidentDetail.safehouse_id ?? -1)?.name ?? "Unassigned" },
-                  { label: "Intake date", value: asDisplayDate(selectedResidentDetail.date_of_admission) },
-                  { label: "Emergency information", value: asText(selectedResidentDetail.referring_agency_person, "Referral contact not recorded") },
-                ].map((item) => (
+                {(() => {
+                  const sh = safehouseMap.get(selectedResidentDetail.safehouse_id ?? -1);
+                  const safehouseIdLabel =
+                    selectedResidentDetail.safehouse_id != null
+                      ? `ID ${selectedResidentDetail.safehouse_id}`
+                      : "No safe house ID";
+                  const safehouseNameLabel = sh?.name ?? selectedResidentDetail.safehouse_name ?? "Unassigned";
+                  return [
+                    { label: "Resident ID", value: String(selectedResidentDetail.resident_id) },
+                    { label: "Case control no.", value: asText(selectedResidentDetail.case_control_no, "Not recorded") },
+                    { label: "Internal code", value: asText(selectedResidentDetail.internal_code, "Not recorded") },
+                    { label: "Date added", value: asDisplayDate(selectedResidentDetail.created_at, "Not recorded") },
+                    { label: "Date of birth", value: asDisplayDate(selectedResidentDetail.date_of_birth, "Not recorded") },
+                    {
+                      label: "Personal information",
+                      value: `${asText(selectedResidentDetail.sex)} • ${asText(selectedResidentDetail.present_age, "Age unavailable")}`,
+                    },
+                    {
+                      label: "Demographics",
+                      value: `${asText(selectedResidentDetail.place_of_birth)} • ${asText(selectedResidentDetail.religion)}`,
+                    },
+                    {
+                      label: "Case status",
+                      value: `${asText(selectedResidentDetail.case_status)} • ${asText(selectedResidentDetail.case_category)}`,
+                    },
+                    {
+                      label: "Assigned social worker",
+                      value: asText(selectedResidentDetail.assigned_social_worker, "Not recorded"),
+                    },
+                    {
+                      label: "Current risk level",
+                      value: asText(selectedResidentDetail.current_risk_level, "Not recorded"),
+                    },
+                    {
+                      label: "Reintegration status",
+                      value: asText(selectedResidentDetail.reintegration_status, "Not recorded"),
+                    },
+                    {
+                      label: "Safe house",
+                      value: `${safehouseIdLabel} · ${safehouseNameLabel}`,
+                    },
+                    { label: "Intake date", value: asDisplayDate(selectedResidentDetail.date_of_admission) },
+                    {
+                      label: "Emergency information",
+                      value: asText(selectedResidentDetail.referring_agency_person, "Referral contact not recorded"),
+                    },
+                  ];
+                })().map((item) => (
                   <div key={item.label} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/75">{item.label}</p>
                     <p className="mt-2 text-sm font-medium text-foreground">{item.value}</p>
@@ -4733,6 +7242,7 @@ export function AdminWorkspace() {
         onSubmit={submitSupporterForm}
         submitLabel={editingSupporterId ? "Save supporter" : "Create supporter"}
         pending={createMutation.isPending || updateMutation.isPending}
+        extraValidate={validateSupporterIdentity}
       />
 
       <EntityModal
@@ -4746,6 +7256,7 @@ export function AdminWorkspace() {
         onSubmit={submitDonationForm}
         submitLabel={editingDonationId ? "Save donation" : "Create donation"}
         pending={createMutation.isPending || updateMutation.isPending}
+        extraValidate={validateDonationAmounts}
       />
 
       <EntityModal
@@ -4791,13 +7302,27 @@ export function AdminWorkspace() {
         open={processFormOpen}
         onOpenChange={setProcessFormOpen}
         title={editingProcessId ? "Edit Process Record" : "Add Process Record"}
-        description="Create, update, or document a resident process recording directly from the table workspace."
+        description={
+          editingProcessId
+            ? "Update this process recording. Session date, facilitator, session type, emotional state, narrative, interventions, and follow-up must be complete (or mark interventions / follow-up as None)."
+            : "Each entry must include session date, social worker, session type (Individual or Group), emotional state observed, a narrative summary, interventions applied (or None), and follow-up actions (or None)."
+        }
         fields={processFields}
         state={processForm}
-        onChange={(key, value) => setProcessForm((current) => ({ ...current, [key]: value }))}
+        onChange={(key, value) =>
+          setProcessForm((current) => {
+            const next: ProcessRecordFormState = { ...current, [key]: value };
+            if (key === "interventions_none" && value === "true") next.interventions_applied = "";
+            if (key === "follow_up_none" && value === "true") next.follow_up_actions = "";
+            if (key === "interventions_applied" && value.trim()) next.interventions_none = "false";
+            if (key === "follow_up_actions" && value.trim()) next.follow_up_none = "false";
+            return next;
+          })
+        }
         onSubmit={submitProcessForm}
         submitLabel={editingProcessId ? "Save process record" : "Create process record"}
         pending={createMutation.isPending || updateMutation.isPending}
+        extraValidate={(s) => validateProcessRecordFormState(s, editingProcessId == null)}
       />
 
       <EntityModal

@@ -4,8 +4,9 @@ import { Heart, Star, Quote, Shield, ArrowRight, ChevronLeft, ChevronRight } fro
 import { WaveDivider } from "@/components/WaveDivider";
 import { PublicLayout } from "@/components/PublicLayout";
 import { Link } from "react-router-dom";
-import { testimonials } from "@/data/mockData";
+import { donationsOverTime, testimonials } from "@/data/mockData";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 import heroImage from "@/assets/hero/portofino-watercolor-hero.png";
 import nbTitleIcon from "@/assets/icons/nbTitleIcon.png";
 import portofino1 from "@/assets/portofino/portofino-1.png";
@@ -23,12 +24,13 @@ const steps = [
   { icon: Star, title: "New Beginnings", description: "When she is ready, we walk alongside her into a hopeful future — with mentorship, life skills, and a community cheering her on." },
 ];
 
-const MONTHLY_FUNDRAISING_GOAL = 25_000;
-const MONTHLY_FUNDRAISING_RAISED = 16_750;
+const YEARLY_FUNDRAISING_GOAL = 10_000;
 
 const Index = () => {
+  const { isAuthenticated, role } = useAuth();
   const reduceMotion = useReducedMotion();
-  const progress = Math.min(MONTHLY_FUNDRAISING_RAISED / MONTHLY_FUNDRAISING_GOAL, 1);
+  const yearlyRaised = donationsOverTime.reduce((sum, entry) => sum + Number(entry.amount ?? 0), 0);
+  const progress = Math.min(yearlyRaised / YEARLY_FUNDRAISING_GOAL, 1);
   const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
   const [carouselIndex, setCarouselIndex] = useState(0);
 
@@ -50,6 +52,7 @@ const Index = () => {
     (carouselIndex + 1) % carouselImages.length,
     (carouselIndex + 2) % carouselImages.length,
   ];
+  const donateLink = isAuthenticated && role === "donor" ? "/dashboard?donate=1" : "/signup";
 
   const fadeUp = {
     hidden: { opacity: 0, y: reduceMotion ? 0 : 20 },
@@ -109,7 +112,8 @@ const Index = () => {
 
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link
-                  to="/impact"
+                  to={donateLink}
+                  title="Create an account to donate"
                   className="inline-flex items-center gap-2 rounded-full bg-[hsl(278,26%,76%)] px-8 py-3 text-base font-semibold text-white shadow-lg transition hover:scale-105 hover:bg-[hsl(278,26%,70%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
                 >
                   Help a girl heal <ArrowRight className="h-4 w-4" />
@@ -305,18 +309,18 @@ const Index = () => {
                   <div className="flex flex-col gap-2 text-center md:flex-row md:items-end md:justify-between md:text-left">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(200_12%_42%)]">
-                        Monthly fundraising goal
+                        2026 fundraising goal
                       </p>
                       <p className="mt-2 font-heading text-2xl font-medium tracking-tight text-[hsl(200_24%_18%)] md:text-3xl">
-                        {money.format(MONTHLY_FUNDRAISING_GOAL)}
+                        {money.format(YEARLY_FUNDRAISING_GOAL)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(200_12%_42%)]">
-                        Raised so far
+                        Raised this year
                       </p>
                       <p className="mt-2 font-heading text-2xl font-medium tracking-tight text-[#6E8F6B] md:text-3xl tabular-nums">
-                        {money.format(MONTHLY_FUNDRAISING_RAISED)}
+                        {money.format(yearlyRaised)}
                       </p>
                     </div>
                   </div>
@@ -324,10 +328,10 @@ const Index = () => {
                   <div className="mt-7">
                     <div
                       role="progressbar"
-                      aria-label="Monthly fundraising progress"
+                      aria-label="Yearly fundraising progress"
                       aria-valuemin={0}
-                      aria-valuemax={MONTHLY_FUNDRAISING_GOAL}
-                      aria-valuenow={MONTHLY_FUNDRAISING_RAISED}
+                      aria-valuemax={YEARLY_FUNDRAISING_GOAL}
+                      aria-valuenow={yearlyRaised}
                       className="h-3 w-full overflow-hidden rounded-full bg-muted/40"
                     >
                       <div
@@ -339,7 +343,7 @@ const Index = () => {
                     <div className="mt-3 flex items-center justify-between text-xs font-normal text-[hsl(200_12%_40%)]">
                       <span className="tabular-nums">{Math.round(progress * 100)}%</span>
                       <span className="tabular-nums">
-                        {money.format(Math.max(MONTHLY_FUNDRAISING_GOAL - MONTHLY_FUNDRAISING_RAISED, 0))} to go
+                        {money.format(Math.max(YEARLY_FUNDRAISING_GOAL - yearlyRaised, 0))} to go
                       </span>
                     </div>
                   </div>
@@ -350,7 +354,8 @@ const Index = () => {
                     Help us reach our goal.
                   </p>
                   <Link
-                    to="/impact"
+                    to={donateLink}
+                    title="Create an account to donate"
                     className="inline-flex items-center justify-center rounded-full bg-[#6E8F6B] px-7 py-2.5 text-sm font-semibold text-[hsl(40_44%_99%)] shadow-md shadow-[hsl(150_24%_40%_/_0.28)] transition hover:brightness-110 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6E8F6B]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(40_46%_97%)]"
                   >
                     Donate today

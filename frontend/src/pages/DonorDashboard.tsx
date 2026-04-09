@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
-  Anchor,
   Heart,
   History,
   LogOut,
@@ -23,6 +22,7 @@ import { DonationDetailsModal } from "@/components/DonationDetailsModal";
 import { donorDonationDataQueryKey, fetchDonorDonationData, type DonationRow } from "@/lib/donorQueries";
 import { supabase } from "@/lib/supabaseClient";
 import safehouseImage from "@/assets/hero/portofino-watercolor-hero.png";
+import houseLogo from "@/assets/icons/houseIcon.svg";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const fadeUp = {
@@ -68,6 +68,16 @@ const DonorDashboard = () => {
   // Match AdminLayout behavior (collapsible sidebar + mobile overlay)
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (params.get("donate") !== "1") return;
+    setDonationModalOpen(true);
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("donate");
+      return next;
+    });
+  }, [params, setParams]);
 
   useEffect(() => {
     const savedState = window.localStorage.getItem("donor-sidebar-collapsed");
@@ -223,7 +233,7 @@ const DonorDashboard = () => {
             }`}
             aria-label="Go to home page"
           >
-            <Anchor className="h-6 w-6 shrink-0 text-accent" />
+            <img src={houseLogo} alt="" aria-hidden="true" className="h-7 w-7 shrink-0 object-contain brightness-0 invert" />
             <span className={`font-heading text-lg font-bold ${sidebarCollapsed ? "hidden" : "truncate"}`}>Bella Bay</span>
           </Link>
 
@@ -262,22 +272,20 @@ const DonorDashboard = () => {
               </button>
             );
           })}
-        </nav>
 
-        <div className={`px-3 pb-3 ${sidebarCollapsed ? "px-2" : ""}`}>
           <button
             type="button"
             onClick={() => setDonationModalOpen(true)}
-            className={`w-full inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-warm hover:shadow-warm-hover transition-shadow text-sm font-semibold ${
+            className={`mt-2 inline-flex w-full items-center justify-center rounded-lg bg-[#6E8F6B] text-[hsl(40_44%_99%)] shadow-md transition hover:brightness-110 ${
               sidebarCollapsed ? "px-2 py-3" : "px-3 py-2.5"
-            }`}
+            } text-sm font-semibold`}
             aria-label="Make a Donation"
-            title={sidebarCollapsed ? "Make a Donation" : undefined}
+            title={sidebarCollapsed ? "Make a Donation" : "Create an account to donate"}
           >
             <Gift className={`h-5 w-5 ${sidebarCollapsed ? "" : "mr-2"}`} />
             <span className={sidebarCollapsed ? "hidden" : ""}>Make a Donation</span>
           </button>
-        </div>
+        </nav>
       </aside>
 
       {/* Main (matches AdminLayout styling) */}

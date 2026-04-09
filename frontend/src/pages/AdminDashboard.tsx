@@ -1,8 +1,23 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { AdminLayout } from "@/components/AdminLayout";
-import { AdminWorkspace } from "@/components/admin/AdminWorkspace";
+
+const AdminWorkspace = lazy(() =>
+  import("@/components/admin/AdminWorkspace").then((m) => ({ default: m.AdminWorkspace })),
+);
+
+function AdminWorkspaceFallback() {
+  return (
+    <div
+      className="flex min-h-[50vh] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 p-12"
+      role="status"
+      aria-live="polite"
+    >
+      <p className="text-sm text-muted-foreground">Loading workspace…</p>
+    </div>
+  );
+}
 
 const TAB_TITLES: Record<string, string> = {
   dashboard: "Command center",
@@ -20,7 +35,9 @@ const AdminDashboard = () => {
 
   return (
     <AdminLayout title={title} subtitle="Bella Bay operational workspace — calm overview, detail in each tab.">
-      <AdminWorkspace />
+      <Suspense fallback={<AdminWorkspaceFallback />}>
+        <AdminWorkspace />
+      </Suspense>
     </AdminLayout>
   );
 };

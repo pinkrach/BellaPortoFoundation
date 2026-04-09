@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { adminSidebarItems } from "@/lib/navigation";
@@ -10,6 +10,23 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+export type AdminNotificationItem = {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: number;
+  read: boolean;
+};
 
 export const AdminLayout = ({
   children,
@@ -22,6 +39,8 @@ export const AdminLayout = ({
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [notifications, setNotifications] = useState<AdminNotificationItem[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const location = useLocation();
   const { displayName, initials, logout } = useAuth();
   const navigate = useNavigate();
@@ -42,6 +61,17 @@ export const AdminLayout = ({
       window.localStorage.setItem("admin-sidebar-collapsed", String(next));
       return next;
     });
+  };
+
+  const hasUnreadNotifications = useMemo(() => notifications.some((n) => !n.read), [notifications]);
+
+  const openNotificationsModal = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotificationsOpen(true);
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
   };
 
   return (
@@ -155,12 +185,53 @@ export const AdminLayout = ({
           <div className="flex items-center gap-4">
             <button
               type="button"
+              onClick={openNotificationsModal}
               className="relative rounded-md p-1 text-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              aria-label="Notifications"
+              aria-label={hasUnreadNotifications ? "Notifications (unread)" : "Notifications"}
             >
               <Bell className="h-5 w-5" aria-hidden />
-              <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-secondary" aria-hidden />
+              {hasUnreadNotifications ? (
+                <span
+                  className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-destructive"
+                  aria-hidden
+                />
+              ) : null}
             </button>
+            <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+              <DialogContent className="max-h-[min(85vh,32rem)] max-w-md gap-0 overflow-hidden rounded-2xl border-border/80 p-0 sm:max-w-md">
+                <DialogHeader className="border-b border-border/80 px-6 py-4 text-left">
+                  <DialogTitle className="font-heading text-xl">Notifications</DialogTitle>
+                  <DialogDescription className="sr-only">Inbox for admin alerts and updates.</DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[min(60vh,22rem)] overflow-y-auto px-6 py-4">
+                  {notifications.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-muted-foreground">No notifications</p>
+                  ) : (
+                    <ul className="space-y-4">
+                      {notifications.map((n) => (
+                        <li key={n.id} className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+                          <p className="font-medium text-foreground">{n.title}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">{n.body}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <DialogFooter className="border-t border-border/80 px-6 py-4 sm:flex-col sm:space-x-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full rounded-xl"
+                    disabled={notifications.length === 0}
+                    onClick={() => {
+                      clearNotifications();
+                    }}
+                  >
+                    Clear notifications
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <div
               className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground"
               title={displayName ?? "Signed-in user"}

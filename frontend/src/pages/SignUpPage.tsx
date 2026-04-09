@@ -1,12 +1,22 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Sailboat } from "lucide-react";
 import { motion } from "framer-motion";
+import ReCAPTCHA from "react-google-recaptcha";
 import { supabase } from "@/lib/supabaseClient";
 import { insertSupporterForNewUser } from "@/lib/supporterRecord";
 import { useAuth } from "@/contexts/AuthContext";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import { PublicLayout } from "@/components/PublicLayout";
+import { buildApiUrl } from "@/lib/api";
+
+const recaptchaSiteKey =
+  import.meta.env.VITE_RECAPTCHA_SITE_KEY ?? "6LdY6a0sAAAAAB77PQRZ8m95Rq4pwiMkAKtPLAH6";
+
+const autoCapitalizeName = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/\b([a-z])/g, (match) => match.toUpperCase());
 
 const SignUpPage = () => {
   const [firstName, setFirstName] = useState("");
@@ -19,24 +29,22 @@ const SignUpPage = () => {
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [confirmTouched, setConfirmTouched] = useState(false);
+  const [captchaVal, setCaptchaVal] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   const { setAuthFromProfile } = useAuth();
   const navigate = useNavigate();
 
   const emailIsValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()), [email]);
-  const hasMinLength = useMemo(() => password.length >= 8, [password]);
-  const hasUppercase = useMemo(() => /[A-Z]/.test(password), [password]);
-  const hasSpecial = useMemo(() => /[!@#$%^&*]/.test(password), [password]);
-  const passwordMeetsRequirements = useMemo(
-    () => hasMinLength && hasUppercase && hasSpecial,
-    [hasMinLength, hasUppercase, hasSpecial],
-  );
+  const passwordMeetsRequirements = useMemo(() => password.length >= 14, [password]);
   const confirmHasText = useMemo(() => confirmPassword.trim().length > 0, [confirmPassword]);
   const passwordsMatch = useMemo(() => password === confirmPassword, [password, confirmPassword]);
 
-  const showPasswordError = (passwordTouched || submitAttempted) && password.trim().length > 0 && !passwordMeetsRequirements;
+  const showPasswordError = (passwordTouched || submitAttempted) && password.length > 0 && !passwordMeetsRequirements;
   const showConfirmMismatch = (confirmTouched || submitAttempted) && confirmHasText && !passwordsMatch;
-  const passwordErrorText = "Password must be at least 8 characters and include an uppercase letter and a special character.";
+  const passwordHelperText =
+    "Security Requirement: Password must be at least 14 characters long (no symbols or caps required).";
+  const passwordErrorText = "Password must be at least 14 characters long.";
   const confirmErrorText = "Passwords do not match";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,14 +58,40 @@ const SignUpPage = () => {
     if (!emailIsValid) return setError("Please enter a valid email address.");
     if (!password) return setError("Password is required.");
     if (!passwordMeetsRequirements) {
-      return setError(passwordErrorText);
+      return setError(passwordHelperText);
     }
     if (confirmHasText && password !== confirmPassword) return setError(confirmErrorText);
+    if (!captchaVal) return setError("Please complete the CAPTCHA.");
 
     setIsSubmitting(true);
     try {
       if (!supabase) {
         setError("Sign up is unavailable: Supabase is not configured.");
+        return;
+      }
+
+      const registerRes = await fetch(buildApiUrl("/api/register"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          captchaToken: captchaVal,
+          email: trimmedEmail,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+        }),
+      });
+
+      if (!registerRes.ok) {
+        let message = "CAPTCHA verification failed.";
+        try {
+          const body = (await registerRes.json()) as { message?: string };
+          if (body?.message) message = body.message;
+        } catch {
+          // keep default message
+        }
+        setError(message);
+        recaptchaRef.current?.reset();
+        setCaptchaVal(null);
         return;
       }
 
@@ -172,7 +206,7 @@ const SignUpPage = () => {
               <input
                 type="text"
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                onChange={(e) => setFirstName(autoCapitalizeName(e.target.value))}
                 placeholder="First name"
                 className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
                 required
@@ -184,7 +218,7 @@ const SignUpPage = () => {
               <input
                 type="text"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                onChange={(e) => setLastName(autoCapitalizeName(e.target.value))}
                 placeholder="Last name"
                 className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
                 required
@@ -222,14 +256,10 @@ const SignUpPage = () => {
                 required
                 autoComplete="new-password"
               />
-              <div
-                className={[
-                  "overflow-hidden transition-[max-height,opacity] duration-200",
-                  showPasswordError ? "max-h-10 opacity-100" : "max-h-0 opacity-0",
-                ].join(" ")}
-              >
+              <p className="mt-1 text-xs text-muted-foreground">{passwordHelperText}</p>
+              {showPasswordError ? (
                 <div className="mt-1 text-xs text-destructive">{passwordErrorText}</div>
-              </div>
+              ) : null}
             </div>
 
             <div>
@@ -258,9 +288,17 @@ const SignUpPage = () => {
             </div>
           </div>
 
+          <div className="flex justify-center overflow-x-auto py-1">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey={recaptchaSiteKey}
+              onChange={(token: string | null) => setCaptchaVal(token)}
+            />
+          </div>
+
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !captchaVal || !passwordMeetsRequirements}
             className="w-full rounded-full bg-[#6E8F6B] py-3 font-semibold text-[hsl(40_44%_99%)] shadow-warm transition-transform hover:scale-[1.02] disabled:pointer-events-none disabled:opacity-60"
           >
             {isSubmitting ? "Creating account..." : "Sign Up"}

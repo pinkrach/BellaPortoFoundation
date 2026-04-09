@@ -1,12 +1,38 @@
 using System.Diagnostics;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+using BellaPorto.Api.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
+
+// ASP.NET Identity: password policy for lab (UserManager / validators). Interactive sign-in uses
+// Supabase + JWT; [Authorize] on API routes uses JwtBearer via FallbackPolicy, not cookie defaults.
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseInMemoryDatabase("IdentityPasswordPolicy"));
+
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+    {
+        // Length-only policy; overrides Identity default complexity rules.
+        options.Password.RequiredLength = 14;
+        options.Password.RequireDigit = false;
+        options.Password.RequireLowercase = false;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequiredUniqueChars = 0;
+    })
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
 
 var defaultCorsOrigins = new[]
 {
@@ -58,11 +84,55 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Maximally restrictive API: validate Supabase-issued JWTs when Supabase:JwtSecret (or SUPABASE_JWT_SECRET) is set.
+var jwtSecret =
+    builder.Configuration["Supabase:JwtSecret"]
+    ?? Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+var supabaseUrlForJwt =
+    builder.Configuration["Supabase:Url"]
+    ?? Environment.GetEnvironmentVariable("SUPABASE_URL");
+var jwtAuthEnabled =
+    !string.IsNullOrWhiteSpace(jwtSecret) && !string.IsNullOrWhiteSpace(supabaseUrlForJwt);
+
+if (jwtAuthEnabled)
+{
+    var jwtSecretValue = jwtSecret!;
+    var supabaseJwtUrl = supabaseUrlForJwt!;
+    var issuer = $"{supabaseJwtUrl.TrimEnd('/')}/auth/v1";
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretValue)),
+                ValidIssuer = issuer,
+                ValidAudience = "authenticated",
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(2),
+            };
+        });
+    builder.Services.AddAuthorization(options =>
+    {
+        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser()
+            .Build();
+    });
+}
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    var openApiEndpoint = app.MapOpenApi();
+    if (jwtAuthEnabled)
+    {
+        openApiEndpoint.AllowAnonymous();
+    }
 }
 
 app.UseCors("frontend");
@@ -73,7 +143,51 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
+if (jwtAuthEnabled)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
+
+var healthEndpoint = app.MapGet("/api/health", () => Results.Ok(new { ok = true }));
+if (jwtAuthEnabled)
+{
+    healthEndpoint.AllowAnonymous();
+}
+
+var registerEndpoint = app.MapPost("/api/register", async (
+    RegisterRequest? body,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration) =>
+{
+    var captchaToken = body?.CaptchaToken?.Trim();
+    if (string.IsNullOrWhiteSpace(captchaToken))
+    {
+        return Results.BadRequest(new { message = "CAPTCHA verification failed." });
+    }
+
+    var secret =
+        configuration["Recaptcha:SecretKey"]
+        ?? Environment.GetEnvironmentVariable("RECAPTCHA_SECRET_KEY");
+    if (string.IsNullOrWhiteSpace(secret))
+    {
+        return Results.Json(
+            new { message = "Registration is temporarily unavailable." },
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    var verified = await VerifyRecaptchaAsync(httpClientFactory.CreateClient(), secret, captchaToken);
+    if (!verified)
+    {
+        return Results.BadRequest(new { message = "CAPTCHA verification failed." });
+    }
+
+    return Results.Ok(new { ok = true });
+});
+if (jwtAuthEnabled)
+{
+    registerEndpoint.AllowAnonymous();
+}
 
 app.MapGet("/api/profiles", async (
     HttpRequest request,
@@ -127,6 +241,22 @@ app.MapGet("/api/profiles/me", async (
             token,
             knownAdminEmails,
             settings.UsingServiceRoleKey);
+        if (jwtAuthEnabled)
+        {
+            var subject =
+                request.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? request.HttpContext.User.FindFirstValue("sub");
+            if (string.IsNullOrWhiteSpace(subject))
+            {
+                return Results.Unauthorized();
+            }
+            if (profile is not null
+                && profile.TryGetValue("id", out var profileId)
+                && !string.Equals(profileId?.ToString(), subject, StringComparison.Ordinal))
+            {
+                return Results.Unauthorized();
+            }
+        }
         return profile is null
             ? Results.NotFound(new { message = "The signed-in user's profile was not found." })
             : Results.Ok(profile);
@@ -751,9 +881,8 @@ app.MapGet("/api/residents/{residentId:int}/profile-bundle", async (
     }
 });
 
-app.MapGet("/api/public-impact", async (
+var publicImpactEndpoint = app.MapGet("/api/public-impact", async (
     bool? publishedOnly,
-    HttpRequest request,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     IWebHostEnvironment environment) =>
@@ -764,11 +893,6 @@ app.MapGet("/api/public-impact", async (
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseConfigured(settings);
         var client = httpClientFactory.CreateClient();
-        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
-        if (guard is not null)
-        {
-            return guard;
-        }
 
         var rows = await FetchPagedTableAsync(
             client,
@@ -785,6 +909,10 @@ app.MapGet("/api/public-impact", async (
         return Results.Problem(ex.Message);
     }
 });
+if (jwtAuthEnabled)
+{
+    publicImpactEndpoint.AllowAnonymous();
+}
 
 app.MapGet("/api/monthly-metrics", async (
     HttpRequest request,
@@ -951,6 +1079,17 @@ app.MapPost("/api/db/{table}", async (
         }
 
         var config = GetTableConfig(table);
+        if (row.TryGetValue(config.PrimaryKey, out var pkOnInsert))
+        {
+            var omitPk =
+                pkOnInsert is null
+                || (pkOnInsert is JsonElement jsonPk && jsonPk.ValueKind == JsonValueKind.Null);
+            if (omitPk)
+            {
+                row.Remove(config.PrimaryKey);
+            }
+        }
+
         var inserted = await InsertTableRowAsync(
             client,
             settings.Url!,
@@ -1163,6 +1302,226 @@ app.MapPost("/api/ml/social/refresh", async (
     }
 });
 
+app.MapGet("/api/ml/social/community/latest", async (
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    var repoRootForAuth = GetRepoRoot(environment);
+    var settings = ResolveSupabaseSettings(configuration, repoRootForAuth);
+    EnsureSupabaseConfigured(settings);
+    var client = httpClientFactory.CreateClient();
+    var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+    if (guard is not null)
+    {
+        return guard;
+    }
+
+    var repoRoot = GetRepoRoot(app.Environment);
+    var summaryPath = Path.Combine(repoRoot, "ml-pipelines", "artifacts", "social_community_summary.json");
+
+    if (!File.Exists(summaryPath))
+    {
+        return Results.NotFound(new { message = "No community outreach analytics summary has been generated yet." });
+    }
+
+    var node = JsonNode.Parse(File.ReadAllText(summaryPath));
+    return Results.Json(node);
+});
+
+app.MapPost("/api/ml/social/community/refresh", async (
+    SocialAnalyticsRefreshRequest? request,
+    HttpRequest httpRequest,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(httpRequest, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var rows = await ResolveSocialPostsAsync(request, configuration, httpClientFactory, repoRoot, logger);
+        if (rows.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No social media posts were available to analyze." });
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "bella-porto-community-analytics");
+        Directory.CreateDirectory(tempDir);
+
+        var inputPath = Path.Combine(tempDir, $"community-input-{Guid.NewGuid():N}.json");
+        var outputPath = Path.Combine(tempDir, $"community-output-{Guid.NewGuid():N}.json");
+        var artifactDir = Path.Combine(repoRoot, "ml-pipelines", "artifacts");
+        var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "community_outreach_analytics_pipeline.py");
+
+        await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(rows));
+
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "python3",
+                WorkingDirectory = repoRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            },
+        };
+        process.StartInfo.ArgumentList.Add(scriptPath);
+        process.StartInfo.ArgumentList.Add("--input");
+        process.StartInfo.ArgumentList.Add(inputPath);
+        process.StartInfo.ArgumentList.Add("--output");
+        process.StartInfo.ArgumentList.Add(outputPath);
+        process.StartInfo.ArgumentList.Add("--artifact-dir");
+        process.StartInfo.ArgumentList.Add(artifactDir);
+
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        if (process.ExitCode != 0)
+        {
+            logger.LogError("Community outreach analytics pipeline failed. stdout: {Stdout} stderr: {Stderr}", stdout, stderr);
+            return Results.Problem("The community outreach analytics pipeline failed to run.");
+        }
+
+        if (!File.Exists(outputPath))
+        {
+            logger.LogError("Community outreach analytics pipeline finished without producing an output file. stdout: {Stdout}", stdout);
+            return Results.Problem("The community outreach analytics pipeline did not produce output.");
+        }
+
+        var node = JsonNode.Parse(await File.ReadAllTextAsync(outputPath));
+        return Results.Json(node);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to refresh community outreach analytics.");
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/ml/public-impact/latest", async (
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    var repoRootForAuth = GetRepoRoot(environment);
+    var settings = ResolveSupabaseSettings(configuration, repoRootForAuth);
+    EnsureSupabaseConfigured(settings);
+    var client = httpClientFactory.CreateClient();
+    var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+    if (guard is not null)
+    {
+        return guard;
+    }
+
+    var repoRoot = GetRepoRoot(app.Environment);
+    var summaryPath = Path.Combine(repoRoot, "ml-pipelines", "artifacts", "public_impact_summary.json");
+
+    if (!File.Exists(summaryPath))
+    {
+        return Results.NotFound(new { message = "No public impact analytics summary has been generated yet." });
+    }
+
+    var node = JsonNode.Parse(File.ReadAllText(summaryPath));
+    return Results.Json(node);
+});
+
+app.MapPost("/api/ml/public-impact/refresh", async (
+    HttpRequest httpRequest,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(httpRequest, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var payload = await ResolvePublicImpactPayloadAsync(configuration, httpClientFactory, repoRoot, logger);
+        var tempDir = Path.Combine(Path.GetTempPath(), "bella-porto-public-impact");
+        Directory.CreateDirectory(tempDir);
+
+        var inputPath = Path.Combine(tempDir, $"public-impact-input-{Guid.NewGuid():N}.json");
+        var outputPath = Path.Combine(tempDir, $"public-impact-output-{Guid.NewGuid():N}.json");
+        var artifactDir = Path.Combine(repoRoot, "ml-pipelines", "artifacts");
+        var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "public_impact_analytics_pipeline.py");
+
+        await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(payload));
+
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "python3",
+                WorkingDirectory = repoRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            },
+        };
+        process.StartInfo.ArgumentList.Add(scriptPath);
+        process.StartInfo.ArgumentList.Add("--input");
+        process.StartInfo.ArgumentList.Add(inputPath);
+        process.StartInfo.ArgumentList.Add("--output");
+        process.StartInfo.ArgumentList.Add(outputPath);
+        process.StartInfo.ArgumentList.Add("--artifact-dir");
+        process.StartInfo.ArgumentList.Add(artifactDir);
+
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        if (process.ExitCode != 0)
+        {
+            logger.LogError("Public impact analytics pipeline failed. stdout: {Stdout} stderr: {Stderr}", stdout, stderr);
+            return Results.Problem("The public impact analytics pipeline failed to run.");
+        }
+
+        if (!File.Exists(outputPath))
+        {
+            logger.LogError("Public impact analytics pipeline finished without producing an output file. stdout: {Stdout}", stdout);
+            return Results.Problem("The public impact analytics pipeline did not produce output.");
+        }
+
+        var node = JsonNode.Parse(await File.ReadAllTextAsync(outputPath));
+        return Results.Json(node);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to refresh public impact analytics.");
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.MapGet("/api/ml/risk/latest", async (
     HttpRequest request,
     IHttpClientFactory httpClientFactory,
@@ -1362,6 +1721,26 @@ static string? ExtractBearerToken(HttpRequest request)
         : null;
 }
 
+static async Task<bool> VerifyRecaptchaAsync(HttpClient client, string secret, string responseToken)
+{
+    using var content = new FormUrlEncodedContent(
+        new Dictionary<string, string>
+        {
+            ["secret"] = secret,
+            ["response"] = responseToken,
+        });
+
+    using var response = await client.PostAsync(
+        "https://www.google.com/recaptcha/api/siteverify",
+        content);
+
+    response.EnsureSuccessStatusCode();
+
+    await using var stream = await response.Content.ReadAsStreamAsync();
+    using var doc = await JsonDocument.ParseAsync(stream);
+    return doc.RootElement.TryGetProperty("success", out var success) && success.GetBoolean();
+}
+
 static async Task<IResult?> EnsureAdminRequestAsync(
     HttpRequest request,
     HttpClient client,
@@ -1421,6 +1800,36 @@ static async Task<List<Dictionary<string, object?>>> ResolveSocialPostsAsync(
 
     logger.LogInformation("Fetching live social_media_posts rows from Supabase.");
     return await FetchAllSocialPostsAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+}
+
+static async Task<Dictionary<string, List<Dictionary<string, object?>>>> ResolvePublicImpactPayloadAsync(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    string repoRoot,
+    ILogger logger)
+{
+    var settings = ResolveSupabaseSettings(configuration, repoRoot);
+    if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+    {
+        throw new InvalidOperationException(
+            "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+        );
+    }
+
+    logger.LogInformation("Fetching live public impact rows from Supabase.");
+    var client = httpClientFactory.CreateClient();
+    var snapshots = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "public_impact_snapshots");
+    var safehouseMetrics = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "safehouse_monthly_metrics");
+    var allocations = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "donation_allocations");
+    var donations = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "donations");
+
+    return new Dictionary<string, List<Dictionary<string, object?>>>
+    {
+        ["public_impact_snapshots"] = snapshots,
+        ["safehouse_monthly_metrics"] = safehouseMetrics,
+        ["donation_allocations"] = allocations,
+        ["donations"] = donations,
+    };
 }
 
 static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, string repoRoot)
@@ -1902,9 +2311,13 @@ static async Task<List<Dictionary<string, object?>>> InsertTableRowAsync(
     request.Content = new StringContent(JsonSerializer.Serialize(row), Encoding.UTF8, "application/json");
 
     using var response = await client.SendAsync(request);
-    response.EnsureSuccessStatusCode();
-
     var body = await response.Content.ReadAsStringAsync();
+    if (!response.IsSuccessStatusCode)
+    {
+        throw new InvalidOperationException(
+            $"Supabase insert into \"{table}\" failed: {(int)response.StatusCode} {response.ReasonPhrase}. {body}");
+    }
+
     return JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
 }
 
@@ -2656,6 +3069,17 @@ sealed class SupporterRiskRefreshRequest
 sealed class ProfileRoleUpdateRequest
 {
     public string Role { get; set; } = string.Empty;
+}
+
+/// <summary>Pre-registration CAPTCHA check (includes optional profile fields for auditing).</summary>
+sealed class RegisterRequest
+{
+    public string? CaptchaToken { get; set; }
+    public string? Email { get; set; }
+    [JsonPropertyName("first_name")]
+    public string? FirstName { get; set; }
+    [JsonPropertyName("last_name")]
+    public string? LastName { get; set; }
 }
 
 sealed class SupabaseAuthUser

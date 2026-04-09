@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '@/lib/supabaseClient'
+import { redirectToLoginOnUnauthorizedResponse } from '@/lib/api'
 
 export class DatabaseServiceError extends Error {
   /**
@@ -92,6 +93,10 @@ async function apiRequest(path, context, init = {}) {
       },
       ...init,
     })
+
+    if (response.status === 401 && token) {
+      await redirectToLoginOnUnauthorizedResponse(response)
+    }
 
     return await parseResponse(response, context)
   } catch (error) {
