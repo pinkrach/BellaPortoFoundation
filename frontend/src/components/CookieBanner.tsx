@@ -71,7 +71,7 @@ export const CookieBanner = () => {
             <button
               type="button"
               onClick={() => handleConsent("accepted")}
-              className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-primary shadow-warm transition-transform hover:scale-[1.02]"
+              className="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-warm transition-colors hover:brightness-95 hover:shadow-md active:brightness-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/80"
             >
               Accept all
             </button>
