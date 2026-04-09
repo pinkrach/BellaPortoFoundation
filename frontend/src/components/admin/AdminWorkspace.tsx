@@ -1131,7 +1131,7 @@ function PrimaryStatusTile({
       className="flex h-full min-h-0 flex-col justify-between rounded-2xl shadow-sm outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2"
       style={{ backgroundColor: backgroundHex }}
     >
-      <div className="p-6">
+      <div className="p-4">
         <div className="flex items-start gap-3">
           <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: BELLA.cream }} aria-hidden />
           <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: BELLA.cream }}>
@@ -1139,7 +1139,7 @@ function PrimaryStatusTile({
           </span>
         </div>
         <p
-          className="mt-4 font-heading text-3xl font-semibold tabular-nums tracking-tight"
+          className="mt-2 font-heading text-2xl font-semibold tabular-nums tracking-tight"
           style={{ color: BELLA.cream }}
         >
           {value}
@@ -1227,7 +1227,7 @@ function SuccessMetricTile({
         border: borderHex ? `1px solid ${borderHex}` : undefined,
       }}
     >
-      <div className="p-6">
+      <div className="p-4">
         <div className="flex items-start gap-3">
           <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: accentHex }} aria-hidden />
           <div className="min-w-0">
@@ -1239,7 +1239,7 @@ function SuccessMetricTile({
             </div>
           </div>
         </div>
-        <div className="mt-5 font-heading text-4xl font-semibold tabular-nums tracking-tight" style={{ color: BELLA.deepBay }}>
+        <div className="mt-3 font-heading text-3xl font-semibold tabular-nums tracking-tight" style={{ color: BELLA.deepBay }}>
           {value}
         </div>
       </div>
@@ -5453,14 +5453,14 @@ export function AdminWorkspace() {
       ) : null}
 
       <Tabs value={currentTab} onValueChange={(value) => setTab(value as MainTab)} className="space-y-6">
-        <TabsContent value="dashboard" className="space-y-10">
+        <TabsContent value="dashboard" className="space-y-6 pb-6">
           {workspaceQuery.isPending ? (
             <p className="text-sm" style={{ color: BELLA.stone }}>Loading workspace data…</p>
           ) : null}
 
           {!workspaceQuery.isPending ? (
             <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr] xl:items-stretch">
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* OKR / success metrics */}
                 <section aria-label="Success metrics" className="space-y-3">
                   <h2
