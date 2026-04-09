@@ -1302,6 +1302,226 @@ app.MapPost("/api/ml/social/refresh", async (
     }
 });
 
+app.MapGet("/api/ml/social/community/latest", async (
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    var repoRootForAuth = GetRepoRoot(environment);
+    var settings = ResolveSupabaseSettings(configuration, repoRootForAuth);
+    EnsureSupabaseConfigured(settings);
+    var client = httpClientFactory.CreateClient();
+    var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+    if (guard is not null)
+    {
+        return guard;
+    }
+
+    var repoRoot = GetRepoRoot(app.Environment);
+    var summaryPath = Path.Combine(repoRoot, "ml-pipelines", "artifacts", "social_community_summary.json");
+
+    if (!File.Exists(summaryPath))
+    {
+        return Results.NotFound(new { message = "No community outreach analytics summary has been generated yet." });
+    }
+
+    var node = JsonNode.Parse(File.ReadAllText(summaryPath));
+    return Results.Json(node);
+});
+
+app.MapPost("/api/ml/social/community/refresh", async (
+    SocialAnalyticsRefreshRequest? request,
+    HttpRequest httpRequest,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(httpRequest, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var rows = await ResolveSocialPostsAsync(request, configuration, httpClientFactory, repoRoot, logger);
+        if (rows.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No social media posts were available to analyze." });
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "bella-porto-community-analytics");
+        Directory.CreateDirectory(tempDir);
+
+        var inputPath = Path.Combine(tempDir, $"community-input-{Guid.NewGuid():N}.json");
+        var outputPath = Path.Combine(tempDir, $"community-output-{Guid.NewGuid():N}.json");
+        var artifactDir = Path.Combine(repoRoot, "ml-pipelines", "artifacts");
+        var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "community_outreach_analytics_pipeline.py");
+
+        await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(rows));
+
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "python3",
+                WorkingDirectory = repoRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            },
+        };
+        process.StartInfo.ArgumentList.Add(scriptPath);
+        process.StartInfo.ArgumentList.Add("--input");
+        process.StartInfo.ArgumentList.Add(inputPath);
+        process.StartInfo.ArgumentList.Add("--output");
+        process.StartInfo.ArgumentList.Add(outputPath);
+        process.StartInfo.ArgumentList.Add("--artifact-dir");
+        process.StartInfo.ArgumentList.Add(artifactDir);
+
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        if (process.ExitCode != 0)
+        {
+            logger.LogError("Community outreach analytics pipeline failed. stdout: {Stdout} stderr: {Stderr}", stdout, stderr);
+            return Results.Problem("The community outreach analytics pipeline failed to run.");
+        }
+
+        if (!File.Exists(outputPath))
+        {
+            logger.LogError("Community outreach analytics pipeline finished without producing an output file. stdout: {Stdout}", stdout);
+            return Results.Problem("The community outreach analytics pipeline did not produce output.");
+        }
+
+        var node = JsonNode.Parse(await File.ReadAllTextAsync(outputPath));
+        return Results.Json(node);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to refresh community outreach analytics.");
+        return Results.Problem(ex.Message);
+    }
+});
+
+app.MapGet("/api/ml/public-impact/latest", async (
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) =>
+{
+    var repoRootForAuth = GetRepoRoot(environment);
+    var settings = ResolveSupabaseSettings(configuration, repoRootForAuth);
+    EnsureSupabaseConfigured(settings);
+    var client = httpClientFactory.CreateClient();
+    var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+    if (guard is not null)
+    {
+        return guard;
+    }
+
+    var repoRoot = GetRepoRoot(app.Environment);
+    var summaryPath = Path.Combine(repoRoot, "ml-pipelines", "artifacts", "public_impact_summary.json");
+
+    if (!File.Exists(summaryPath))
+    {
+        return Results.NotFound(new { message = "No public impact analytics summary has been generated yet." });
+    }
+
+    var node = JsonNode.Parse(File.ReadAllText(summaryPath));
+    return Results.Json(node);
+});
+
+app.MapPost("/api/ml/public-impact/refresh", async (
+    HttpRequest httpRequest,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(httpRequest, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var payload = await ResolvePublicImpactPayloadAsync(configuration, httpClientFactory, repoRoot, logger);
+        var tempDir = Path.Combine(Path.GetTempPath(), "bella-porto-public-impact");
+        Directory.CreateDirectory(tempDir);
+
+        var inputPath = Path.Combine(tempDir, $"public-impact-input-{Guid.NewGuid():N}.json");
+        var outputPath = Path.Combine(tempDir, $"public-impact-output-{Guid.NewGuid():N}.json");
+        var artifactDir = Path.Combine(repoRoot, "ml-pipelines", "artifacts");
+        var scriptPath = Path.Combine(repoRoot, "ml-pipelines", "public_impact_analytics_pipeline.py");
+
+        await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(payload));
+
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "python3",
+                WorkingDirectory = repoRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            },
+        };
+        process.StartInfo.ArgumentList.Add(scriptPath);
+        process.StartInfo.ArgumentList.Add("--input");
+        process.StartInfo.ArgumentList.Add(inputPath);
+        process.StartInfo.ArgumentList.Add("--output");
+        process.StartInfo.ArgumentList.Add(outputPath);
+        process.StartInfo.ArgumentList.Add("--artifact-dir");
+        process.StartInfo.ArgumentList.Add(artifactDir);
+
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        if (process.ExitCode != 0)
+        {
+            logger.LogError("Public impact analytics pipeline failed. stdout: {Stdout} stderr: {Stderr}", stdout, stderr);
+            return Results.Problem("The public impact analytics pipeline failed to run.");
+        }
+
+        if (!File.Exists(outputPath))
+        {
+            logger.LogError("Public impact analytics pipeline finished without producing an output file. stdout: {Stdout}", stdout);
+            return Results.Problem("The public impact analytics pipeline did not produce output.");
+        }
+
+        var node = JsonNode.Parse(await File.ReadAllTextAsync(outputPath));
+        return Results.Json(node);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unable to refresh public impact analytics.");
+        return Results.Problem(ex.Message);
+    }
+});
+
 app.MapGet("/api/ml/risk/latest", async (
     HttpRequest request,
     IHttpClientFactory httpClientFactory,
@@ -1580,6 +1800,36 @@ static async Task<List<Dictionary<string, object?>>> ResolveSocialPostsAsync(
 
     logger.LogInformation("Fetching live social_media_posts rows from Supabase.");
     return await FetchAllSocialPostsAsync(httpClientFactory.CreateClient(), settings.Url!, settings.Key!);
+}
+
+static async Task<Dictionary<string, List<Dictionary<string, object?>>>> ResolvePublicImpactPayloadAsync(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    string repoRoot,
+    ILogger logger)
+{
+    var settings = ResolveSupabaseSettings(configuration, repoRoot);
+    if (string.IsNullOrWhiteSpace(settings.Url) || string.IsNullOrWhiteSpace(settings.Key))
+    {
+        throw new InvalidOperationException(
+            "Missing Supabase configuration. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY), or keep frontend/.env available for local development."
+        );
+    }
+
+    logger.LogInformation("Fetching live public impact rows from Supabase.");
+    var client = httpClientFactory.CreateClient();
+    var snapshots = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "public_impact_snapshots");
+    var safehouseMetrics = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "safehouse_monthly_metrics");
+    var allocations = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "donation_allocations");
+    var donations = await FetchAllSupabaseRowsAsync(client, settings.Url!, settings.Key!, "donations");
+
+    return new Dictionary<string, List<Dictionary<string, object?>>>
+    {
+        ["public_impact_snapshots"] = snapshots,
+        ["safehouse_monthly_metrics"] = safehouseMetrics,
+        ["donation_allocations"] = allocations,
+        ["donations"] = donations,
+    };
 }
 
 static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, string repoRoot)

@@ -1,0 +1,335 @@
+{
+  "generatedAt": "2026-04-09T02:23:31.590993+00:00",
+  "dataset": {
+    "rowCount": 812,
+    "dateMin": "2023-01-05T18:52:00+00:00",
+    "dateMax": "2026-02-26T21:56:00+00:00",
+    "avgCommunityReachScore": 0.0944,
+    "avgShareRate": 0.0208,
+    "likelyCommunityReferralRate": 0.3929
+  },
+  "model": {
+    "isTrained": true,
+    "testRmse": 0.0782,
+    "testMae": 0.0494,
+    "testR2": 0.4564,
+    "topDrivers": [
+      {
+        "feature": "numeric__boost_budget_php",
+        "importance": 0.3118270201327713
+      },
+      {
+        "feature": "numeric__post_hour",
+        "importance": 0.13684387961530564
+      },
+      {
+        "feature": "numeric__caption_length",
+        "importance": 0.05701641879183398
+      },
+      {
+        "feature": "categorical__platform_media_TikTok x Reel",
+        "importance": 0.046018635414505384
+      },
+      {
+        "feature": "categorical__platform_YouTube",
+        "importance": 0.04342897616055432
+      },
+      {
+        "feature": "numeric__num_hashtags",
+        "importance": 0.03431799614281052
+      },
+      {
+        "feature": "categorical__media_type_Reel",
+        "importance": 0.023293623284373163
+      },
+      {
+        "feature": "categorical__platform_Instagram",
+        "importance": 0.015132049229068151
+      }
+    ],
+    "artifacts": {
+      "regressorPath": "Website/BellaPortoFoundation/ml-pipelines/artifacts/social_community_live_random_forest.joblib"
+    }
+  },
+  "kpis": [
+    {
+      "label": "Avg community reach score",
+      "value": 9.4,
+      "detail": "Weighted score across reach, shares, saves, forwards, and clicks",
+      "unit": "%"
+    },
+    {
+      "label": "Avg share rate",
+      "value": 2.1,
+      "detail": "Average shares divided by reach",
+      "unit": "%"
+    },
+    {
+      "label": "Best outreach platform",
+      "value": null,
+      "detail": "YouTube"
+    },
+    {
+      "label": "Best outreach format",
+      "value": null,
+      "detail": "ImpactStory"
+    }
+  ],
+  "postTypeReachChart": [
+    {
+      "postType": "ImpactStory",
+      "posts": 203,
+      "avgCommunityReachScore": 0.1242
+    },
+    {
+      "postType": "FundraisingAppeal",
+      "posts": 90,
+      "avgCommunityReachScore": 0.1101
+    },
+    {
+      "postType": "Campaign",
+      "posts": 156,
+      "avgCommunityReachScore": 0.087
+    },
+    {
+      "postType": "EventPromotion",
+      "posts": 131,
+      "avgCommunityReachScore": 0.0805
+    },
+    {
+      "postType": "EducationalContent",
+      "posts": 114,
+      "avgCommunityReachScore": 0.0801
+    },
+    {
+      "postType": "ThankYou",
+      "posts": 118,
+      "avgCommunityReachScore": 0.0704
+    }
+  ],
+  "platformReachChart": [
+    {
+      "platform": "YouTube",
+      "posts": 71,
+      "avgCommunityReachScore": 0.1818,
+      "avgReach": 7232.2
+    },
+    {
+      "platform": "TikTok",
+      "posts": 89,
+      "avgCommunityReachScore": 0.1762,
+      "avgReach": 6821.67
+    },
+    {
+      "platform": "Instagram",
+      "posts": 164,
+      "avgCommunityReachScore": 0.105,
+      "avgReach": 4086.47
+    },
+    {
+      "platform": "Facebook",
+      "posts": 199,
+      "avgCommunityReachScore": 0.0848,
+      "avgReach": 3358.99
+    },
+    {
+      "platform": "Twitter",
+      "posts": 117,
+      "avgCommunityReachScore": 0.0554,
+      "avgReach": 2214.53
+    },
+    {
+      "platform": "WhatsApp",
+      "posts": 93,
+      "avgCommunityReachScore": 0.0437,
+      "avgReach": 1446.38
+    },
+    {
+      "platform": "LinkedIn",
+      "posts": 79,
+      "avgCommunityReachScore": 0.0436,
+      "avgReach": 1749.92
+    }
+  ],
+  "timeBucketChart": [
+    {
+      "timeBucket": "afternoon",
+      "posts": 219,
+      "avgCommunityReachScore": 0.117
+    },
+    {
+      "timeBucket": "evening",
+      "posts": 238,
+      "avgCommunityReachScore": 0.1122
+    },
+    {
+      "timeBucket": "morning",
+      "posts": 224,
+      "avgCommunityReachScore": 0.0945
+    },
+    {
+      "timeBucket": "overnight",
+      "posts": 131,
+      "avgCommunityReachScore": 0.0243
+    }
+  ],
+  "liftMetrics": [
+    {
+      "factor": "Resident story",
+      "withLabel": "Resident story",
+      "withoutLabel": "No resident story",
+      "withRate": 0.497,
+      "withoutRate": 0.3663,
+      "liftPoints": 13.1
+    },
+    {
+      "factor": "CTA",
+      "withLabel": "CTA",
+      "withoutLabel": "No CTA",
+      "withRate": 0.4746,
+      "withoutRate": 0.2665,
+      "liftPoints": 20.8
+    }
+  ],
+  "timingSignals": [
+    {
+      "label": "Best time bucket",
+      "value": "afternoon",
+      "detail": "Highest current community reach score by posting window"
+    },
+    {
+      "label": "Best outreach platform",
+      "value": "YouTube",
+      "detail": "Highest current average community reach score by platform"
+    },
+    {
+      "label": "Best outreach format",
+      "value": "ImpactStory",
+      "detail": "Highest current average community reach score by post type"
+    },
+    {
+      "label": "Boosted winner",
+      "value": "Boosted",
+      "detail": "Which posting mode currently has the higher average community reach score"
+    }
+  ],
+  "summary": {
+    "headline": "Current outreach data points to ImpactStory on YouTube as the strongest awareness-building combination.",
+    "bestPlatform": "YouTube",
+    "bestFormat": "ImpactStory"
+  },
+  "recommendations": [
+    "Start outreach-first campaigns on YouTube because it currently has the strongest community reach profile.",
+    "Use ImpactStory when the goal is broad awareness and community sharing rather than direct fundraising conversion.",
+    "Default scheduling toward the afternoon window unless the campaign has strong platform-specific constraints.",
+    "Resident-story posts currently improve the community-referral proxy by about 13.1 percentage points."
+  ],
+  "topDrivers": [
+    {
+      "feature": "numeric__boost_budget_php",
+      "importance": 0.3118270201327713
+    },
+    {
+      "feature": "numeric__post_hour",
+      "importance": 0.13684387961530564
+    },
+    {
+      "feature": "numeric__caption_length",
+      "importance": 0.05701641879183398
+    },
+    {
+      "feature": "categorical__platform_media_TikTok x Reel",
+      "importance": 0.046018635414505384
+    },
+    {
+      "feature": "categorical__platform_YouTube",
+      "importance": 0.04342897616055432
+    },
+    {
+      "feature": "numeric__num_hashtags",
+      "importance": 0.03431799614281052
+    },
+    {
+      "feature": "categorical__media_type_Reel",
+      "importance": 0.023293623284373163
+    },
+    {
+      "feature": "categorical__platform_Instagram",
+      "importance": 0.015132049229068151
+    }
+  ],
+  "scoredPosts": [
+    {
+      "label": "EventPromotion on YouTube (2024-01-23)",
+      "platform": "YouTube",
+      "postType": "EventPromotion",
+      "createdAt": "2024-01-23T15:49:00+00:00",
+      "predictedCommunityReachScore": 0.4807,
+      "shareRate": 0.0386,
+      "clickRate": 0.0392
+    },
+    {
+      "label": "Campaign on TikTok (2024-11-13)",
+      "platform": "TikTok",
+      "postType": "Campaign",
+      "createdAt": "2024-11-13T12:12:00+00:00",
+      "predictedCommunityReachScore": 0.4759,
+      "shareRate": 0.02,
+      "clickRate": 0.0572
+    },
+    {
+      "label": "ImpactStory on Facebook (2024-10-09)",
+      "platform": "Facebook",
+      "postType": "ImpactStory",
+      "createdAt": "2024-10-09T11:03:00+00:00",
+      "predictedCommunityReachScore": 0.449,
+      "shareRate": 0.0517,
+      "clickRate": 0.0394
+    },
+    {
+      "label": "FundraisingAppeal on TikTok (2023-03-12)",
+      "platform": "TikTok",
+      "postType": "FundraisingAppeal",
+      "createdAt": "2023-03-12T19:08:00+00:00",
+      "predictedCommunityReachScore": 0.4452,
+      "shareRate": 0.0357,
+      "clickRate": 0.05
+    },
+    {
+      "label": "EventPromotion on TikTok (2023-05-28)",
+      "platform": "TikTok",
+      "postType": "EventPromotion",
+      "createdAt": "2023-05-28T19:58:00+00:00",
+      "predictedCommunityReachScore": 0.4415,
+      "shareRate": 0.0272,
+      "clickRate": 0.0151
+    },
+    {
+      "label": "ImpactStory on YouTube (2024-09-14)",
+      "platform": "YouTube",
+      "postType": "ImpactStory",
+      "createdAt": "2024-09-14T16:03:00+00:00",
+      "predictedCommunityReachScore": 0.4245,
+      "shareRate": 0.03,
+      "clickRate": 0.0321
+    },
+    {
+      "label": "Campaign on TikTok (2023-10-12)",
+      "platform": "TikTok",
+      "postType": "Campaign",
+      "createdAt": "2023-10-12T09:46:00+00:00",
+      "predictedCommunityReachScore": 0.4172,
+      "shareRate": 0.0078,
+      "clickRate": 0.0568
+    },
+    {
+      "label": "FundraisingAppeal on YouTube (2025-05-06)",
+      "platform": "YouTube",
+      "postType": "FundraisingAppeal",
+      "createdAt": "2025-05-06T13:35:00+00:00",
+      "predictedCommunityReachScore": 0.4105,
+      "shareRate": 0.0123,
+      "clickRate": 0.0421
+    }
+  ]
+}

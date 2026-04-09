@@ -64,6 +64,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { PublicImpactMlPanel } from "@/components/admin/PublicImpactMlPanel";
+import { OutreachSocialMediaPanel } from "@/components/admin/OutreachSocialMediaPanel";
 import {
   Pagination,
   PaginationContent,
@@ -2960,19 +2962,6 @@ export function AdminWorkspace() {
       fill: CHART_COLORS[index % CHART_COLORS.length],
     }));
   }, [workspace.socialPosts]);
-
-  const publicImpactTimeline = useMemo(
-    () =>
-      [...workspace.publicImpact]
-        .sort((left, right) => compareDatesDescending(left.snapshot_date, right.snapshot_date))
-        .slice(0, 8)
-        .reverse()
-        .map((snapshot) => ({
-          label: asDisplayDate(snapshot.snapshot_date, "Unknown"),
-          published: String(snapshot.is_published).toLowerCase() === "true" ? 1 : 0,
-        })),
-    [workspace.publicImpact],
-  );
 
   const reportsTrendData = useMemo(() => {
     const byMonth = new Map<string, { incidents: number; occupancy: number; donations: number }>();
@@ -7122,136 +7111,11 @@ export function AdminWorkspace() {
             </TabsList>
 
             <TabsContent value="social-media" className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <KpiCard icon={Share2} label="Impressions" value={outreachKpis.totalImpressions.toLocaleString()} detail="Total campaign impressions" />
-                <KpiCard icon={BarChart3} label="Avg. engagement" value={`${(outreachKpis.avgEngagementRate * 100).toFixed(1)}%`} detail="Average engagement rate across posts" />
-                <KpiCard icon={Heart} label="Donations from outreach" value={formatCurrency(outreachKpis.totalEstimatedValue)} detail="Estimated donation value from tracked social referrals" />
-                <KpiCard icon={Megaphone} label="Referrals" value={String(outreachKpis.totalReferrals)} detail="Donation referrals attributed to outreach content" />
-              </div>
-
-              <div className="grid gap-6 xl:grid-cols-2">
-                <SectionCard title="Campaign performance" description="Performance by platform across impressions and donation referrals.">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={outreachPlatformChart}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="platform" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                      <Tooltip />
-                      <Bar dataKey="impressions" radius={[8, 8, 0, 0]} fill="hsl(var(--primary))" />
-                      <Bar dataKey="referrals" radius={[8, 8, 0, 0]} fill="hsl(var(--secondary))" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </SectionCard>
-
-                <SectionCard title="Recent social activity" description="Newest social posts and their direct fundraising contribution.">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <SortableTableHead
-                          tableId="social-posts"
-                          columnKey="platform"
-                          activeSort={tableColumnSort["social-posts"]}
-                          onToggle={toggleTableColumnSort}
-                        >
-                          Platform
-                        </SortableTableHead>
-                        <SortableTableHead
-                          tableId="social-posts"
-                          columnKey="date"
-                          activeSort={tableColumnSort["social-posts"]}
-                          onToggle={toggleTableColumnSort}
-                        >
-                          Date
-                        </SortableTableHead>
-                        <SortableTableHead
-                          tableId="social-posts"
-                          columnKey="post_type"
-                          activeSort={tableColumnSort["social-posts"]}
-                          onToggle={toggleTableColumnSort}
-                        >
-                          Post Type
-                        </SortableTableHead>
-                        <SortableTableHead
-                          tableId="social-posts"
-                          columnKey="impressions"
-                          activeSort={tableColumnSort["social-posts"]}
-                          onToggle={toggleTableColumnSort}
-                        >
-                          Impressions
-                        </SortableTableHead>
-                        <SortableTableHead
-                          tableId="social-posts"
-                          columnKey="estimated_value"
-                          activeSort={tableColumnSort["social-posts"]}
-                          onToggle={toggleTableColumnSort}
-                          className="text-right"
-                        >
-                          Estimated Value
-                        </SortableTableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {outreachPostsTablePage.visibleRows.map((post) => (
-                          <TableRow key={post.post_id}>
-                            <TableCell>{asText(post.platform)}</TableCell>
-                            <TableCell>{asDisplayDate(post.created_at)}</TableCell>
-                            <TableCell>{asText(post.post_type)}</TableCell>
-                            <TableCell>{toNumber(post.impressions).toLocaleString()}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(post.estimated_donation_value_php)}</TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                  <TablePagination
-                    page={outreachPostsTablePage.safePage}
-                    totalPages={outreachPostsTablePage.totalPages}
-                    totalRows={workspace.socialPosts.length}
-                    start={outreachPostsTablePage.start}
-                    end={outreachPostsTablePage.end}
-                    perPage={getPageSize("social-posts")}
-                    onPerPageChange={(size) => setPageSize("social-posts", size)}
-                    onPageChange={(page) => setPage("social-posts", page)}
-                  />
-                </SectionCard>
-              </div>
+              <OutreachSocialMediaPanel socialPosts={workspace.socialPosts} />
             </TabsContent>
 
-            <TabsContent value="public-impact">
-              <div className="grid gap-6 xl:grid-cols-2">
-                <SectionCard title="Public impact publishing" description="Snapshot publication history and visibility trends.">
-                  <ResponsiveContainer width="100%" height={280}>
-                    <LineChart data={publicImpactTimeline}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="label" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} allowDecimals={false} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="published" stroke="hsl(var(--primary))" strokeWidth={3} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </SectionCard>
-
-                <SectionCard title="Public impact snapshots" description="Impact headlines and summaries ready for reuse in future reporting flows.">
-                  <div className="space-y-3">
-                    {[...workspace.publicImpact]
-                      .sort((left, right) => compareDatesDescending(left.snapshot_date, right.snapshot_date))
-                      .slice(0, 8)
-                      .map((snapshot) => (
-                        <div key={snapshot.snapshot_id} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <p className="font-medium text-foreground">{asText(snapshot.headline)}</p>
-                              <p className="mt-2 text-sm text-muted-foreground">{asText(snapshot.summary_text)}</p>
-                            </div>
-                            <StatusBadge
-                              value={String(snapshot.is_published).toLowerCase() === "true" ? "Published" : "Draft"}
-                              tone={String(snapshot.is_published).toLowerCase() === "true" ? "default" : "outline"}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </SectionCard>
-              </div>
+            <TabsContent value="public-impact" className="space-y-6">
+              <PublicImpactMlPanel />
             </TabsContent>
           </Tabs>
         </TabsContent>
