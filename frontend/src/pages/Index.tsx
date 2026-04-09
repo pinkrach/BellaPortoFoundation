@@ -356,7 +356,7 @@ const Index = () => {
                   <Link
                     to={donateLink}
                     title="Create an account to donate"
-                    className="inline-flex items-center justify-center rounded-full bg-[#C06080] px-7 py-2.5 text-sm font-semibold text-[#F5F0E8] shadow-md shadow-[hsl(340_30%_40%_/_0.28)] transition hover:brightness-110 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C06080]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F5F0E8]"
+                    className="inline-flex items-center justify-center rounded-full bg-[#4A7A52] px-7 py-2.5 text-sm font-semibold text-[#F5F0E8] shadow-md shadow-[hsl(150_24%_28%_/_0.22)] transition hover:brightness-110 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4A7A52]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F5F0E8]"
                   >
                     Donate today
                   </Link>

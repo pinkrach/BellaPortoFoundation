@@ -149,6 +149,7 @@ type Donation = {
   supporter_id: number | null;
   donation_type: string | null;
   donation_date: string | null;
+  created_at?: string | null;
   is_recurring: boolean | null;
   campaign_name: string | null;
   channel_source: string | null;
@@ -1037,15 +1038,25 @@ function KpiCard({
   );
 }
 
-/** Portofino / Bella Bay command-center tile: soft tint, no accent strip, outline icons, neutral figures. */
-type FounderTone = "lavender" | "coastal" | "sand" | "terracotta" | "sage";
+/** Bella Bay Command center tile (palette-locked). */
+type FounderTone = "care" | "capacity" | "funding" | "attention";
 
-const FOUNDER_TONE: Record<FounderTone, { surface: string; ink: string }> = {
-  lavender: { surface: "bg-[#9B7FC0]/10", ink: "text-[#6b4d9e]" },
-  coastal: { surface: "bg-[#5A8FA0]/10", ink: "text-[#3d6b7a]" },
-  sand: { surface: "bg-[#EDE5D8]/60", ink: "text-[#1C2B35]" },
-  terracotta: { surface: "bg-[#C17A3A]/10", ink: "text-[#8a4f1a]" },
-  sage: { surface: "bg-[#4A7A52]/10", ink: "text-[#2d5233]" },
+const BELLA = {
+  cream: "#F5F0E8",
+  sand: "#EDE5D8",
+  deepBay: "#1C2B35",
+  stone: "#4A5C65",
+  lavender: "#9B7FC0",
+  water: "#5A8FA0",
+  green: "#4A7A52",
+  terracotta: "#C17A3A",
+} as const;
+
+const FOUNDER_ACCENT: Record<FounderTone, string> = {
+  care: BELLA.lavender,
+  capacity: BELLA.water,
+  funding: BELLA.green,
+  attention: BELLA.terracotta,
 };
 
 function FounderCommandTile({
@@ -1055,6 +1066,7 @@ function FounderCommandTile({
   tone,
   icon: Icon,
   to,
+  size = "primary",
 }: {
   label: string;
   value: string;
@@ -1062,27 +1074,116 @@ function FounderCommandTile({
   tone: FounderTone;
   icon: typeof Heart;
   to: string;
+  size?: "primary" | "secondary";
 }) {
-  const t = FOUNDER_TONE[tone];
+  const accent = FOUNDER_ACCENT[tone];
+  const pad = size === "primary" ? "p-6" : "p-5";
+  const valueClass = size === "primary" ? "text-3xl" : "text-2xl";
   const inner = (
     <>
       <div className="flex items-start gap-3">
-        <Icon className={cn("h-5 w-5 shrink-0", t.ink)} strokeWidth={1.5} aria-hidden />
-        <span className={cn("text-xs font-semibold uppercase tracking-wider", t.ink)}>{label}</span>
+        <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: accent }} aria-hidden />
+        <span
+          className="text-xs font-semibold uppercase tracking-wider"
+          style={{ color: accent }}
+        >
+          {label}
+        </span>
       </div>
-      <p className="mt-4 font-heading text-3xl font-semibold tabular-nums tracking-tight text-foreground">{value}</p>
-      {sub ? <p className="mt-1 text-sm text-muted-foreground">{sub}</p> : null}
+      <p className={cn("mt-4 font-heading font-semibold tabular-nums tracking-tight", valueClass)} style={{ color: BELLA.deepBay }}>
+        {value}
+      </p>
+      {sub ? <p className="mt-1 text-sm" style={{ color: BELLA.stone }}>{sub}</p> : null}
     </>
   );
   return (
     <Link
       to={to}
-      className={cn(
-        "block rounded-2xl shadow-sm outline-none transition-[box-shadow,transform] hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        t.surface,
-      )}
+      className="relative block overflow-hidden rounded-2xl shadow-sm outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2"
+      style={{
+        backgroundColor: BELLA.sand,
+      }}
     >
-      <div className="p-6">{inner}</div>
+      <div className={cn("relative", pad)}>{inner}</div>
+    </Link>
+  );
+}
+
+function PrimaryStatusTile({
+  label,
+  value,
+  icon: Icon,
+  to,
+  backgroundHex,
+}: {
+  label: string;
+  value: string;
+  icon: typeof Heart;
+  to: string;
+  backgroundHex: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="flex h-full min-h-0 flex-col justify-between rounded-2xl shadow-sm outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2"
+      style={{ backgroundColor: backgroundHex }}
+    >
+      <div className="p-6">
+        <div className="flex items-start gap-3">
+          <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: BELLA.cream }} aria-hidden />
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: BELLA.cream }}>
+            {label}
+          </span>
+        </div>
+        <p
+          className="mt-4 font-heading text-3xl font-semibold tabular-nums tracking-tight"
+          style={{ color: BELLA.cream }}
+        >
+          {value}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function SecondaryStatTile({
+  label,
+  value,
+  sub,
+  accentHex,
+  icon: Icon,
+  to,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  /** Accent is used ONLY for icon + label text. Background stays Harbor Sand. */
+  accentHex: string;
+  icon: typeof Heart;
+  to: string;
+}) {
+  const inner = (
+    <>
+      <div className="flex items-start gap-3">
+        <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: accentHex }} aria-hidden />
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: accentHex }}>
+          {label}
+        </span>
+      </div>
+      <p className="mt-4 font-heading text-2xl font-semibold tabular-nums tracking-tight" style={{ color: BELLA.deepBay }}>
+        {value}
+      </p>
+      {sub ? <p className="mt-1 text-sm" style={{ color: BELLA.stone }}>{sub}</p> : null}
+    </>
+  );
+
+  return (
+    <Link
+      to={to}
+      className="block rounded-2xl shadow-sm outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2"
+      style={{ backgroundColor: BELLA.sand }}
+    >
+      <div className="p-5">{inner}</div>
     </Link>
   );
 }
@@ -2924,6 +3025,18 @@ export function AdminWorkspace() {
     workspace.safehouses,
     workspace.visitations,
   ]);
+
+  const dashboardRecentDonations = useMemo(
+    () =>
+      [...workspace.donations]
+        .sort((left, right) => {
+          const leftKey = (left.created_at ?? left.donation_date) as unknown;
+          const rightKey = (right.created_at ?? right.donation_date) as unknown;
+          return compareDatesDescending(leftKey, rightKey) || toNumber(right.donation_id) - toNumber(left.donation_id);
+        })
+        .slice(0, 8),
+    [workspace.donations],
+  );
 
   const outreachKpis = useMemo(() => {
     const totalImpressions = workspace.socialPosts.reduce((sum, post) => sum + toNumber(post.impressions), 0);
@@ -5172,113 +5285,160 @@ export function AdminWorkspace() {
       <Tabs value={currentTab} onValueChange={(value) => setTab(value as MainTab)} className="space-y-6">
         <TabsContent value="dashboard" className="space-y-10">
           {workspaceQuery.isPending ? (
-            <p className="text-sm text-muted-foreground">Loading workspace data…</p>
+            <p className="text-sm" style={{ color: BELLA.stone }}>Loading workspace data…</p>
           ) : null}
 
           {!workspaceQuery.isPending ? (
-            <div className="relative overflow-hidden rounded-3xl">
-              <div
-                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#9B7FC0]/10 via-transparent to-[#5A8FA0]/07"
-                aria-hidden
-              />
-              <div className="relative space-y-10 px-1 py-2 sm:px-2">
-                <section aria-labelledby="founder-primary-heading">
-                  <h2
-                    id="founder-primary-heading"
-                    className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-muted-foreground"
-                  >
-                    At a glance
-                  </h2>
-                  <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-                    <FounderCommandTile
-                      label="Active residents"
-                      value={String(founderDashboardStats.activeResidents)}
-                      tone="lavender"
-                      icon={Heart}
-                      to="/admin?tab=residents"
-                    />
-                    <FounderCommandTile
-                      label="Active safe houses"
-                      value={String(founderDashboardStats.activeSafehouses)}
-                      tone="coastal"
-                      icon={Home}
-                      to="/admin?tab=safe-houses"
-                    />
-                    <FounderCommandTile
-                      label="Unresolved incidents"
-                      value={String(founderDashboardStats.unresolvedIncidents)}
-                      tone="sand"
-                      icon={ShieldAlert}
-                      to="/admin?tab=residents&residentsSubTab=incidents"
-                    />
-                    <FounderCommandTile
-                      label="Bed utilization"
-                      value={founderDashboardStats.bedUtilPercent != null ? `${founderDashboardStats.bedUtilPercent}%` : "—"}
-                      sub={founderDashboardStats.bedSub}
-                      tone="coastal"
-                      icon={Bed}
-                      to="/admin?tab=safe-houses"
-                    />
-                  </div>
-                </section>
+            <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+              <div className="space-y-6">
+                {/* Primary status row — solid approved colors only */}
+                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+                  <PrimaryStatusTile
+                    label="Active residents"
+                    value={String(founderDashboardStats.activeResidents)}
+                    icon={Heart}
+                    to="/admin?tab=residents"
+                    backgroundHex={BELLA.lavender}
+                  />
+                  <PrimaryStatusTile
+                    label="Active safe houses"
+                    value={String(founderDashboardStats.activeSafehouses)}
+                    icon={Home}
+                    to="/admin?tab=safe-houses"
+                    backgroundHex={BELLA.water}
+                  />
+                  <PrimaryStatusTile
+                    label="Unresolved incidents"
+                    value={String(founderDashboardStats.unresolvedIncidents)}
+                    icon={ShieldAlert}
+                    to="/admin?tab=residents&residentsSubTab=incidents"
+                    backgroundHex={BELLA.terracotta}
+                  />
+                  <PrimaryStatusTile
+                    label="Unallocated balance"
+                    value={formatCurrency(founderDashboardStats.unallocatedBalance)}
+                    icon={Wallet}
+                    to="/admin?tab=donations&donationsSubTab=allocations"
+                    backgroundHex={BELLA.green}
+                  />
+                </div>
 
-                <section aria-labelledby="founder-attention-heading">
+                {/* Secondary */}
+                <section aria-labelledby="founder-attention-heading" className="space-y-4">
                   <h2
                     id="founder-attention-heading"
-                    className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-muted-foreground"
+                    className="font-heading text-sm font-semibold uppercase tracking-wider"
+                    style={{ color: BELLA.stone }}
                   >
                     Follow-ups
                   </h2>
-                  <div className="grid gap-6 sm:grid-cols-3">
-                    <FounderCommandTile
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    <SecondaryStatTile
+                      label="Bed utilization"
+                      value={founderDashboardStats.bedUtilPercent != null ? `${founderDashboardStats.bedUtilPercent}%` : "—"}
+                      sub={founderDashboardStats.bedSub}
+                      accentHex={BELLA.water}
+                      icon={Bed}
+                      to="/admin?tab=safe-houses"
+                    />
+                    <SecondaryStatTile
                       label="Overdue actions"
                       value={String(founderDashboardStats.overdueActions)}
-                      tone="terracotta"
+                      accentHex={BELLA.terracotta}
                       icon={AlertTriangle}
                       to="/admin?tab=residents&residentsSubTab=interventions"
                     />
-                    <FounderCommandTile
+                    <SecondaryStatTile
                       label="Upcoming · 14 days"
                       value={String(founderDashboardStats.upcomingDeadlines14)}
-                      tone="terracotta"
+                      accentHex={BELLA.terracotta}
                       icon={CalendarDays}
                       to="/admin?tab=residents&residentsSubTab=visitations"
                     />
-                    <FounderCommandTile
+                    <SecondaryStatTile
                       label="Cases to review"
                       value={String(founderDashboardStats.casesRequiringReview)}
-                      tone="terracotta"
+                      accentHex={BELLA.terracotta}
                       icon={ClipboardCheck}
                       to="/admin?tab=residents&residentsSubTab=interventions"
                     />
                   </div>
                 </section>
 
-                <section aria-labelledby="founder-funding-heading">
+                {/* Funding bottom-left */}
+                <section aria-labelledby="founder-funding-heading" className="space-y-4">
                   <h2
                     id="founder-funding-heading"
-                    className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-muted-foreground"
+                    className="font-heading text-sm font-semibold uppercase tracking-wider"
+                    style={{ color: BELLA.stone }}
                   >
                     Funding
                   </h2>
-                  <div className="grid max-w-3xl gap-6 sm:grid-cols-2">
-                    <FounderCommandTile
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <SecondaryStatTile
                       label="Recent giving · 30 days"
                       value={formatCurrency(founderDashboardStats.recentGiving30)}
-                      tone="sage"
+                      accentHex={BELLA.green}
                       icon={HandCoins}
                       to="/admin?tab=donations"
-                    />
-                    <FounderCommandTile
-                      label="Unallocated balance"
-                      value={formatCurrency(founderDashboardStats.unallocatedBalance)}
-                      tone="sage"
-                      icon={Wallet}
-                      to="/admin?tab=donations&donationsSubTab=allocations"
                     />
                   </div>
                 </section>
               </div>
+
+              {/* Right column — recent donations list */}
+              <aside className="rounded-2xl shadow-sm" style={{ backgroundColor: BELLA.sand }}>
+                <div className="p-6">
+                  <div className="flex items-center gap-3">
+                    <HandCoins className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: BELLA.green }} aria-hidden />
+                    <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: BELLA.green }}>
+                      Recent donations
+                    </h2>
+                  </div>
+                  <div className="mt-5 space-y-3">
+                    {dashboardRecentDonations.map((donation) => {
+                      const supporter =
+                        donation.supporter_id
+                          ? supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter))
+                          : donation.supporter_name ?? "Anonymous";
+                      const amount = formatCurrency(donation.amount ?? donation.estimated_value, donation.currency_code ?? "PHP");
+                      return (
+                        <div
+                          key={String(donation.donation_id)}
+                          className="flex items-start justify-between gap-4 rounded-xl px-3 py-2"
+                          style={{ backgroundColor: BELLA.cream }}
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium" style={{ color: BELLA.deepBay }}>
+                              {supporter}
+                            </p>
+                            <p className="text-xs" style={{ color: BELLA.stone }}>
+                              {asDisplayDate((donation.created_at ?? donation.donation_date) as unknown)}
+                            </p>
+                          </div>
+                          <p className="shrink-0 text-sm font-semibold tabular-nums" style={{ color: BELLA.deepBay }}>
+                            {amount}
+                          </p>
+                        </div>
+                      );
+                    })}
+                    {!dashboardRecentDonations.length ? (
+                      <p className="text-sm" style={{ color: BELLA.stone }}>
+                        No donations yet.
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="mt-5">
+                    <Link
+                      to="/admin?tab=donations"
+                      className="text-sm font-medium underline-offset-4 hover:underline"
+                      style={{ color: BELLA.deepBay }}
+                    >
+                      View donations →
+                    </Link>
+                  </div>
+                </div>
+              </aside>
             </div>
           ) : null}
         </TabsContent>
