@@ -1353,50 +1353,31 @@ app.MapPost("/api/ml/social/score", async (
 
         await File.WriteAllTextAsync(postsInputPath, JsonSerializer.Serialize(rows));
         await File.WriteAllTextAsync(payloadInputPath, JsonSerializer.Serialize(request.Payload));
-
-        var process = new Process
+        try
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "python3",
-                WorkingDirectory = repoRoot,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            },
-        };
-        process.StartInfo.ArgumentList.Add(scriptPath);
-        process.StartInfo.ArgumentList.Add("--posts-input");
-        process.StartInfo.ArgumentList.Add(postsInputPath);
-        process.StartInfo.ArgumentList.Add("--payload-input");
-        process.StartInfo.ArgumentList.Add(payloadInputPath);
-        process.StartInfo.ArgumentList.Add("--output");
-        process.StartInfo.ArgumentList.Add(outputPath);
-        process.StartInfo.ArgumentList.Add("--artifact-dir");
-        process.StartInfo.ArgumentList.Add(artifactDir);
-
-        process.Start();
-        var stdoutTask = process.StandardOutput.ReadToEndAsync();
-        var stderrTask = process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
-
-        if (process.ExitCode != 0)
-        {
-            logger.LogError("Social scoring pipeline failed. stdout: {Stdout} stderr: {Stderr}", stdout, stderr);
-            return Results.Problem("The social draft scoring pipeline failed to run.");
+            var node = await RunPythonJsonScriptAsync(
+                repoRoot,
+                scriptPath,
+                [
+                    "--posts-input",
+                    postsInputPath,
+                    "--payload-input",
+                    payloadInputPath,
+                    "--output",
+                    outputPath,
+                    "--artifact-dir",
+                    artifactDir,
+                ],
+                outputPath,
+                logger,
+                "Social scoring pipeline");
+            return Results.Json(node);
         }
-
-        if (!File.Exists(outputPath))
+        catch (Exception ex)
         {
-            logger.LogError("Social scoring pipeline finished without producing an output file. stdout: {Stdout}", stdout);
-            return Results.Problem("The social draft scoring pipeline did not produce output.");
+            logger.LogWarning(ex, "Falling back to built-in donation social scorer because Python execution is unavailable.");
+            return Results.Json(BuildDonationFallbackScore(rows, request.Payload));
         }
-
-        var node = JsonNode.Parse(await File.ReadAllTextAsync(outputPath));
-        return Results.Json(node);
     }
     catch (Exception ex)
     {
@@ -1560,50 +1541,31 @@ app.MapPost("/api/ml/social/community/score", async (
 
         await File.WriteAllTextAsync(postsInputPath, JsonSerializer.Serialize(rows));
         await File.WriteAllTextAsync(payloadInputPath, JsonSerializer.Serialize(request.Payload));
-
-        var process = new Process
+        try
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "python3",
-                WorkingDirectory = repoRoot,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            },
-        };
-        process.StartInfo.ArgumentList.Add(scriptPath);
-        process.StartInfo.ArgumentList.Add("--posts-input");
-        process.StartInfo.ArgumentList.Add(postsInputPath);
-        process.StartInfo.ArgumentList.Add("--payload-input");
-        process.StartInfo.ArgumentList.Add(payloadInputPath);
-        process.StartInfo.ArgumentList.Add("--output");
-        process.StartInfo.ArgumentList.Add(outputPath);
-        process.StartInfo.ArgumentList.Add("--artifact-dir");
-        process.StartInfo.ArgumentList.Add(artifactDir);
-
-        process.Start();
-        var stdoutTask = process.StandardOutput.ReadToEndAsync();
-        var stderrTask = process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
-
-        if (process.ExitCode != 0)
-        {
-            logger.LogError("Community scoring pipeline failed. stdout: {Stdout} stderr: {Stderr}", stdout, stderr);
-            return Results.Problem("The community draft scoring pipeline failed to run.");
+            var node = await RunPythonJsonScriptAsync(
+                repoRoot,
+                scriptPath,
+                [
+                    "--posts-input",
+                    postsInputPath,
+                    "--payload-input",
+                    payloadInputPath,
+                    "--output",
+                    outputPath,
+                    "--artifact-dir",
+                    artifactDir,
+                ],
+                outputPath,
+                logger,
+                "Community scoring pipeline");
+            return Results.Json(node);
         }
-
-        if (!File.Exists(outputPath))
+        catch (Exception ex)
         {
-            logger.LogError("Community scoring pipeline finished without producing an output file. stdout: {Stdout}", stdout);
-            return Results.Problem("The community draft scoring pipeline did not produce output.");
+            logger.LogWarning(ex, "Falling back to built-in community social scorer because Python execution is unavailable.");
+            return Results.Json(BuildCommunityFallbackScore(rows, request.Payload));
         }
-
-        var node = JsonNode.Parse(await File.ReadAllTextAsync(outputPath));
-        return Results.Json(node);
     }
     catch (Exception ex)
     {
@@ -2026,6 +1988,444 @@ static async Task<Dictionary<string, List<Dictionary<string, object?>>>> Resolve
         ["safehouse_monthly_metrics"] = safehouseMetrics,
         ["donation_allocations"] = allocations,
         ["donations"] = donations,
+    };
+}
+
+static async Task<JsonNode> RunPythonJsonScriptAsync(
+    string workingDirectory,
+    string scriptPath,
+    IEnumerable<string> arguments,
+    string outputPath,
+    ILogger logger,
+    string taskLabel)
+{
+    var candidates = ResolvePythonCandidates();
+    var failures = new List<string>();
+
+    foreach (var candidate in candidates)
+    {
+        try
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = candidate,
+                    WorkingDirectory = workingDirectory,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                },
+            };
+
+            process.StartInfo.ArgumentList.Add(scriptPath);
+            foreach (var argument in arguments)
+            {
+                process.StartInfo.ArgumentList.Add(argument);
+            }
+
+            process.Start();
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
+
+            if (process.ExitCode != 0)
+            {
+                failures.Add($"{candidate}: exit {process.ExitCode}; stderr={stderr}");
+                logger.LogWarning("{TaskLabel} failed with {Executable}. stdout: {Stdout} stderr: {Stderr}", taskLabel, candidate, stdout, stderr);
+                continue;
+            }
+
+            if (!File.Exists(outputPath))
+            {
+                failures.Add($"{candidate}: no output file");
+                logger.LogWarning("{TaskLabel} finished with {Executable} but did not produce {OutputPath}. stdout: {Stdout}", taskLabel, candidate, outputPath, stdout);
+                continue;
+            }
+
+            return JsonNode.Parse(await File.ReadAllTextAsync(outputPath))
+                ?? throw new InvalidOperationException($"{taskLabel} produced empty JSON output.");
+        }
+        catch (Exception ex)
+        {
+            failures.Add($"{candidate}: {ex.Message}");
+        }
+    }
+
+    throw new InvalidOperationException($"{taskLabel} could not start a usable Python runtime. Attempts: {string.Join(" | ", failures)}");
+}
+
+static string[] ResolvePythonCandidates()
+{
+    var configured =
+        Environment.GetEnvironmentVariable("PYTHON_EXECUTABLE")
+        ?? Environment.GetEnvironmentVariable("PYTHON");
+    if (!string.IsNullOrWhiteSpace(configured))
+    {
+        return [configured];
+    }
+
+    if (OperatingSystem.IsWindows())
+    {
+        return ["python", "py", "python3"];
+    }
+
+    return ["python3", "python"];
+}
+
+static Dictionary<string, object?> BuildDonationFallbackScore(
+    List<Dictionary<string, object?>> rows,
+    Dictionary<string, object?> payload)
+{
+    var globalReferralRate = Average(rows, row => ToNumber(row, "donation_referrals") > 0 ? 1d : 0d);
+    var globalReferralCount = Average(rows, row => ToNumber(row, "donation_referrals"));
+    var globalDonationValue = Average(rows, row => ToNumber(row, "estimated_donation_value_php"));
+
+    var predictedReferralProbability = ComputeDonationMetric(
+        rows,
+        payload,
+        row => ToNumber(row, "donation_referrals") > 0 ? 1d : 0d,
+        globalReferralRate);
+    var predictedReferralCount = ComputeDonationMetric(rows, payload, row => ToNumber(row, "donation_referrals"), globalReferralCount);
+    var predictedDonationValue = ComputeDonationMetric(rows, payload, row => ToNumber(row, "estimated_donation_value_php"), globalDonationValue);
+
+    var selectedPlatform = NormalizeCategory(GetPayloadString(payload, "platform"));
+    var selectedPlatformMedia = rows
+        .Where(row => NormalizeCategory(GetValue(row, "platform")) == selectedPlatform)
+        .GroupBy(row => NormalizeCategory(GetValue(row, "media_type")))
+        .Select(group => new Dictionary<string, object?>
+        {
+            ["mediaType"] = group.Key,
+            ["posts"] = group.Count(),
+            ["referralRate"] = SafeRound(group.Average(row => ToNumber(row, "donation_referrals") > 0 ? 1d : 0d), 4),
+            ["avgDonationValuePhp"] = SafeRound(group.Average(row => ToNumber(row, "estimated_donation_value_php")), 2),
+            ["stabilityFlag"] = StabilityFlag(group.Count()),
+        })
+        .OrderByDescending(row => ToNumber(row, "referralRate"))
+        .ThenByDescending(row => ToNumber(row, "avgDonationValuePhp"))
+        .ToList();
+
+    return new Dictionary<string, object?>
+    {
+        ["prediction"] = new Dictionary<string, object?>
+        {
+            ["predictedReferralProbability"] = SafeRound(Clamp(predictedReferralProbability, 0, 1), 4),
+            ["predictedReferralCount"] = SafeRound(Math.Max(predictedReferralCount, 0), 2),
+            ["predictedDonationValuePhp"] = SafeRound(Math.Max(predictedDonationValue, 0), 2),
+            ["likelyReferralDriver"] = predictedReferralProbability >= 0.55,
+        },
+        ["selectedPlatform"] = selectedPlatform,
+        ["selectedPlatformMedia"] = selectedPlatformMedia,
+    };
+}
+
+static double ComputeDonationMetric(
+    List<Dictionary<string, object?>> rows,
+    Dictionary<string, object?> payload,
+    Func<Dictionary<string, object?>, double> selector,
+    double globalAverage)
+{
+    var specs = new (string PayloadKey, string RowKey, Func<string?, string> Normalize, double Weight)[]
+    {
+        ("platform", "platform", NormalizeCategory, 0.25),
+        ("media_type", "media_type", NormalizeCategory, 0.2),
+        ("post_type", "post_type", NormalizeCategory, 0.18),
+        ("has_call_to_action", "has_call_to_action", NormalizeYesNo, 0.1),
+        ("features_resident_story", "features_resident_story", NormalizeYesNo, 0.1),
+        ("sentiment_tone", "sentiment_tone", NormalizeCategory, 0.07),
+        ("content_topic", "content_topic", NormalizeCategory, 0.05),
+        ("is_boosted", "is_boosted", NormalizeYesNo, 0.05),
+    };
+
+    var prediction = globalAverage;
+    foreach (var spec in specs)
+    {
+        var payloadValue = spec.Normalize(GetPayloadString(payload, spec.PayloadKey));
+        if (payloadValue == "Unknown")
+        {
+            continue;
+        }
+
+        var matches = rows.Where(row => spec.Normalize(GetValue(row, spec.RowKey)) == payloadValue).ToList();
+        if (matches.Count == 0)
+        {
+            continue;
+        }
+
+        var average = matches.Average(selector);
+        var confidence = Math.Min(matches.Count / 12d, 1d);
+        prediction += (average - globalAverage) * spec.Weight * confidence;
+    }
+
+    return prediction;
+}
+
+static Dictionary<string, object?> BuildCommunityFallbackScore(
+    List<Dictionary<string, object?>> rows,
+    Dictionary<string, object?> payload)
+{
+    var communityRows = BuildCommunityFallbackRows(rows);
+    var globalReachScore = Average(communityRows, row => ToNumber(row, "community_reach_score"));
+    var globalCommunityReferralRate = Average(communityRows, row => ToNumber(row, "likely_community_referral"));
+    var globalShareRate = Average(communityRows, row => ToNumber(row, "share_rate"));
+
+    var predictedReachScore = ComputeCommunityMetric(
+        communityRows,
+        payload,
+        row => ToNumber(row, "community_reach_score"),
+        globalReachScore);
+    var predictedCommunityReferralRate = ComputeCommunityMetric(
+        communityRows,
+        payload,
+        row => ToNumber(row, "likely_community_referral"),
+        globalCommunityReferralRate);
+    var predictedShareRate = ComputeCommunityMetric(
+        communityRows,
+        payload,
+        row => ToNumber(row, "share_rate"),
+        globalShareRate);
+
+    var medianReachScore = Median(communityRows.Select(row => ToNumber(row, "community_reach_score")).ToList());
+    var selectedPlatform = NormalizeCategory(GetPayloadString(payload, "platform"));
+    var selectedPlatformMedia = communityRows
+        .Where(row => NormalizeCategory(GetValue(row, "platform")) == selectedPlatform)
+        .GroupBy(row => NormalizeCategory(GetValue(row, "media_type")))
+        .Select(group => new Dictionary<string, object?>
+        {
+            ["mediaType"] = group.Key,
+            ["posts"] = group.Count(),
+            ["avgCommunityReachScore"] = SafeRound(group.Average(row => ToNumber(row, "community_reach_score")), 4),
+            ["likelyCommunityReferralRate"] = SafeRound(group.Average(row => ToNumber(row, "likely_community_referral")), 4),
+            ["avgShareRate"] = SafeRound(group.Average(row => ToNumber(row, "share_rate")), 4),
+            ["stabilityFlag"] = StabilityFlag(group.Count()),
+        })
+        .OrderByDescending(row => ToNumber(row, "avgCommunityReachScore"))
+        .ThenByDescending(row => ToNumber(row, "likelyCommunityReferralRate"))
+        .ToList();
+
+    return new Dictionary<string, object?>
+    {
+        ["prediction"] = new Dictionary<string, object?>
+        {
+            ["predictedCommunityReachScore"] = SafeRound(Clamp(predictedReachScore, 0, 1), 4),
+            ["predictedCommunityReferralProbability"] = SafeRound(Clamp(predictedCommunityReferralRate, 0, 1), 4),
+            ["predictedShareRate"] = SafeRound(Math.Max(predictedShareRate, 0), 4),
+            ["likelyAwarenessDriver"] = predictedReachScore >= medianReachScore,
+        },
+        ["selectedPlatform"] = selectedPlatform,
+        ["selectedPlatformMedia"] = selectedPlatformMedia,
+    };
+}
+
+static double ComputeCommunityMetric(
+    List<Dictionary<string, object?>> rows,
+    Dictionary<string, object?> payload,
+    Func<Dictionary<string, object?>, double> selector,
+    double globalAverage)
+{
+    var specs = new (string PayloadKey, string RowKey, Func<string?, string> Normalize, double Weight)[]
+    {
+        ("platform", "platform", NormalizeCategory, 0.22),
+        ("media_type", "media_type", NormalizeCategory, 0.2),
+        ("post_type", "post_type", NormalizeCategory, 0.16),
+        ("has_call_to_action", "has_call_to_action", NormalizeYesNo, 0.1),
+        ("features_resident_story", "features_resident_story", NormalizeYesNo, 0.1),
+        ("sentiment_tone", "sentiment_tone", NormalizeCategory, 0.08),
+        ("content_topic", "content_topic", NormalizeCategory, 0.07),
+        ("is_boosted", "is_boosted", NormalizeYesNo, 0.04),
+        ("day_of_week", "day_of_week", NormalizeCategory, 0.03),
+    };
+
+    var prediction = globalAverage;
+    foreach (var spec in specs)
+    {
+        var payloadValue = spec.Normalize(GetPayloadString(payload, spec.PayloadKey));
+        if (payloadValue == "Unknown")
+        {
+            continue;
+        }
+
+        var matches = rows.Where(row => spec.Normalize(GetValue(row, spec.RowKey)) == payloadValue).ToList();
+        if (matches.Count == 0)
+        {
+            continue;
+        }
+
+        var average = matches.Average(selector);
+        var confidence = Math.Min(matches.Count / 12d, 1d);
+        prediction += (average - globalAverage) * spec.Weight * confidence;
+    }
+
+    return prediction;
+}
+
+static List<Dictionary<string, object?>> BuildCommunityFallbackRows(List<Dictionary<string, object?>> rows)
+{
+    var reachValues = rows.Select(row => ToNumber(row, "reach")).ToList();
+    var sharesValues = rows.Select(row => ToNumber(row, "shares")).ToList();
+    var savesValues = rows.Select(row => ToNumber(row, "saves")).ToList();
+    var forwardsValues = rows.Select(row => ToNumber(row, "forwards")).ToList();
+    var clicksValues = rows.Select(row => ToNumber(row, "click_throughs")).ToList();
+
+    var reachMin = reachValues.Count > 0 ? reachValues.Min() : 0;
+    var reachMax = reachValues.Count > 0 ? reachValues.Max() : 0;
+    var sharesMin = sharesValues.Count > 0 ? sharesValues.Min() : 0;
+    var sharesMax = sharesValues.Count > 0 ? sharesValues.Max() : 0;
+    var savesMin = savesValues.Count > 0 ? savesValues.Min() : 0;
+    var savesMax = savesValues.Count > 0 ? savesValues.Max() : 0;
+    var forwardsMin = forwardsValues.Count > 0 ? forwardsValues.Min() : 0;
+    var forwardsMax = forwardsValues.Count > 0 ? forwardsValues.Max() : 0;
+    var clicksMin = clicksValues.Count > 0 ? clicksValues.Min() : 0;
+    var clicksMax = clicksValues.Count > 0 ? clicksValues.Max() : 0;
+    var shareMedian = Median(sharesValues);
+    var clicksMedian = Median(clicksValues);
+
+    return rows.Select(row =>
+    {
+        var reach = ToNumber(row, "reach");
+        var shares = ToNumber(row, "shares");
+        var saves = ToNumber(row, "saves");
+        var forwards = ToNumber(row, "forwards");
+        var clicks = ToNumber(row, "click_throughs");
+        var score =
+            0.30 * Scale(reach, reachMin, reachMax) +
+            0.25 * Scale(shares, sharesMin, sharesMax) +
+            0.20 * Scale(saves, savesMin, savesMax) +
+            0.15 * Scale(forwards, forwardsMin, forwardsMax) +
+            0.10 * Scale(clicks, clicksMin, clicksMax);
+
+        var copy = new Dictionary<string, object?>(row)
+        {
+            ["community_reach_score"] = score,
+            ["likely_community_referral"] = shares >= shareMedian && clicks >= clicksMedian ? 1d : 0d,
+            ["share_rate"] = reach > 0 ? shares / reach : 0d,
+        };
+        return copy;
+    }).ToList();
+}
+
+static double Scale(double value, double min, double max)
+{
+    if (max <= min)
+    {
+        return 0;
+    }
+
+    return (value - min) / (max - min);
+}
+
+static string? GetPayloadString(Dictionary<string, object?> payload, string key)
+{
+    return payload.TryGetValue(key, out var value) ? GetValueAsString(value) : null;
+}
+
+static string? GetValue(Dictionary<string, object?> row, string key)
+{
+    return row.TryGetValue(key, out var value) ? GetValueAsString(value) : null;
+}
+
+static string? GetValueAsString(object? value)
+{
+    return value switch
+    {
+        null => null,
+        JsonElement json when json.ValueKind == JsonValueKind.String => json.GetString(),
+        JsonElement json when json.ValueKind == JsonValueKind.True => "true",
+        JsonElement json when json.ValueKind == JsonValueKind.False => "false",
+        JsonElement json when json.ValueKind == JsonValueKind.Number => json.ToString(),
+        _ => value.ToString(),
+    };
+}
+
+static double ToNumber(Dictionary<string, object?> row, string key)
+{
+    if (!row.TryGetValue(key, out var value))
+    {
+        return 0;
+    }
+
+    return value switch
+    {
+        null => 0,
+        double doubleValue => doubleValue,
+        float floatValue => floatValue,
+        int intValue => intValue,
+        long longValue => longValue,
+        decimal decimalValue => (double)decimalValue,
+        JsonElement json when json.ValueKind == JsonValueKind.Number && json.TryGetDouble(out var number) => number,
+        JsonElement json when json.ValueKind == JsonValueKind.String && double.TryParse(json.GetString(), out var number) => number,
+        _ when double.TryParse(value.ToString(), out var number) => number,
+        _ => 0,
+    };
+}
+
+static string NormalizeCategory(string? value)
+{
+    return string.IsNullOrWhiteSpace(value) ? "Unknown" : value.Trim();
+}
+
+static string NormalizeYesNo(string? value)
+{
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        return "Unknown";
+    }
+
+    return value.Trim().ToLowerInvariant() switch
+    {
+        "true" => "Yes",
+        "false" => "No",
+        "yes" => "Yes",
+        "no" => "No",
+        _ => value.Trim(),
+    };
+}
+
+static double Average(
+    IEnumerable<Dictionary<string, object?>> rows,
+    Func<Dictionary<string, object?>, double> selector)
+{
+    var values = rows.Select(selector).ToList();
+    return values.Count == 0 ? 0 : values.Average();
+}
+
+static double Median(List<double> values)
+{
+    if (values.Count == 0)
+    {
+        return 0;
+    }
+
+    var ordered = values.OrderBy(value => value).ToList();
+    var middle = ordered.Count / 2;
+    if (ordered.Count % 2 == 0)
+    {
+        return (ordered[middle - 1] + ordered[middle]) / 2d;
+    }
+
+    return ordered[middle];
+}
+
+static double SafeRound(double value, int digits)
+{
+    return double.IsFinite(value) ? Math.Round(value, digits) : 0;
+}
+
+static double Clamp(double value, double min, double max)
+{
+    return Math.Min(Math.Max(value, min), max);
+}
+
+static string StabilityFlag(int posts)
+{
+    return posts switch
+    {
+        >= 12 => "Trusted default",
+        >= 8 => "Promising, low sample",
+        _ => "Too few posts",
     };
 }
 
