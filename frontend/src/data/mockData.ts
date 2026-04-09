@@ -39,10 +39,10 @@ export const donationsOverTime = [
 ];
 
 export const donationTypes = [
-  { name: "One-time", value: 45, color: "hsl(195, 66%, 32%)" },
-  { name: "Monthly", value: 30, color: "hsl(11, 52%, 52%)" },
-  { name: "Annual", value: 15, color: "hsl(282, 28%, 72%)" },
-  { name: "In-kind", value: 10, color: "hsl(145, 21%, 58%)" },
+  { name: "One-time", value: 45, color: "#5A8FA0" },
+  { name: "Monthly", value: 30, color: "#C17A3A" },
+  { name: "Annual", value: 15, color: "#9B7FC0" },
+  { name: "In-kind", value: 10, color: "#4A7A52" },
 ];
 
 export const safehouseImpact = [
@@ -55,10 +55,10 @@ export const safehouseImpact = [
 ];
 
 export const residentStatusByHouse = [
-  { name: "Active", value: 45, color: "hsl(195, 66%, 32%)" },
-  { name: "In Rehab", value: 25, color: "hsl(11, 52%, 52%)" },
-  { name: "Reintegrated", value: 20, color: "hsl(282, 28%, 72%)" },
-  { name: "Transferred", value: 10, color: "hsl(180, 38%, 64%)" },
+  { name: "Active", value: 45, color: "#5A8FA0" },
+  { name: "In Rehab", value: 25, color: "#C17A3A" },
+  { name: "Reintegrated", value: 20, color: "#9B7FC0" },
+  { name: "Transferred", value: 10, color: "#4A7A52" },
 ];
 
 export const recentDonations = [

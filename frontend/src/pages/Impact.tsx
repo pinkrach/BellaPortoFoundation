@@ -5,7 +5,6 @@ import { Heart, MapPin, DollarSign } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Link } from "react-router-dom";
-import heroImage from "@/assets/hero/portofino-watercolor-hero.png";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -20,37 +19,6 @@ const Impact = () => {
 
   return (
     <PublicLayout>
-      {/* Header */}
-      <section className="relative overflow-hidden py-20 md:py-28">
-        <div className="absolute inset-0 z-0">
-          <img
-            src={heroImage}
-            alt=""
-            aria-hidden="true"
-            className="h-full w-full object-cover object-[35%_100%] sm:object-bottom"
-          />
-        </div>
-        <div className="absolute inset-0 z-[1] bg-[hsl(205_34%_16%_/_0.55)]" aria-hidden="true" />
-        <div className="container relative z-10 mx-auto px-4">
-          <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mx-auto max-w-4xl text-center">
-            <h1 className="font-heading text-4xl font-semibold tracking-tight text-white md:text-6xl">
-              Our Impact
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/90 md:text-xl">
-              A clear view into the work your generosity sustains—measured with care, shared with respect.
-            </p>
-            <div className="mt-8">
-              <Link
-                to="/signup"
-                className="inline-flex items-center justify-center rounded-full bg-[hsl(278,26%,76%)] px-10 py-4 text-lg font-semibold text-white shadow-lg transition hover:scale-[1.02] hover:bg-[hsl(278,26%,70%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
-              >
-                Donate Now
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
       <div className="container mx-auto px-4 py-10 md:py-14">
         {/* Fundraising Progress */}
         <motion.div
@@ -67,11 +35,11 @@ const Impact = () => {
               initial={{ width: 0 }}
               animate={{ width: `${progressPercent}%` }}
               transition={{ duration: 1, delay: 0.3 }}
-              className="h-full rounded-full bg-[#6E8F6B]"
+              className="h-full rounded-full bg-[#4A7A52]"
             />
           </div>
           <p className="mt-4 text-sm font-normal text-[hsl(200_12%_40%)]">
-            <span className="font-semibold text-[#6E8F6B]">{money.format(yearRaised)}</span> raised this year of{" "}
+            <span className="font-semibold text-[#4A7A52]">{money.format(yearRaised)}</span> raised this year of{" "}
             <span className="font-semibold text-[hsl(200_22%_22%)]">{money.format(YEARLY_GOAL)}</span> goal
           </p>
         </motion.div>
@@ -81,7 +49,7 @@ const Impact = () => {
           {[
             { icon: Heart, label: "Girls Helped", value: impactStats.girlsServed, color: "text-[hsl(24_26%_58%)]" },
             { icon: MapPin, label: "Locations", value: impactStats.safehouses, color: "text-[hsl(205_22%_40%)]" },
-            { icon: DollarSign, label: "Raised This Year", value: money.format(yearRaised), color: "text-[#6E8F6B]" },
+            { icon: DollarSign, label: "Raised This Year", value: money.format(yearRaised), color: "text-[#4A7A52]" },
           ].map((kpi, i) => (
             <motion.div
               key={kpi.label}
@@ -113,7 +81,7 @@ const Impact = () => {
                 <XAxis dataKey="month" stroke="hsl(205, 20%, 40%)" fontSize={12} />
                 <YAxis stroke="hsl(205, 20%, 40%)" fontSize={12} />
                 <Tooltip />
-                <Line type="monotone" dataKey="amount" stroke="hsl(195, 66%, 32%)" strokeWidth={3} dot={{ fill: "hsl(195, 66%, 32%)" }} />
+                <Line type="monotone" dataKey="amount" stroke="#5A8FA0" strokeWidth={3} dot={{ fill: "#5A8FA0" }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -143,9 +111,9 @@ const Impact = () => {
               <YAxis stroke="hsl(205, 20%, 40%)" fontSize={12} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="A" fill="hsl(195, 66%, 32%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="B" fill="hsl(11, 52%, 52%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="C" fill="hsl(282, 28%, 72%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="A" fill="#5A8FA0" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="B" fill="#C17A3A" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="C" fill="#9B7FC0" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

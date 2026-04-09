@@ -114,7 +114,7 @@ const Index = () => {
                 <Link
                   to={donateLink}
                   title="Create an account to donate"
-                  className="inline-flex items-center gap-2 rounded-full bg-[hsl(278,26%,76%)] px-8 py-3 text-base font-semibold text-white shadow-lg transition hover:scale-105 hover:bg-[hsl(278,26%,70%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#9B7FC0] px-8 py-3 text-base font-semibold text-white shadow-lg transition hover:scale-105 hover:bg-[#8a6db5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
                 >
                   Help a girl heal <ArrowRight className="h-4 w-4" />
                 </Link>
@@ -319,7 +319,7 @@ const Index = () => {
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(200_12%_42%)]">
                         Raised this year
                       </p>
-                      <p className="mt-2 font-heading text-2xl font-medium tracking-tight text-[#6E8F6B] md:text-3xl tabular-nums">
+                      <p className="mt-2 font-heading text-2xl font-medium tracking-tight text-[#4A7A52] md:text-3xl tabular-nums">
                         {money.format(yearlyRaised)}
                       </p>
                     </div>
@@ -335,7 +335,7 @@ const Index = () => {
                       className="h-3 w-full overflow-hidden rounded-full bg-muted/40"
                     >
                       <div
-                        className="h-full rounded-full bg-[#6E8F6B] transition-[width] duration-1000 ease-in-out"
+                        className="h-full rounded-full bg-[#4A7A52] transition-[width] duration-1000 ease-in-out"
                         style={{ width: `${Math.round(progress * 100)}%` }}
                       />
                     </div>
@@ -356,7 +356,7 @@ const Index = () => {
                   <Link
                     to={donateLink}
                     title="Create an account to donate"
-                    className="inline-flex items-center justify-center rounded-full bg-[#6E8F6B] px-7 py-2.5 text-sm font-semibold text-[hsl(40_44%_99%)] shadow-md shadow-[hsl(150_24%_40%_/_0.28)] transition hover:brightness-110 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6E8F6B]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(40_46%_97%)]"
+                    className="inline-flex items-center justify-center rounded-full bg-[#C06080] px-7 py-2.5 text-sm font-semibold text-[#F5F0E8] shadow-md shadow-[hsl(340_30%_40%_/_0.28)] transition hover:brightness-110 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C06080]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F5F0E8]"
                   >
                     Donate today
                   </Link>

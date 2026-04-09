@@ -30,11 +30,11 @@ export type AdminDashboardData = {
 }
 
 const FALLBACK_COLORS = [
-  'hsl(195, 66%, 32%)',
-  'hsl(11, 52%, 52%)',
-  'hsl(282, 28%, 72%)',
-  'hsl(180, 38%, 64%)',
-  'hsl(145, 21%, 58%)',
+  '#5A8FA0',
+  '#C17A3A',
+  '#9B7FC0',
+  '#4A7A52',
+  '#C06080',
 ]
 
 function asMoney(n: unknown) {

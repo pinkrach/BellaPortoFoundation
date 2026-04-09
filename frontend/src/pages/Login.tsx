@@ -272,7 +272,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={mfaVerifying || mfaCode.length !== 6}
-                className="w-full bg-[#6E8F6B] text-[hsl(40_44%_99%)] font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none inline-flex items-center justify-center gap-2"
+                className="w-full bg-[#C06080] text-[#F5F0E8] font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none inline-flex items-center justify-center gap-2"
               >
                 {mfaVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {mfaVerifying ? "Verifying…" : "Verify"}
@@ -318,7 +318,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-[#6E8F6B] text-[hsl(40_44%_99%)] font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none"
+                className="w-full bg-[#C06080] text-[#F5F0E8] font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none"
               >
                 {isSubmitting ? "Signing in..." : "Sign In"}
               </button>

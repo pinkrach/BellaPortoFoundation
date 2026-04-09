@@ -276,7 +276,7 @@ const DonorDashboard = () => {
           <button
             type="button"
             onClick={() => setDonationModalOpen(true)}
-            className={`mt-2 inline-flex w-full items-center justify-center rounded-lg bg-[#6E8F6B] text-[hsl(40_44%_99%)] shadow-md transition hover:brightness-110 ${
+            className={`mt-2 inline-flex w-full items-center justify-center rounded-lg bg-[#C06080] text-[#F5F0E8] shadow-md transition hover:brightness-110 ${
               sidebarCollapsed ? "px-2 py-3" : "px-3 py-2.5"
             } text-sm font-semibold`}
             aria-label="Make a Donation"

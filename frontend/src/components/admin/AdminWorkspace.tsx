@@ -1041,11 +1041,11 @@ function KpiCard({
 type FounderTone = "lavender" | "coastal" | "sand" | "terracotta" | "sage";
 
 const FOUNDER_TONE: Record<FounderTone, { surface: string; ink: string }> = {
-  lavender: { surface: "bg-[hsl(278_26%_76%/0.08)]", ink: "text-[hsl(278_22%_38%)]" },
-  coastal: { surface: "bg-[hsl(188_46%_34%/0.07)]", ink: "text-[hsl(188_40%_30%)]" },
-  sand: { surface: "bg-[hsl(32_36%_88%/0.55)]", ink: "text-[hsl(24_26%_36%)]" },
-  terracotta: { surface: "bg-[hsl(28_42%_90%/0.65)]", ink: "text-[hsl(22_30%_38%)]" },
-  sage: { surface: "bg-[hsl(150_24%_48%/0.08)]", ink: "text-[hsl(150_22%_32%)]" },
+  lavender: { surface: "bg-[#9B7FC0]/10", ink: "text-[#6b4d9e]" },
+  coastal: { surface: "bg-[#5A8FA0]/10", ink: "text-[#3d6b7a]" },
+  sand: { surface: "bg-[#EDE5D8]/60", ink: "text-[#1C2B35]" },
+  terracotta: { surface: "bg-[#C17A3A]/10", ink: "text-[#8a4f1a]" },
+  sage: { surface: "bg-[#4A7A52]/10", ink: "text-[#2d5233]" },
 };
 
 function FounderCommandTile({
@@ -5178,7 +5178,7 @@ export function AdminWorkspace() {
           {!workspaceQuery.isPending ? (
             <div className="relative overflow-hidden rounded-3xl">
               <div
-                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[hsl(278_26%_76%/0.09)] via-transparent to-[hsl(188_46%_34%/0.06)]"
+                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#9B7FC0]/10 via-transparent to-[#5A8FA0]/07"
                 aria-hidden
               />
               <div className="relative space-y-10 px-1 py-2 sm:px-2">

@@ -6,10 +6,10 @@ import {
   Bell,
   LogOut,
   Menu,
-  Anchor,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import houseLogo from "@/assets/icons/houseIcon.svg";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -107,7 +107,7 @@ export const AdminLayout = ({
             className={`flex min-w-0 items-center gap-3 rounded-lg transition-opacity hover:opacity-90 ${sidebarCollapsed ? "justify-center" : ""}`}
             aria-label="Go to home page"
           >
-            <Anchor className="h-6 w-6 shrink-0 text-accent" />
+            <img src={houseLogo} alt="" aria-hidden="true" className="h-7 w-7 shrink-0 object-contain brightness-0 invert" />
             <span className={`font-heading text-lg font-bold ${sidebarCollapsed ? "hidden" : "truncate"}`}>Bella Bay</span>
           </Link>
 

@@ -223,10 +223,10 @@ export const Navbar = () => {
                       initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
-                      className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-80 overflow-hidden rounded-[28px] border border-[#1E2933]/10 bg-[#F5EFE6] shadow-[0_18px_40px_rgba(0,0,0,0.16)]"
+                      className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-80 overflow-hidden rounded-[28px] border border-[#1E2933]/10 bg-[#F5F0E8] shadow-[0_18px_40px_rgba(0,0,0,0.16)]"
                     >
                       <div className="flex items-center gap-4 border-b border-[#1E2933]/10 px-5 py-5">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#1f7a9a] text-2xl font-bold text-white">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#5A8FA0] text-2xl font-bold text-white">
                           {initials}
                         </div>
                         <div className="min-w-0">
@@ -242,7 +242,7 @@ export const Navbar = () => {
                             to={item.to}
                             className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-[#1E2933] transition-colors hover:bg-white/70"
                           >
-                            {item.icon ? <item.icon className="h-4 w-4 text-[#1f7a9a]" /> : null}
+                            {item.icon ? <item.icon className="h-4 w-4 text-[#5A8FA0]" /> : null}
                             <span>{item.label}</span>
                           </Link>
                         ))}
@@ -252,7 +252,7 @@ export const Navbar = () => {
                         <button
                           type="button"
                           onClick={handleLogout}
-                          className="flex w-full items-center gap-3 rounded-2xl bg-[#87c9cd] px-4 py-3 text-left text-sm font-semibold text-[#ff4a4a] transition-colors hover:bg-[#7cc0c5]"
+                          className="flex w-full items-center gap-3 rounded-2xl bg-[#EDE5D8] px-4 py-3 text-left text-sm font-semibold text-[#b03a3a] transition-colors hover:bg-[#ddd4c4]"
                         >
                           <LogOut className="h-4 w-4" />
                           <span>Sign out</span>

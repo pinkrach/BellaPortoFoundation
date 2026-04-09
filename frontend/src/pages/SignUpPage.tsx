@@ -172,7 +172,7 @@ const SignUpPage = () => {
         </span>
       </Link>
 
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+      <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
         <div className="pointer-events-none absolute top-10 right-10 hidden text-accent/20 md:block">
           <Sailboat className="h-32 w-32 rotate-12" />
         </div>
@@ -299,7 +299,7 @@ const SignUpPage = () => {
           <button
             type="submit"
             disabled={isSubmitting || !captchaVal || !passwordMeetsRequirements}
-            className="w-full rounded-full bg-[#6E8F6B] py-3 font-semibold text-[hsl(40_44%_99%)] shadow-warm transition-transform hover:scale-[1.02] disabled:pointer-events-none disabled:opacity-60"
+            className="w-full rounded-full bg-[#C06080] py-3 font-semibold text-[#F5F0E8] shadow-warm transition-transform hover:scale-[1.02] disabled:pointer-events-none disabled:opacity-60"
           >
             {isSubmitting ? "Creating account..." : "Sign Up"}
           </button>
