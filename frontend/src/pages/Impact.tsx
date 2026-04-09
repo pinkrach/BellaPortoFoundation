@@ -19,6 +19,33 @@ const Impact = () => {
 
   return (
     <PublicLayout>
+      {/* Hero header — plain background, no image */}
+      <section className="bg-background py-20 md:py-28">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mx-auto max-w-4xl text-center"
+          >
+            <h1 className="font-heading text-4xl font-semibold tracking-tight text-[hsl(200_26%_18%)] md:text-6xl">
+              Our Impact
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[hsl(200_14%_38%)] md:text-xl">
+              A clear view into the work your generosity sustains—measured with care, shared with respect.
+            </p>
+            <div className="mt-8">
+              <Link
+                to="/donate"
+                className="inline-block rounded-full bg-[#C06080] px-8 py-3 font-semibold text-[#F5F0E8] shadow-warm transition-transform hover:scale-[1.02]"
+              >
+                Donate Now
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       <div className="container mx-auto px-4 py-10 md:py-14">
         {/* Fundraising Progress */}
         <motion.div

@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   BarChart3,
+  CheckCircle2,
   Building2,
   Bed,
   CalendarDays,
@@ -26,6 +27,7 @@ import {
   Search,
   Settings,
   Share2,
+  Shield,
   ShieldAlert,
   Sparkles,
   Trash2,
@@ -118,6 +120,7 @@ type Resident = {
   case_category: string | null;
   date_of_admission: string | null;
   assigned_social_worker: string | null;
+  initial_risk_level: string | null;
   current_risk_level: string | null;
   created_at: string | null;
   notes_restricted: string | null;
@@ -1151,6 +1154,8 @@ function SecondaryStatTile({
   value,
   sub,
   accentHex,
+  borderHex,
+  valueSpacing = "default",
   icon: Icon,
   to,
 }: {
@@ -1159,32 +1164,86 @@ function SecondaryStatTile({
   sub?: string;
   /** Accent is used ONLY for icon + label text. Background stays Harbor Sand. */
   accentHex: string;
+  /** Optional highlight border (used sparingly for hierarchy). */
+  borderHex?: string;
+  /** Controls vertical spacing between label row and value block. */
+  valueSpacing?: "default" | "tight";
   icon: typeof Heart;
   to: string;
 }) {
-  const inner = (
-    <>
-      <div className="flex items-start gap-3">
-        <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: accentHex }} aria-hidden />
-        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: accentHex }}>
-          {label}
-        </span>
-      </div>
-      <p className="mt-4 font-heading text-2xl font-semibold tabular-nums tracking-tight" style={{ color: BELLA.deepBay }}>
-        {value}
-      </p>
-      {sub ? <p className="mt-1 text-sm" style={{ color: BELLA.stone }}>{sub}</p> : null}
-    </>
-  );
+  const valuePad = valueSpacing === "tight" ? "pt-3" : "pt-4";
 
   return (
     <Link
       to={to}
-      className="block rounded-2xl shadow-sm outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2"
-      style={{ backgroundColor: BELLA.sand }}
+      className="block h-full rounded-2xl shadow-sm outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2"
+      style={{
+        backgroundColor: BELLA.sand,
+        border: borderHex ? `1px solid ${borderHex}` : undefined,
+      }}
     >
-      <div className="p-5">{inner}</div>
+      <div className="h-full px-5 py-3.5">
+        <div className="flex h-full flex-col">
+          <div className="flex items-start gap-3">
+            <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: accentHex }} aria-hidden />
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: accentHex }}>
+              {label}
+            </span>
+          </div>
+          <div className={cn("mt-auto", valuePad)}>
+            <p className="font-heading text-2xl font-semibold tabular-nums tracking-tight" style={{ color: BELLA.deepBay }}>
+              {value}
+            </p>
+            {sub ? <p className="mt-1 text-sm" style={{ color: BELLA.stone }}>{sub}</p> : null}
+          </div>
+        </div>
+      </div>
     </Link>
+  );
+}
+
+function SuccessMetricTile({
+  label,
+  value,
+  subtext,
+  tooltip,
+  accentHex,
+  borderHex,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  subtext: string;
+  tooltip: string;
+  accentHex: string;
+  borderHex?: string;
+  icon: typeof Heart;
+}) {
+  return (
+    <div
+      className="rounded-2xl shadow-sm"
+      style={{
+        backgroundColor: BELLA.sand,
+        border: borderHex ? `1px solid ${borderHex}` : undefined,
+      }}
+    >
+      <div className="p-6">
+        <div className="flex items-start gap-3">
+          <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: accentHex }} aria-hidden />
+          <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: accentHex }} title={tooltip}>
+              {label}
+            </div>
+            <div className="mt-1 text-sm" style={{ color: BELLA.stone }}>
+              {subtext}
+            </div>
+          </div>
+        </div>
+        <div className="mt-5 font-heading text-4xl font-semibold tabular-nums tracking-tight" style={{ color: BELLA.deepBay }}>
+          {value}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -3026,6 +3085,44 @@ export function AdminWorkspace() {
     workspace.visitations,
   ]);
 
+  const successMetrics = useMemo(() => {
+    const riskRank = (value: unknown): number | null => {
+      const v = String(value ?? "").trim().toLowerCase();
+      if (!v) return null;
+      if (v.startsWith("critical")) return 4;
+      if (v.startsWith("high")) return 3;
+      if (v.startsWith("medium")) return 2;
+      if (v.startsWith("low")) return 1;
+      return null;
+    };
+
+    const residentsWithRisk = workspace.residents
+      .map((r) => ({ initial: riskRank(r.initial_risk_level), current: riskRank(r.current_risk_level) }))
+      .filter((x) => x.initial != null && x.current != null);
+
+    const denom = residentsWithRisk.length;
+    const numer = residentsWithRisk.filter((x) => (x.current as number) < (x.initial as number)).length;
+    const riskReductionRatePct = denom > 0 ? Math.round((numer / denom) * 100) : null;
+
+    const activeResidents = workspace.residents.filter((r) => (r.case_status ?? "").toLowerCase() === "active");
+    const reintegrationDenom = activeResidents.length;
+    const reintegrationNumer = activeResidents.filter((r) => {
+      const s = (r.reintegration_status ?? "").trim().toLowerCase();
+      return s === "in progress" || s === "completed";
+    }).length;
+    const reintegrationProgressPct =
+      reintegrationDenom > 0 ? Math.round((reintegrationNumer / reintegrationDenom) * 100) : null;
+
+    return { riskReductionRatePct, reintegrationProgressPct };
+  }, [workspace.residents]);
+
+  const outreachConversionRatePct = useMemo(() => {
+    const denom = workspace.socialPosts.length;
+    if (denom === 0) return null;
+    const numer = workspace.socialPosts.filter((post) => toNumber(post.donation_referrals) > 0).length;
+    return Math.round((numer / denom) * 100);
+  }, [workspace.socialPosts]);
+
   const dashboardRecentDonations = useMemo(
     () =>
       [...workspace.donations]
@@ -4706,9 +4803,35 @@ export function AdminWorkspace() {
     setIncidentFormOpen(false);
   };
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    table:
+      | "residents"
+      | "supporters"
+      | "donations"
+      | "in_kind_donation_items"
+      | "donation_allocations"
+      | "safehouses"
+      | "process_recordings"
+      | "home_visitations"
+      | "education_records"
+      | "health_wellbeing_records"
+      | "intervention_plans"
+      | "incident_reports";
+    id: number;
+    label: string;
+  } | null>(null);
+
   const confirmDelete = (table: "residents" | "supporters" | "donations" | "in_kind_donation_items" | "donation_allocations" | "safehouses" | "process_recordings" | "home_visitations" | "education_records" | "health_wellbeing_records" | "intervention_plans" | "incident_reports", id: number, label: string) => {
-    if (!window.confirm(`Hard delete ${label}? This cannot be undone.`)) return;
-    deleteMutation.mutate({ table, id });
+    setPendingDelete({ table, id, label });
+    setDeleteModalOpen(true);
+  };
+
+  const performDelete = () => {
+    if (!pendingDelete) return;
+    deleteMutation.mutate({ table: pendingDelete.table, id: pendingDelete.id });
+    setDeleteModalOpen(false);
+    setPendingDelete(null);
   };
 
   const goToResidentSubview = (subtab: ResidentsSubTab, residentId: number) => {
@@ -5273,6 +5396,53 @@ export function AdminWorkspace() {
 
   return (
     <div className="space-y-6">
+      <Dialog
+        open={deleteModalOpen}
+        onOpenChange={(open) => {
+          setDeleteModalOpen(open);
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <DialogTitle className="text-left">Confirm deletion</DialogTitle>
+                <DialogDescription className="text-left">
+                  {pendingDelete
+                    ? `Delete ${pendingDelete.label}? This cannot be undone.`
+                    : "This action cannot be undone."}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => {
+                setDeleteModalOpen(false);
+                setPendingDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={performDelete}
+              disabled={!pendingDelete || deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {workspaceQuery.isError ? (
         <Card className="rounded-2xl border-destructive/30 bg-destructive/5 shadow-warm">
           <CardContent className="flex items-center gap-3 p-5 text-sm text-destructive">
@@ -5289,42 +5459,80 @@ export function AdminWorkspace() {
           ) : null}
 
           {!workspaceQuery.isPending ? (
-            <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+            <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr] xl:items-stretch">
               <div className="space-y-6">
+                {/* OKR / success metrics */}
+                <section aria-label="Success metrics" className="space-y-3">
+                  <h2
+                    className="font-heading text-sm font-semibold uppercase tracking-wider"
+                    style={{ color: BELLA.stone }}
+                  >
+                    Success metrics
+                  </h2>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <SuccessMetricTile
+                      label="Risk Reduction Rate"
+                      value={successMetrics.riskReductionRatePct != null ? `${successMetrics.riskReductionRatePct}%` : "—"}
+                      subtext="Residents safer than at intake"
+                      tooltip="Percentage of residents who are safer now than when they entered the program."
+                      accentHex={BELLA.lavender}
+                      borderHex={BELLA.lavender}
+                      icon={Shield}
+                    />
+                    <SuccessMetricTile
+                      label="Reintegration Progress"
+                      value={successMetrics.reintegrationProgressPct != null ? `${successMetrics.reintegrationProgressPct}%` : "—"}
+                      subtext="On-track toward permanent outcomes"
+                      tooltip="Percentage of active residents who are actively progressing toward a permanent, stable outcome."
+                      accentHex={BELLA.water}
+                      borderHex={BELLA.water}
+                      icon={CheckCircle2}
+                    />
+                  </div>
+                </section>
+
                 {/* Primary status row — solid approved colors only */}
-                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-                  <PrimaryStatusTile
-                    label="Active residents"
-                    value={String(founderDashboardStats.activeResidents)}
-                    icon={Heart}
-                    to="/admin?tab=residents"
-                    backgroundHex={BELLA.lavender}
-                  />
-                  <PrimaryStatusTile
-                    label="Active safe houses"
-                    value={String(founderDashboardStats.activeSafehouses)}
-                    icon={Home}
-                    to="/admin?tab=safe-houses"
-                    backgroundHex={BELLA.water}
-                  />
-                  <PrimaryStatusTile
-                    label="Unresolved incidents"
-                    value={String(founderDashboardStats.unresolvedIncidents)}
-                    icon={ShieldAlert}
-                    to="/admin?tab=residents&residentsSubTab=incidents"
-                    backgroundHex={BELLA.terracotta}
-                  />
-                  <PrimaryStatusTile
-                    label="Unallocated balance"
-                    value={formatCurrency(founderDashboardStats.unallocatedBalance)}
-                    icon={Wallet}
-                    to="/admin?tab=donations&donationsSubTab=allocations"
-                    backgroundHex={BELLA.green}
-                  />
-                </div>
+                <section aria-label="At a glance" className="space-y-3">
+                  <h2
+                    className="font-heading text-sm font-semibold uppercase tracking-wider"
+                    style={{ color: BELLA.stone }}
+                  >
+                    At a glance
+                  </h2>
+                  <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+                    <PrimaryStatusTile
+                      label="Active residents"
+                      value={String(founderDashboardStats.activeResidents)}
+                      icon={Heart}
+                      to="/admin?tab=residents"
+                      backgroundHex={BELLA.lavender}
+                    />
+                    <PrimaryStatusTile
+                      label="Active safe houses"
+                      value={String(founderDashboardStats.activeSafehouses)}
+                      icon={Home}
+                      to="/admin?tab=safe-houses"
+                      backgroundHex={BELLA.water}
+                    />
+                    <PrimaryStatusTile
+                      label="Unresolved incidents"
+                      value={String(founderDashboardStats.unresolvedIncidents)}
+                      icon={ShieldAlert}
+                      to="/admin?tab=residents&residentsSubTab=incidents"
+                      backgroundHex={BELLA.terracotta}
+                    />
+                    <PrimaryStatusTile
+                      label="Unallocated balance"
+                      value={formatCurrency(founderDashboardStats.unallocatedBalance)}
+                      icon={Wallet}
+                      to="/admin?tab=donations&donationsSubTab=allocations"
+                      backgroundHex={BELLA.green}
+                    />
+                  </div>
+                </section>
 
                 {/* Secondary */}
-                <section aria-labelledby="founder-attention-heading" className="space-y-4">
+                <section aria-labelledby="founder-attention-heading" className="space-y-3">
                   <h2
                     id="founder-attention-heading"
                     className="font-heading text-sm font-semibold uppercase tracking-wider"
@@ -5344,13 +5552,15 @@ export function AdminWorkspace() {
                     <SecondaryStatTile
                       label="Overdue actions"
                       value={String(founderDashboardStats.overdueActions)}
+                      sub="Action needed"
                       accentHex={BELLA.terracotta}
                       icon={AlertTriangle}
                       to="/admin?tab=residents&residentsSubTab=interventions"
                     />
                     <SecondaryStatTile
-                      label="Upcoming · 14 days"
+                      label="Upcoming Conferences"
                       value={String(founderDashboardStats.upcomingDeadlines14)}
+                      sub="Next 14 days"
                       accentHex={BELLA.terracotta}
                       icon={CalendarDays}
                       to="/admin?tab=residents&residentsSubTab=visitations"
@@ -5358,6 +5568,7 @@ export function AdminWorkspace() {
                     <SecondaryStatTile
                       label="Cases to review"
                       value={String(founderDashboardStats.casesRequiringReview)}
+                      sub="Decision required"
                       accentHex={BELLA.terracotta}
                       icon={ClipboardCheck}
                       to="/admin?tab=residents&residentsSubTab=interventions"
@@ -5365,80 +5576,110 @@ export function AdminWorkspace() {
                   </div>
                 </section>
 
-                {/* Funding bottom-left */}
-                <section aria-labelledby="founder-funding-heading" className="space-y-4">
-                  <h2
-                    id="founder-funding-heading"
-                    className="font-heading text-sm font-semibold uppercase tracking-wider"
-                    style={{ color: BELLA.stone }}
-                  >
-                    Funding
-                  </h2>
-                  <div className="grid gap-6 sm:grid-cols-2">
-                    <SecondaryStatTile
-                      label="Recent giving · 30 days"
-                      value={formatCurrency(founderDashboardStats.recentGiving30)}
-                      accentHex={BELLA.green}
-                      icon={HandCoins}
-                      to="/admin?tab=donations"
-                    />
+                {/* Funding + Outreach (parallel) */}
+                <section aria-label="Funding and outreach" className="space-y-3">
+                  <div className="grid gap-6 sm:grid-cols-2 sm:items-stretch">
+                    <div className="space-y-3">
+                      <h2
+                        className="font-heading text-sm font-semibold uppercase tracking-wider"
+                        style={{ color: BELLA.stone }}
+                      >
+                        Funding
+                      </h2>
+                      <SecondaryStatTile
+                        label="Recent giving · 30 days"
+                        value={formatCurrency(founderDashboardStats.recentGiving30)}
+                        sub="Last 30 days"
+                        accentHex={BELLA.green}
+                        icon={HandCoins}
+                        to="/admin?tab=donations"
+                        valueSpacing="tight"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <h2
+                        className="font-heading text-sm font-semibold uppercase tracking-wider"
+                        style={{ color: BELLA.stone }}
+                      >
+                        Outreach
+                      </h2>
+                      <SecondaryStatTile
+                        label="Outreach conversion"
+                        value={outreachConversionRatePct != null ? `${outreachConversionRatePct}%` : "—"}
+                        sub="Posts that drive donations"
+                        accentHex={BELLA.terracotta}
+                        icon={Megaphone}
+                        to="/admin?tab=outreach"
+                        valueSpacing="tight"
+                      />
+                    </div>
                   </div>
                 </section>
               </div>
 
               {/* Right column — recent donations list */}
-              <aside className="rounded-2xl shadow-sm" style={{ backgroundColor: BELLA.sand }}>
-                <div className="p-6">
-                  <div className="flex items-center gap-3">
-                    <HandCoins className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: BELLA.green }} aria-hidden />
-                    <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: BELLA.green }}>
-                      Recent donations
-                    </h2>
-                  </div>
-                  <div className="mt-5 space-y-3">
-                    {dashboardRecentDonations.map((donation) => {
-                      const supporter =
-                        donation.supporter_id
-                          ? supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter))
-                          : donation.supporter_name ?? "Anonymous";
-                      const amount = formatCurrency(donation.amount ?? donation.estimated_value, donation.currency_code ?? "PHP");
-                      return (
-                        <div
-                          key={String(donation.donation_id)}
-                          className="flex items-start justify-between gap-4 rounded-xl px-3 py-2"
-                          style={{ backgroundColor: BELLA.cream }}
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium" style={{ color: BELLA.deepBay }}>
-                              {supporter}
-                            </p>
-                            <p className="text-xs" style={{ color: BELLA.stone }}>
-                              {asDisplayDate((donation.created_at ?? donation.donation_date) as unknown)}
+              <div className="flex min-h-0 h-full w-full flex-col gap-4">
+                {/* Spacer header so Recent Donations aligns with OKR cards (not under the header) */}
+                <h2
+                  className="font-heading text-sm font-semibold uppercase tracking-wider opacity-0 select-none"
+                  style={{ color: BELLA.stone }}
+                  aria-hidden
+                >
+                  Success metrics
+                </h2>
+                <aside className="flex min-h-0 flex-1 rounded-2xl shadow-sm" style={{ backgroundColor: BELLA.sand }}>
+                  <div className="flex min-h-0 h-full w-full flex-col p-6">
+                    <div className="flex items-center gap-3">
+                      <HandCoins className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: BELLA.green }} aria-hidden />
+                      <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: BELLA.green }}>
+                        Recent donations
+                      </h2>
+                    </div>
+                    <div className="mt-5 flex w-full min-w-0 flex-1 flex-col gap-3">
+                      {dashboardRecentDonations.map((donation) => {
+                        const supporter =
+                          donation.supporter_id
+                            ? supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter))
+                            : donation.supporter_name ?? "Anonymous";
+                        const amount = formatCurrency(donation.amount ?? donation.estimated_value, donation.currency_code ?? "PHP");
+                        return (
+                          <div
+                            key={String(donation.donation_id)}
+                            className="flex w-full min-w-0 items-start justify-between gap-4 rounded-xl px-3 py-2"
+                            style={{ backgroundColor: BELLA.cream }}
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium" style={{ color: BELLA.deepBay }}>
+                                {supporter}
+                              </p>
+                              <p className="text-xs" style={{ color: BELLA.stone }}>
+                                {asDisplayDate((donation.created_at ?? donation.donation_date) as unknown)}
+                              </p>
+                            </div>
+                            <p className="shrink-0 text-sm font-semibold tabular-nums" style={{ color: BELLA.deepBay }}>
+                              {amount}
                             </p>
                           </div>
-                          <p className="shrink-0 text-sm font-semibold tabular-nums" style={{ color: BELLA.deepBay }}>
-                            {amount}
-                          </p>
-                        </div>
-                      );
-                    })}
-                    {!dashboardRecentDonations.length ? (
-                      <p className="text-sm" style={{ color: BELLA.stone }}>
-                        No donations yet.
-                      </p>
-                    ) : null}
+                        );
+                      })}
+                      {!dashboardRecentDonations.length ? (
+                        <p className="text-sm" style={{ color: BELLA.stone }}>
+                          No donations yet.
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="mt-5">
+                      <Link
+                        to="/admin?tab=donations"
+                        className="text-sm font-medium underline-offset-4 hover:underline"
+                        style={{ color: BELLA.deepBay }}
+                      >
+                        View donations →
+                      </Link>
+                    </div>
                   </div>
-                  <div className="mt-5">
-                    <Link
-                      to="/admin?tab=donations"
-                      className="text-sm font-medium underline-offset-4 hover:underline"
-                      style={{ color: BELLA.deepBay }}
-                    >
-                      View donations →
-                    </Link>
-                  </div>
-                </div>
-              </aside>
+                </aside>
+              </div>
             </div>
           ) : null}
         </TabsContent>
