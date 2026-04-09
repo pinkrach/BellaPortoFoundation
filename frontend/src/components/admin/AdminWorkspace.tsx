@@ -611,6 +611,44 @@ function residentLabel(resident: Resident) {
   return resident.internal_code?.trim() || resident.case_control_no?.trim() || `Resident ${resident.resident_id}`;
 }
 
+/** Parses CC-123 / cc-0001 style case numbers (must match DB trigger). */
+function parseCcCaseNumeric(caseControl: string | null | undefined): number | null {
+  const s = String(caseControl ?? "").trim().toLowerCase();
+  const m = s.match(/^cc-(\d+)$/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/** Next case control no. after max CC-######## in the table (same padding as Postgres: min 5 digits, CC-00001+). */
+function suggestNextCaseControlNoFromResidents(residents: Resident[]): string {
+  let maxNum = 0;
+  for (const r of residents) {
+    const n = parseCcCaseNumeric(r.case_control_no);
+    if (n != null && n > maxNum) maxNum = n;
+  }
+  const next = maxNum + 1;
+  const width = Math.max(5, String(next).length);
+  return `CC-${String(next).padStart(width, "0")}`;
+}
+
+/** Parses LS-0001 / ls-0001 style internal codes (case-insensitive). */
+function parseLsInternalNumeric(code: string | null | undefined): number | null {
+  const s = String(code ?? "").trim().toLowerCase();
+  const m = s.match(/^ls-(\d+)$/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/** Next internal code: LS- + 4-digit (wider if sequence exceeds 9999). */
+function suggestNextLsInternalCodeFromResidents(residents: Resident[]): string {
+  let maxNum = 0;
+  for (const r of residents) {
+    const n = parseLsInternalNumeric(r.internal_code);
+    if (n != null && n > maxNum) maxNum = n;
+  }
+  const next = maxNum + 1;
+  const width = Math.max(4, String(next).length);
+  return `LS-${String(next).padStart(width, "0")}`;
+}
+
 function supporterLabel(supporter: Supporter) {
   const display = supporter.display_name?.trim();
   if (display) return display;
@@ -1190,6 +1228,10 @@ type FormField = {
   compact?: boolean;
   /** Smaller checkbox row, placed close to the field above */
   checkboxCompact?: boolean;
+  /** Hint below the control */
+  helperText?: string;
+  /** User cannot edit (e.g. auto-assigned case number) */
+  readOnly?: boolean;
 };
 
 function stringOptionsFromDataOrFallbacks(observed: string[], fallbacks: string[]): Array<{ value: string; label: string }> {
@@ -1334,51 +1376,80 @@ function EntityModal<T extends Record<string, string>>({
                   ) : null}
                 </span>
                 {field.type === "textarea" ? (
-                  <Textarea
-                    value={state[field.key as keyof T]}
-                    onChange={(event) => onChange(field.key as keyof T, event.target.value)}
-                    onFocus={field.disabledWhenKeyTrue ? clearPairNoneOnFocus : undefined}
-                    readOnly={Boolean(field.disabledWhenKeyTrue) && pairNoneActive}
-                    className={cn(
-                      "rounded-xl border-border/80 bg-background",
-                      field.compact ? "min-h-[4.5rem] text-xs leading-relaxed" : "min-h-28",
-                      field.disabledWhenKeyTrue && pairNoneActive && "cursor-pointer bg-muted/40",
-                    )}
-                    required={field.required}
-                    aria-required={field.required}
-                    disabled={false}
-                  />
+                  <>
+                    <Textarea
+                      value={String(state[field.key as keyof T] ?? "")}
+                      onChange={(event) => {
+                        if (field.readOnly) return;
+                        onChange(field.key as keyof T, event.target.value);
+                      }}
+                      onFocus={field.disabledWhenKeyTrue ? clearPairNoneOnFocus : undefined}
+                      readOnly={
+                        Boolean(field.readOnly) ? false : Boolean(field.disabledWhenKeyTrue) && pairNoneActive
+                      }
+                      disabled={Boolean(field.readOnly)}
+                      className={cn(
+                        "rounded-xl border-border/80 bg-background",
+                        field.compact ? "min-h-[4.5rem] text-xs leading-relaxed" : "min-h-28",
+                        field.disabledWhenKeyTrue && pairNoneActive && "cursor-pointer bg-muted/40",
+                        field.readOnly &&
+                          "cursor-not-allowed bg-muted/50 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-100",
+                      )}
+                      required={field.required}
+                      aria-required={field.required}
+                    />
+                    {field.helperText ? (
+                      <p className="text-xs leading-snug text-muted-foreground">{field.helperText}</p>
+                    ) : null}
+                  </>
                 ) : field.type === "select" ? (
-                  <select
-                    value={state[field.key as keyof T]}
-                    onChange={(event) => onChange(field.key as keyof T, event.target.value)}
-                    className="h-11 rounded-xl border border-input bg-background px-3 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                    required={field.required}
-                    aria-required={field.required}
-                    disabled={pairNoneActive}
-                  >
-                    <option value="">Select…</option>
-                    {field.options?.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <>
+                    <select
+                      value={state[field.key as keyof T]}
+                      onChange={(event) => onChange(field.key as keyof T, event.target.value)}
+                      className="h-11 rounded-xl border border-input bg-background px-3 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                      required={field.required}
+                      aria-required={field.required}
+                      disabled={pairNoneActive}
+                    >
+                      <option value="">Select…</option>
+                      {field.options?.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    {field.helperText ? (
+                      <p className="text-xs leading-snug text-muted-foreground">{field.helperText}</p>
+                    ) : null}
+                  </>
                 ) : (
-                  <Input
-                    type={field.type ?? "text"}
-                    value={state[field.key as keyof T]}
-                    onChange={(event) => onChange(field.key as keyof T, event.target.value)}
-                    onFocus={field.disabledWhenKeyTrue ? clearPairNoneOnFocus : undefined}
-                    readOnly={Boolean(field.disabledWhenKeyTrue) && pairNoneActive}
-                    className={cn(
-                      "h-11 rounded-xl border-border/80 bg-background",
-                      field.disabledWhenKeyTrue && pairNoneActive && "cursor-pointer bg-muted/40",
-                    )}
-                    required={field.required}
-                    aria-required={field.required}
-                    disabled={false}
-                  />
+                  <>
+                    <Input
+                      type={field.type ?? "text"}
+                      value={String(state[field.key as keyof T] ?? "")}
+                      onChange={(event) => {
+                        if (field.readOnly) return;
+                        onChange(field.key as keyof T, event.target.value);
+                      }}
+                      onFocus={field.disabledWhenKeyTrue ? clearPairNoneOnFocus : undefined}
+                      readOnly={
+                        Boolean(field.readOnly) ? false : Boolean(field.disabledWhenKeyTrue) && pairNoneActive
+                      }
+                      disabled={Boolean(field.readOnly)}
+                      className={cn(
+                        "h-11 rounded-xl border-border/80 bg-background",
+                        field.disabledWhenKeyTrue && pairNoneActive && "cursor-pointer bg-muted/40",
+                        field.readOnly &&
+                          "cursor-not-allowed bg-muted/50 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-100",
+                      )}
+                      required={field.required}
+                      aria-required={field.required}
+                    />
+                    {field.helperText ? (
+                      <p className="text-xs leading-snug text-muted-foreground">{field.helperText}</p>
+                    ) : null}
+                  </>
                 )}
               </label>
             );
@@ -1693,6 +1764,16 @@ export function AdminWorkspace() {
       ),
     [safehouseMap, workspace.residents],
   );
+
+  /** Preview next auto-assigned case + internal codes while add-resident modal is open. */
+  useEffect(() => {
+    if (!residentFormOpen || editingResidentId != null) return;
+    setResidentForm((prev) => ({
+      ...prev,
+      internal_code: suggestNextLsInternalCodeFromResidents(workspace.residents),
+      case_control_no: suggestNextCaseControlNoFromResidents(workspace.residents),
+    }));
+  }, [residentFormOpen, editingResidentId, workspace.residents]);
 
   const supporterMap = useMemo(
     () => new Map(workspace.supporters.map((supporter) => [supporter.supporter_id, supporter])),
@@ -3129,8 +3210,16 @@ export function AdminWorkspace() {
 
   const residentFields: FormField[] = useMemo(
     () => [
-      { key: "case_control_no", label: "Case Control No." },
-      { key: "internal_code", label: "Internal Code" },
+      {
+        key: "case_control_no",
+        label: "Case Control No.",
+        readOnly: true,
+      },
+      {
+        key: "internal_code",
+        label: "Internal Code",
+        readOnly: true,
+      },
       {
         key: "safehouse_id",
         label: "Safe House",
@@ -3546,13 +3635,6 @@ export function AdminWorkspace() {
     [incidentSeverityFormOptions, incidentTypeFormOptions, residentSelectOptions, workspace.safehouses],
   );
 
-  const validateResidentIdentifiers = (s: ResidentFormState): string | null => {
-    if (!s.case_control_no.trim() && !s.internal_code.trim()) {
-      return "Enter either a case control number or an internal code.";
-    }
-    return null;
-  };
-
   const validateSupporterIdentity = (s: SupporterFormState): string | null => {
     const hasDisplay = s.display_name.trim().length > 0;
     const hasOrg = s.organization_name.trim().length > 0;
@@ -3587,9 +3669,14 @@ export function AdminWorkspace() {
 
   const openResidentForm = (resident?: Resident) => {
     setEditingResidentId(resident?.resident_id ?? null);
+    const isNewResident = resident == null;
     setResidentForm({
-      case_control_no: resident?.case_control_no ?? "",
-      internal_code: resident?.internal_code ?? "",
+      case_control_no: isNewResident
+        ? suggestNextCaseControlNoFromResidents(workspace.residents)
+        : String(resident.case_control_no ?? ""),
+      internal_code: isNewResident
+        ? suggestNextLsInternalCodeFromResidents(workspace.residents)
+        : String(resident.internal_code ?? ""),
       safehouse_id: resident?.safehouse_id ? String(resident.safehouse_id) : "",
       case_status: resident?.case_status ?? "Active",
       sex: resident?.sex ?? "F",
@@ -3810,9 +3897,7 @@ export function AdminWorkspace() {
   };
 
   const submitResidentForm = () => {
-    const payload = {
-      case_control_no: residentForm.case_control_no || null,
-      internal_code: residentForm.internal_code || null,
+    const payload: Record<string, unknown> = {
       safehouse_id: toNullableNumber(residentForm.safehouse_id),
       case_status: residentForm.case_status || null,
       sex: residentForm.sex || null,
@@ -3828,6 +3913,8 @@ export function AdminWorkspace() {
     if (editingResidentId) {
       updateMutation.mutate({ table: "residents", id: editingResidentId, payload });
     } else {
+      payload.case_control_no = null;
+      payload.internal_code = null;
       createMutation.mutate({ table: "residents", payload });
     }
     setResidentFormOpen(false);
@@ -6689,20 +6776,60 @@ export function AdminWorkspace() {
               {selectedResidentDetail ? residentLabel(selectedResidentDetail) : "Resident detail"}
             </DialogTitle>
             <DialogDescription>
-              Personal context, demographics, case status, safe house assignment, notes, and fast navigation into the resident record workstreams.
+              Full resident record fields, notes, and quick navigation into related workstreams.
             </DialogDescription>
           </DialogHeader>
           {selectedResidentDetail ? (
             <div className="space-y-6">
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {[
-                  { label: "Personal information", value: `${asText(selectedResidentDetail.sex)} • ${asText(selectedResidentDetail.present_age, "Age unavailable")}` },
-                  { label: "Demographics", value: `${asText(selectedResidentDetail.place_of_birth)} • ${asText(selectedResidentDetail.religion)}` },
-                  { label: "Case status", value: `${asText(selectedResidentDetail.case_status)} • ${asText(selectedResidentDetail.case_category)}` },
-                  { label: "Safe house", value: safehouseMap.get(selectedResidentDetail.safehouse_id ?? -1)?.name ?? "Unassigned" },
-                  { label: "Intake date", value: asDisplayDate(selectedResidentDetail.date_of_admission) },
-                  { label: "Emergency information", value: asText(selectedResidentDetail.referring_agency_person, "Referral contact not recorded") },
-                ].map((item) => (
+                {(() => {
+                  const sh = safehouseMap.get(selectedResidentDetail.safehouse_id ?? -1);
+                  const safehouseIdLabel =
+                    selectedResidentDetail.safehouse_id != null
+                      ? `ID ${selectedResidentDetail.safehouse_id}`
+                      : "No safe house ID";
+                  const safehouseNameLabel = sh?.name ?? selectedResidentDetail.safehouse_name ?? "Unassigned";
+                  return [
+                    { label: "Resident ID", value: String(selectedResidentDetail.resident_id) },
+                    { label: "Case control no.", value: asText(selectedResidentDetail.case_control_no, "Not recorded") },
+                    { label: "Internal code", value: asText(selectedResidentDetail.internal_code, "Not recorded") },
+                    { label: "Date added", value: asDisplayDate(selectedResidentDetail.created_at, "Not recorded") },
+                    { label: "Date of birth", value: asDisplayDate(selectedResidentDetail.date_of_birth, "Not recorded") },
+                    {
+                      label: "Personal information",
+                      value: `${asText(selectedResidentDetail.sex)} • ${asText(selectedResidentDetail.present_age, "Age unavailable")}`,
+                    },
+                    {
+                      label: "Demographics",
+                      value: `${asText(selectedResidentDetail.place_of_birth)} • ${asText(selectedResidentDetail.religion)}`,
+                    },
+                    {
+                      label: "Case status",
+                      value: `${asText(selectedResidentDetail.case_status)} • ${asText(selectedResidentDetail.case_category)}`,
+                    },
+                    {
+                      label: "Assigned social worker",
+                      value: asText(selectedResidentDetail.assigned_social_worker, "Not recorded"),
+                    },
+                    {
+                      label: "Current risk level",
+                      value: asText(selectedResidentDetail.current_risk_level, "Not recorded"),
+                    },
+                    {
+                      label: "Reintegration status",
+                      value: asText(selectedResidentDetail.reintegration_status, "Not recorded"),
+                    },
+                    {
+                      label: "Safe house",
+                      value: `${safehouseIdLabel} · ${safehouseNameLabel}`,
+                    },
+                    { label: "Intake date", value: asDisplayDate(selectedResidentDetail.date_of_admission) },
+                    {
+                      label: "Emergency information",
+                      value: asText(selectedResidentDetail.referring_agency_person, "Referral contact not recorded"),
+                    },
+                  ];
+                })().map((item) => (
                   <div key={item.label} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-foreground/75">{item.label}</p>
                     <p className="mt-2 text-sm font-medium text-foreground">{item.value}</p>
@@ -6753,7 +6880,6 @@ export function AdminWorkspace() {
         onSubmit={submitResidentForm}
         submitLabel={editingResidentId ? "Save resident" : "Create resident"}
         pending={createMutation.isPending || updateMutation.isPending}
-        extraValidate={validateResidentIdentifiers}
       />
 
       <EntityModal
