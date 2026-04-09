@@ -19,13 +19,7 @@ const UpdatePassword = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const hasMinLength = useMemo(() => newPassword.length >= 8, [newPassword]);
-  const hasUppercase = useMemo(() => /[A-Z]/.test(newPassword), [newPassword]);
-  const hasSpecial = useMemo(() => /[!@#$%^&*]/.test(newPassword), [newPassword]);
-  const passwordMeetsRequirements = useMemo(
-    () => hasMinLength && hasUppercase && hasSpecial,
-    [hasMinLength, hasUppercase, hasSpecial],
-  );
+  const passwordMeetsRequirements = useMemo(() => newPassword.length >= 14, [newPassword]);
   const confirmHasText = useMemo(() => confirmPassword.trim().length > 0, [confirmPassword]);
   const passwordsMatch = useMemo(
     () => newPassword.length > 0 && confirmPassword.length > 0 && newPassword === confirmPassword,
@@ -34,8 +28,7 @@ const UpdatePassword = () => {
   const showPasswordError =
     (passwordTouched || submitAttempted) && newPassword.trim().length > 0 && !passwordMeetsRequirements;
   const showConfirmMismatch = (confirmTouched || submitAttempted) && confirmHasText && !passwordsMatch;
-  const passwordErrorText =
-    "Password must be at least 8 characters and include an uppercase letter and a special character.";
+  const passwordErrorText = "Password must be at least 14 characters long.";
   const confirmErrorText = "Passwords do not match";
 
   useEffect(() => {
@@ -194,7 +187,7 @@ const UpdatePassword = () => {
 
           <button
             type="submit"
-            disabled={isSubmitting || !canReset}
+            disabled={isSubmitting || !canReset || !passwordMeetsRequirements || !passwordsMatch}
             className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-full hover:scale-[1.02] transition-transform shadow-warm disabled:opacity-60 disabled:pointer-events-none"
           >
             {isSubmitting ? "Updating..." : "Update password"}
