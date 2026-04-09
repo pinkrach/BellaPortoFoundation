@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Building2, Lock, Mail, Pencil, RefreshCcw, Save, Trash2, Users } from "lucide-react";
+import { Building2, Lock, Pencil, Trash2, Users } from "lucide-react";
 import DonorSettings from "@/pages/DonorSettings";
 
 type UserRole = "admin" | "donor";
@@ -35,61 +35,15 @@ type ProfileRecord = {
   role: UserRole | null;
 };
 
-type SettingsState = {
-  organization: {
-    foundationName: string;
-    logoUrl: string;
-    contactEmail: string;
-    phone: string;
-    address: string;
-    website: string;
-    facebook: string;
-    instagram: string;
-    mission: string;
-    receiptName: string;
-    receiptTaxId: string;
-  };
-  donations: {
-    defaultCurrency: string;
-    donationCategories: string;
-    recurringDonationsEnabled: boolean;
-    receiptTemplate: string;
-    acknowledgementMessage: string;
-  };
-};
-
-const SETTINGS_STORAGE_KEY = "bella-bay-admin-settings-v1";
-
-const defaultSettings: SettingsState = {
-  organization: {
-    foundationName: "Bella Bay Foundation",
-    logoUrl: "",
-    contactEmail: "support@bellabay.org",
-    phone: "+63 912 345 6789",
-    address: "Davao City, Philippines",
-    website: "https://bellabay.org",
-    facebook: "https://facebook.com/bellabayfoundation",
-    instagram: "https://instagram.com/bellabayfoundation",
-    mission:
-      "Provide trauma-informed shelter, restoration, and long-term opportunity for girls and young women recovering from exploitation.",
-    receiptName: "Bella Bay Foundation, Inc.",
-    receiptTaxId: "TIN-000-000-000",
-  },
-  donations: {
-    defaultCurrency: "PHP",
-    donationCategories: "General fund\nEducation\nHealth\nSafehouse operations\nEmergency response",
-    recurringDonationsEnabled: true,
-    receiptTemplate: "Standard acknowledgment",
-    acknowledgementMessage: "Thank you for helping protect and restore vulnerable girls.",
-  },
-};
+/** Legacy key from when organization name was edited on this page; still read for the summary card. */
+const LEGACY_ADMIN_SETTINGS_KEY = "bella-bay-admin-settings-v1";
+const DEFAULT_FOUNDATION_NAME = "Bella Bay Foundation";
 
 const SettingsPage = () => {
   const { userId } = useAuth();
-  const [settings, setSettings] = useState<SettingsState>(defaultSettings);
+  const [foundationName, setFoundationName] = useState(DEFAULT_FOUNDATION_NAME);
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
-  const [savingSettings, setSavingSettings] = useState(false);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [profileAdminMessage, setProfileAdminMessage] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<ProfileRecord | null>(null);
@@ -102,16 +56,15 @@ const SettingsPage = () => {
 
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+      const stored = window.localStorage.getItem(LEGACY_ADMIN_SETTINGS_KEY);
       if (!stored) return;
-      const parsed = JSON.parse(stored) as Partial<SettingsState>;
-      setSettings({
-        ...defaultSettings,
-        organization: { ...defaultSettings.organization, ...(parsed.organization ?? {}) },
-        donations: { ...defaultSettings.donations, ...(parsed.donations ?? {}) },
-      });
+      const parsed = JSON.parse(stored) as { organization?: { foundationName?: string } };
+      const name = parsed.organization?.foundationName?.trim();
+      if (name) {
+        setFoundationName(name);
+      }
     } catch {
-      toast.error("Saved settings could not be loaded. Using defaults instead.");
+      // ignore corrupt legacy payload
     }
   }, []);
 
@@ -148,26 +101,6 @@ const SettingsPage = () => {
     () => profiles.filter((profile) => profile.role === "donor").length,
     [profiles],
   );
-
-  const updateSection = <K extends keyof SettingsState>(
-    section: K,
-    value: SettingsState[K],
-  ) => {
-    setSettings((current) => ({
-      ...current,
-      [section]: value,
-    }));
-  };
-
-  const saveSettings = async () => {
-    setSavingSettings(true);
-    try {
-      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      toast.success("Settings saved on this device.");
-    } finally {
-      setSavingSettings(false);
-    }
-  };
 
   const openEditUser = (profile: ProfileRecord) => {
     setEditUser(profile);
@@ -253,20 +186,20 @@ const SettingsPage = () => {
     }
   };
 
-  const showPlannedAction = (action: string) => {
-    toast.message(`${action} is not wired yet. This will need a secure admin backend flow.`);
-  };
-
   return (
     <AdminLayout
       title="Settings"
-      subtitle="Your profile, organization setup, and access rules"
+      subtitle="Manage who can access the admin portal and your own account details"
     >
       <div className="space-y-6">
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {[
-            { label: "Organization profile", value: settings.organization.foundationName, icon: Building2 },
-            { label: "User accounts", value: `${profiles.length} total`, icon: Users },
+            { label: "Organization profile", value: foundationName, icon: Building2 },
+            {
+              label: "User accounts",
+              value: loadingProfiles ? "…" : `${profiles.length} total`,
+              icon: Users,
+            },
           ].map((card) => (
             <div key={card.label} className="rounded-2xl border border-border/70 bg-card p-5 shadow-warm">
               <card.icon className="h-5 w-5 text-primary" />
@@ -276,201 +209,14 @@ const SettingsPage = () => {
           ))}
         </section>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card px-5 py-4 shadow-warm">
-          <div>
-            <h2 className="font-heading text-xl font-bold text-foreground">Admin settings console</h2>
-            <p className="text-sm text-muted-foreground">
-              Role changes update live profiles now. The other settings below save locally on this device until we add a shared settings table.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={saveSettings}
-            disabled={savingSettings}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
-          >
-            <Save className="h-4 w-4" />
-            {savingSettings ? "Saving..." : "Save settings"}
-          </button>
-        </div>
-
-        <Tabs defaultValue="general" className="space-y-4">
+        <Tabs defaultValue="access" className="space-y-4">
           <TabsList className="h-auto flex-wrap justify-start gap-2 rounded-2xl bg-muted/70 p-2">
-            <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="access">Access</TabsTrigger>
             <TabsTrigger value="personal">Personal</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="personal" className="space-y-6">
-            <DonorSettings />
-          </TabsContent>
-
-          <TabsContent value="general" className="space-y-6">
-            <section className="grid gap-6 lg:grid-cols-2">
-              <Card title="Organization profile" description="Public-facing foundation details and receipt information.">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="Foundation name">
-                    <input
-                      value={settings.organization.foundationName}
-                      onChange={(event) =>
-                        updateSection("organization", { ...settings.organization, foundationName: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                  <Field label="Logo URL">
-                    <input
-                      value={settings.organization.logoUrl}
-                      onChange={(event) =>
-                        updateSection("organization", { ...settings.organization, logoUrl: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                  <Field label="Contact email">
-                    <input
-                      type="email"
-                      value={settings.organization.contactEmail}
-                      onChange={(event) =>
-                        updateSection("organization", { ...settings.organization, contactEmail: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                  <Field label="Phone">
-                    <input
-                      value={settings.organization.phone}
-                      onChange={(event) =>
-                        updateSection("organization", { ...settings.organization, phone: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                  <Field label="Address">
-                    <input
-                      value={settings.organization.address}
-                      onChange={(event) =>
-                        updateSection("organization", { ...settings.organization, address: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                  <Field label="Website">
-                    <input
-                      value={settings.organization.website}
-                      onChange={(event) =>
-                        updateSection("organization", { ...settings.organization, website: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                  <Field label="Facebook">
-                    <input
-                      value={settings.organization.facebook}
-                      onChange={(event) =>
-                        updateSection("organization", { ...settings.organization, facebook: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                  <Field label="Instagram">
-                    <input
-                      value={settings.organization.instagram}
-                      onChange={(event) =>
-                        updateSection("organization", { ...settings.organization, instagram: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                </div>
-                <Field label="Mission statement">
-                  <textarea
-                    value={settings.organization.mission}
-                    onChange={(event) =>
-                      updateSection("organization", { ...settings.organization, mission: event.target.value })
-                    }
-                    rows={4}
-                    className={textareaClassName}
-                  />
-                </Field>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="Receipt business name">
-                    <input
-                      value={settings.organization.receiptName}
-                      onChange={(event) =>
-                        updateSection("organization", { ...settings.organization, receiptName: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                  <Field label="Tax or business ID">
-                    <input
-                      value={settings.organization.receiptTaxId}
-                      onChange={(event) =>
-                        updateSection("organization", { ...settings.organization, receiptTaxId: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                </div>
-              </Card>
-
-              <Card title="Donations and finance" description="Campaign labels, currency defaults, and donor messaging.">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="Default currency">
-                    <input
-                      value={settings.donations.defaultCurrency}
-                      onChange={(event) =>
-                        updateSection("donations", { ...settings.donations, defaultCurrency: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                  <Field label="Receipt template">
-                    <input
-                      value={settings.donations.receiptTemplate}
-                      onChange={(event) =>
-                        updateSection("donations", { ...settings.donations, receiptTemplate: event.target.value })
-                      }
-                      className={inputClassName}
-                    />
-                  </Field>
-                </div>
-                <Field label="Donation categories and campaign labels">
-                  <textarea
-                    value={settings.donations.donationCategories}
-                    onChange={(event) =>
-                      updateSection("donations", { ...settings.donations, donationCategories: event.target.value })
-                    }
-                    rows={5}
-                    className={textareaClassName}
-                  />
-                </Field>
-                <Toggle
-                  label="Recurring donations enabled"
-                  description="Control whether recurring donation flows are available."
-                  checked={settings.donations.recurringDonationsEnabled}
-                  onChange={(checked) =>
-                    updateSection("donations", { ...settings.donations, recurringDonationsEnabled: checked })
-                  }
-                />
-                <Field label="Acknowledgment message">
-                  <textarea
-                    value={settings.donations.acknowledgementMessage}
-                    onChange={(event) =>
-                      updateSection("donations", { ...settings.donations, acknowledgementMessage: event.target.value })
-                    }
-                    rows={4}
-                    className={textareaClassName}
-                  />
-                </Field>
-              </Card>
-            </section>
-          </TabsContent>
-
           <TabsContent value="access" className="space-y-6">
-            <section className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-              <Card title="User and access management" description="Edit account details, assign roles, or remove users. Your own role stays fixed while you are signed in.">
+            <Card title="User and access management" description="Edit account details, assign roles, or remove users. Your own role stays fixed while you are signed in.">
                 {profileAdminMessage ? (
                   <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     {profileAdminMessage}
@@ -557,34 +303,6 @@ const SettingsPage = () => {
                 </div>
               </Card>
 
-              <Card title="Admin actions" description="These actions need secure server-side auth workflows before they can be turned on.">
-                <div className="space-y-3">
-                  <ActionButton
-                    icon={Mail}
-                    title="Invite user"
-                    description="Send a new account invitation by email."
-                    onClick={() => showPlannedAction("Inviting users")}
-                  />
-                  <ActionButton
-                    icon={Lock}
-                    title="Disable account"
-                    description="Suspend access without deleting the profile."
-                    onClick={() => showPlannedAction("Disabling accounts")}
-                  />
-                  <ActionButton
-                    icon={RefreshCcw}
-                    title="Reset access"
-                    description="Force a password or access reset for a selected user."
-                    onClick={() => showPlannedAction("Resetting user access")}
-                  />
-                </div>
-
-                <div className="mt-6 rounded-2xl border border-dashed border-border/70 bg-background px-4 py-4 text-sm text-muted-foreground">
-                  Editing and deleting users run through the API with the service role. Deleting removes the Supabase Auth user (and linked profile when your database cascades). Invite, disable, and reset flows can be added the same way.
-                </div>
-              </Card>
-            </section>
-
             <Dialog open={editUser !== null} onOpenChange={(open) => !open && setEditUser(null)}>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
@@ -656,6 +374,10 @@ const SettingsPage = () => {
               </AlertDialogContent>
             </AlertDialog>
           </TabsContent>
+
+          <TabsContent value="personal" className="space-y-6">
+            <DonorSettings />
+          </TabsContent>
         </Tabs>
       </div>
     </AdminLayout>
@@ -663,9 +385,6 @@ const SettingsPage = () => {
 };
 
 const inputClassName =
-  "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/25";
-
-const textareaClassName =
   "w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/25";
 
 const Card = ({
@@ -691,60 +410,11 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
   </label>
 );
 
-const Toggle = ({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) => (
-  <label className="flex items-start gap-3 rounded-xl border border-border/70 bg-background px-3 py-3">
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={(event) => onChange(event.target.checked)}
-      className="mt-1"
-    />
-    <span>
-      <span className="block text-sm font-medium text-foreground">{label}</span>
-      <span className="block text-xs text-muted-foreground">{description}</span>
-    </span>
-  </label>
-);
-
 const MiniStat = ({ label, value }: { label: string; value: string }) => (
   <div className="rounded-2xl border border-border/70 bg-background px-4 py-3">
     <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
     <p className="mt-1 text-xl font-bold text-foreground">{value}</p>
   </div>
-);
-
-const ActionButton = ({
-  icon: Icon,
-  title,
-  description,
-  onClick,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className="flex w-full items-start gap-3 rounded-2xl border border-border/70 bg-background px-4 py-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
-  >
-    <Icon className="mt-0.5 h-5 w-5 text-primary" />
-    <span>
-      <span className="block text-sm font-medium text-foreground">{title}</span>
-      <span className="block text-xs text-muted-foreground">{description}</span>
-    </span>
-  </button>
 );
 
 const profileLabel = (profile: ProfileRecord) => {
