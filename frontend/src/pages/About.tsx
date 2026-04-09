@@ -60,14 +60,14 @@ const About = () => (
                   </p>
                   <Link
                     to="/login"
-                    className="inline-flex w-fit items-center justify-center rounded-full bg-[#6E8F6B] px-8 py-3 text-[0.9375rem] font-semibold text-[hsl(40_44%_99%)] shadow-md transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6E8F6B]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="inline-flex min-h-11 w-fit items-center justify-center rounded-full bg-[#4d684a] px-8 py-3 text-[0.9375rem] font-semibold text-white shadow-md transition hover:bg-[#445c41] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4d684a]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
                     Become a donor
                   </Link>
                 </div>
                 <Link
                   to="/impact"
-                  className="mt-3 inline-block text-sm font-medium text-[hsl(200_24%_26%)] underline-offset-4 hover:underline"
+                  className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-[hsl(200_24%_26%)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_24%_26%)]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   Support care that heals
                 </Link>
@@ -88,7 +88,7 @@ const About = () => (
                     />
                   </div>
                 </div>
-                <figcaption className="mt-1.5 max-w-[16.25rem] text-center text-xs italic leading-tight text-[hsl(200_14%_44%)] md:mt-1.5 md:max-w-[19rem] md:text-sm md:leading-snug">
+                <figcaption className="mt-1.5 max-w-[16.25rem] text-center text-xs italic leading-tight text-[hsl(200_16%_30%)] md:mt-1.5 md:max-w-[19rem] md:text-sm md:leading-snug">
                   Inspired by the coastal homes of Portofino —
                   <br />
                   layered, steady, and built to endure.

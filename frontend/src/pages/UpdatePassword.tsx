@@ -113,8 +113,7 @@ const UpdatePassword = () => {
     <PublicLayout hideFooter hideNavbar>
       <Link
         to="/"
-        className="fixed left-4 top-4 z-50 inline-flex items-center gap-2 rounded-sm bg-background/70 px-2.5 py-1.5 text-[#1E2933] backdrop-blur-sm transition-colors hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        aria-label="Return to home page"
+        className="fixed left-4 top-4 z-50 inline-flex min-h-11 items-center gap-2 rounded-sm bg-background/70 px-2.5 py-1.5 text-[#1E2933] backdrop-blur-sm transition-colors hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <img src={houseLogo} alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
         <span className="font-heading text-lg font-semibold tracking-tight md:text-xl">
@@ -123,10 +122,10 @@ const UpdatePassword = () => {
       </Link>
 
       <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
-        <div className="pointer-events-none absolute top-10 right-10 hidden text-accent/20 md:block">
+        <div className="pointer-events-none absolute top-10 right-10 hidden text-accent/20 md:block" aria-hidden="true">
           <Sailboat className="h-32 w-32 rotate-12" />
         </div>
-        <div className="pointer-events-none absolute bottom-10 left-10 hidden text-lavender/20 md:block">
+        <div className="pointer-events-none absolute bottom-10 left-10 hidden text-lavender/20 md:block" aria-hidden="true">
           <Sailboat className="h-24 w-24 -rotate-6" />
         </div>
 
@@ -179,15 +178,18 @@ const UpdatePassword = () => {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">Confirm password</label>
+              <label htmlFor="update-password-confirm" className="mb-1 block text-sm font-medium text-foreground">
+                Confirm password
+              </label>
               <input
+                id="update-password-confirm"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 onBlur={() => setConfirmTouched(true)}
                 placeholder="Confirm password"
                 className={[
-                  "w-full px-4 py-3 rounded-xl bg-muted border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow",
+                  "w-full rounded-xl border bg-muted px-4 py-3 text-foreground placeholder:text-muted-foreground transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/30",
                   showConfirmMismatch ? "border-destructive" : "border-border",
                 ].join(" ")}
                 required
@@ -213,7 +215,10 @@ const UpdatePassword = () => {
           </button>
 
             <div className="pt-1 text-center text-sm text-muted-foreground">
-              <Link to="/forgot-password" className="text-secondary hover:underline">
+              <Link
+                to="/forgot-password"
+                className="font-medium text-[hsl(195_30%_32%)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(195_30%_32%)]/35 focus-visible:ring-offset-2"
+              >
                 Request a new reset link
               </Link>
             </div>

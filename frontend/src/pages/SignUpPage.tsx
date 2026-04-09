@@ -167,8 +167,7 @@ const SignUpPage = () => {
     <PublicLayout hideFooter hideNavbar>
       <Link
         to="/"
-        className="fixed left-4 top-4 z-50 inline-flex items-center gap-2 rounded-sm bg-background/70 px-2.5 py-1.5 text-[#1E2933] backdrop-blur-sm transition-colors hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        aria-label="Return to home page"
+        className="fixed left-4 top-4 z-50 inline-flex min-h-11 items-center gap-2 rounded-sm bg-background/70 px-2.5 py-1.5 text-[#1E2933] backdrop-blur-sm transition-colors hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <img src={houseLogo} alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
         <span className="font-heading text-lg font-semibold tracking-tight md:text-xl">
@@ -177,10 +176,10 @@ const SignUpPage = () => {
       </Link>
 
       <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
-        <div className="pointer-events-none absolute top-10 right-10 hidden text-accent/20 md:block">
+        <div className="pointer-events-none absolute top-10 right-10 hidden text-accent/20 md:block" aria-hidden="true">
           <Sailboat className="h-32 w-32 rotate-12" />
         </div>
-        <div className="pointer-events-none absolute bottom-10 left-10 hidden text-lavender/20 md:block">
+        <div className="pointer-events-none absolute bottom-10 left-10 hidden text-lavender/20 md:block" aria-hidden="true">
           <Sailboat className="h-24 w-24 -rotate-6" />
         </div>
 
@@ -201,30 +200,38 @@ const SignUpPage = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">{error}</div>
+            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+              {error}
+            </div>
           )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">First name</label>
+              <label htmlFor="signup-first-name" className="mb-1 block text-sm font-medium text-foreground">
+                First name
+              </label>
               <input
+                id="signup-first-name"
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(autoCapitalizeName(e.target.value))}
                 placeholder="First name"
-                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-foreground placeholder:text-muted-foreground transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/30"
                 required
                 autoComplete="given-name"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">Last name</label>
+              <label htmlFor="signup-last-name" className="mb-1 block text-sm font-medium text-foreground">
+                Last name
+              </label>
               <input
+                id="signup-last-name"
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(autoCapitalizeName(e.target.value))}
                 placeholder="Last name"
-                className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-foreground placeholder:text-muted-foreground transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/30"
                 required
                 autoComplete="family-name"
               />
@@ -232,13 +239,16 @@ const SignUpPage = () => {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground mb-1 block">Email</label>
+            <label htmlFor="signup-email" className="mb-1 block text-sm font-medium text-foreground">
+              Email
+            </label>
             <input
+              id="signup-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email address"
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-foreground placeholder:text-muted-foreground transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/30"
               required
               autoComplete="email"
             />
@@ -246,15 +256,18 @@ const SignUpPage = () => {
 
           <div className="space-y-2">
             <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">Password</label>
+              <label htmlFor="signup-password" className="mb-1 block text-sm font-medium text-foreground">
+                Password
+              </label>
               <input
+                id="signup-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onBlur={() => setPasswordTouched(true)}
                 placeholder="Password"
                 className={[
-                  "w-full px-4 py-3 rounded-xl bg-muted border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow",
+                  "w-full rounded-xl border bg-muted px-4 py-3 text-foreground placeholder:text-muted-foreground transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/30",
                   showPasswordError ? "border-destructive" : "border-border",
                 ].join(" ")}
                 required
@@ -267,15 +280,18 @@ const SignUpPage = () => {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">Confirm password</label>
+              <label htmlFor="signup-confirm-password" className="mb-1 block text-sm font-medium text-foreground">
+                Confirm password
+              </label>
               <input
+                id="signup-confirm-password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 onBlur={() => setConfirmTouched(true)}
                 placeholder="Confirm password"
                 className={[
-                  "w-full px-4 py-3 rounded-xl bg-muted border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow",
+                  "w-full rounded-xl border bg-muted px-4 py-3 text-foreground placeholder:text-muted-foreground transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/30",
                   showConfirmMismatch ? "border-destructive" : "border-border",
                 ].join(" ")}
                 required
@@ -303,14 +319,17 @@ const SignUpPage = () => {
           <button
             type="submit"
             disabled={isSubmitting || !captchaVal || !passwordMeetsRequirements}
-            className="w-full rounded-full bg-[#C06080] py-3 font-semibold text-[#F5F0E8] shadow-warm transition-transform hover:scale-[1.02] disabled:pointer-events-none disabled:opacity-60"
+            className="w-full rounded-full bg-[#ad4f6e] py-3 font-semibold text-white shadow-warm transition-transform hover:scale-[1.02] hover:bg-[#9c4562] disabled:pointer-events-none disabled:opacity-60"
           >
             {isSubmitting ? "Creating account..." : "Sign Up"}
           </button>
 
           <div className="pt-1 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link to="/login" className="text-secondary hover:underline">
+            <Link
+              to="/login"
+              className="font-medium text-[hsl(195_30%_32%)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(195_30%_32%)]/35 focus-visible:ring-offset-2"
+            >
               Log In
             </Link>
           </div>

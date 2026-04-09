@@ -53,11 +53,11 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
-      <div className="pointer-events-none absolute top-10 right-10 hidden text-accent/20 md:block">
+    <main className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
+      <div className="pointer-events-none absolute top-10 right-10 hidden text-accent/20 md:block" aria-hidden="true">
         <Sailboat className="h-32 w-32 rotate-12" />
       </div>
-      <div className="pointer-events-none absolute bottom-10 left-10 hidden text-lavender/20 md:block">
+      <div className="pointer-events-none absolute bottom-10 left-10 hidden text-lavender/20 md:block" aria-hidden="true">
         <Sailboat className="h-24 w-24 -rotate-6" />
       </div>
 
@@ -73,17 +73,22 @@ const ForgotPassword = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">{error}</div>
+            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+              {error}
+            </div>
           )}
 
           <div>
-            <label className="text-sm font-medium text-foreground mb-1 block">Email</label>
+            <label htmlFor="forgot-password-email" className="mb-1 block text-sm font-medium text-foreground">
+              Email
+            </label>
             <input
+              id="forgot-password-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email address"
-              className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-foreground placeholder:text-muted-foreground transition-shadow focus:outline-none focus:ring-2 focus:ring-primary/30"
               required
               autoComplete="email"
             />
@@ -99,13 +104,16 @@ const ForgotPassword = () => {
 
           <div className="pt-1 text-center text-sm text-muted-foreground">
             Remembered your password?{" "}
-            <Link to="/login" className="text-secondary hover:underline">
+            <Link
+              to="/login"
+              className="font-medium text-[hsl(195_30%_32%)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(195_30%_32%)]/35 focus-visible:ring-offset-2"
+            >
               Back to Log In
             </Link>
           </div>
         </form>
       </motion.div>
-    </div>
+    </main>
   );
 };
 
