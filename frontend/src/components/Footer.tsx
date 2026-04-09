@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import footerHouses from "@/assets/hero/newHouses.png";
 import { WaveDivider } from "@/components/WaveDivider";
+import { SocialPlatformLinks } from "@/components/SocialPlatformLinks";
 
 export const Footer = () => {
   const location = useLocation();
@@ -40,7 +41,9 @@ export const Footer = () => {
               <span className="font-heading text-base font-semibold text-foreground">Bella Bay Foundation</span>
             </Link>
 
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-[hsl(200_15%_30%)] md:justify-start">
+            <div className="flex flex-col items-center gap-4 md:flex-row md:gap-6">
+              <SocialPlatformLinks />
+              <div className="flex items-center gap-6 text-sm text-foreground/70">
               <Link
                 to="/privacy"
                 className="inline-flex min-h-11 items-center rounded-sm px-1 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-muted"
@@ -53,6 +56,7 @@ export const Footer = () => {
               >
                 contact@bellaporto.org
               </a>
+              </div>
             </div>
 
             <p className="text-xs text-[hsl(200_14%_36%)]">

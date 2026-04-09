@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import {
   AlertCircle,
   BarChart3,
@@ -9,7 +8,6 @@ import {
   Megaphone,
   Plus,
   RefreshCw,
-  Sailboat,
   Sparkles,
   Target,
   Users,
@@ -34,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { HarborLoadingState } from "@/components/HarborLoadingState";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -669,26 +668,7 @@ function PlannerLoadingState({
   title: string;
   description: string;
 }) {
-  return (
-    <div className="mt-5 rounded-2xl border border-border/70 bg-muted/20 p-6">
-      <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-r from-primary/5 via-background to-primary/5 p-6">
-        <div className="absolute inset-x-6 bottom-6 h-px bg-border/70" />
-        <div className="relative h-24">
-          <motion.div
-            className="absolute bottom-2 left-0 text-primary"
-            animate={{ x: [0, 180, 0], y: [0, -5, 0], rotate: [-4, 3, -4] }}
-            transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Sailboat className="h-12 w-12" strokeWidth={1.75} />
-          </motion.div>
-        </div>
-        <div className="mt-3">
-          <p className="text-sm font-semibold text-foreground">{title}</p>
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
-        </div>
-      </div>
-    </div>
-  );
+  return <HarborLoadingState className="mt-5" title={title} description={description} />;
 }
 
 function DetailDialog({
