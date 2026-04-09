@@ -81,8 +81,8 @@ import {
 } from "@/components/ui/pagination";
 import {
   deleteRecord,
+  getAllDonations,
   getDonationAllocations,
-  getDonations,
   getEducationRecords,
   getHealthWellbeingRecords,
   getHomeVisitations,
@@ -555,7 +555,7 @@ async function fetchAdminWorkspace(): Promise<WorkspaceData> {
     getInterventionPlans(),
     getIncidentReports(),
     getSupporters(),
-    getDonations({ limit: 1000 }),
+    getAllDonations(),
     getDonationAllocations(),
     getInKindDonationItems(),
     getSafehouses(),
@@ -736,6 +736,36 @@ function addCalendarDays(d: Date, days: number) {
   const x = new Date(d);
   x.setDate(x.getDate() + days);
   return x;
+}
+
+/** Start of calendar day in local time for API date-only (YYYY-MM-DD) or datetime strings. */
+function dateOnlyLocalStartMs(raw: unknown): number | null {
+  const str = String(raw ?? "").trim();
+  if (!str) return null;
+  const ymd = str.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    const [y, m, d] = ymd.split("-").map(Number);
+    if (!y || !m || !d) return null;
+    return startOfLocalDayMs(new Date(y, m - 1, d));
+  }
+  const parsed = new Date(str);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return startOfLocalDayMs(parsed);
+}
+
+function donationRecordedAtLocalMs(d: Pick<Donation, "donation_date" | "created_at">): number | null {
+  const fromGiftDate = dateOnlyLocalStartMs(d.donation_date);
+  if (fromGiftDate != null) return fromGiftDate;
+  return dateOnlyLocalStartMs(d.created_at);
+}
+
+/** Matches DB `resolved = false` (excludes null / unknown). */
+function isIncidentExplicitlyUnresolved(row: { resolved?: unknown }): boolean {
+  const v = row.resolved;
+  if (v === false) return true;
+  if (v === true) return false;
+  const s = String(v ?? "").trim().toLowerCase();
+  return s === "false" || s === "0" || s === "no";
 }
 
 function splitFutureRows<T extends Record<string, unknown>>(rows: T[], dateKey: string) {
@@ -3002,19 +3032,14 @@ export function AdminWorkspace() {
 
   const founderDashboardStats = useMemo(() => {
     const now = new Date();
-    const dayStart = startOfDay(now);
-    const horizonEnd = addCalendarDays(dayStart, 14);
-    horizonEnd.setHours(23, 59, 59, 999);
-    const thirtyDaysAgo = addCalendarDays(dayStart, -30);
-
-    const inactiveHouseStatuses = new Set(["closed", "inactive", "archived"]);
+    const dayStartMs = startOfLocalDayMs(now);
+    const horizonLastDayMs = startOfLocalDayMs(addCalendarDays(new Date(dayStartMs), 14));
+    const thirtyDaysWindowStartMs = startOfLocalDayMs(addCalendarDays(new Date(dayStartMs), -30));
+    const reviewLookbackMs = startOfLocalDayMs(addCalendarDays(new Date(dayStartMs), -90));
 
     const activeResidents = workspace.residents.filter((r) => (r.case_status ?? "").toLowerCase() === "active").length;
-    const activeSafehouses = workspace.safehouses.filter((s) => {
-      const st = (s.status ?? "").toLowerCase().trim();
-      return !inactiveHouseStatuses.has(st);
-    }).length;
-    const unresolvedIncidents = workspace.incidents.filter((row) => !String(row.resolved ?? "").toLowerCase().startsWith("true")).length;
+    const activeSafehouses = workspace.safehouses.filter((s) => (s.status ?? "").trim().toLowerCase() === "active").length;
+    const unresolvedIncidents = workspace.incidents.filter((row) => isIncidentExplicitlyUnresolved(row)).length;
 
     const totalCapacity = workspace.safehouses.reduce((sum, s) => sum + toNumber(s.capacity_girls), 0);
     const totalOccupancy = workspace.safehouses.reduce((sum, s) => sum + toNumber(s.current_occupancy), 0);
@@ -3028,34 +3053,48 @@ export function AdminWorkspace() {
 
     const overdueActions = workspace.interventions.filter((row) => {
       if (!interventionOpen(row)) return false;
-      const td = new Date(String(row.target_date ?? ""));
-      return !Number.isNaN(td.getTime()) && td < dayStart;
+      const td = dateOnlyLocalStartMs(row.target_date);
+      return td != null && td < dayStartMs;
     }).length;
 
     let upcomingDeadlines14 = 0;
     for (const row of workspace.visitations) {
-      const d = new Date(String(row.visit_date ?? ""));
-      if (Number.isNaN(d.getTime()) || d <= now || d > horizonEnd) continue;
+      const visitMs = dateOnlyLocalStartMs(row.visit_date);
+      if (visitMs == null || visitMs < dayStartMs || visitMs > horizonLastDayMs) continue;
       upcomingDeadlines14 += 1;
     }
     for (const row of workspace.interventions) {
       if (!interventionOpen(row)) continue;
-      const d = new Date(String(row.target_date ?? ""));
-      if (Number.isNaN(d.getTime()) || d <= now || d > horizonEnd) continue;
+      const confMs = dateOnlyLocalStartMs(row.case_conference_date);
+      if (confMs == null || confMs < dayStartMs || confMs > horizonLastDayMs) continue;
       upcomingDeadlines14 += 1;
     }
 
-    const casesRequiringReview = workspace.interventions.filter((row) => {
-      if (!interventionOpen(row)) return false;
-      const d = new Date(String(row.case_conference_date ?? ""));
-      if (Number.isNaN(d.getTime())) return false;
-      if (d < dayStart) return true;
-      return d <= horizonEnd;
-    }).length;
+    const activeResidentIdSet = new Set(
+      workspace.residents
+        .filter((r) => (r.case_status ?? "").toLowerCase() === "active")
+        .map((r) => r.resident_id)
+        .filter((id) => Number.isFinite(id)),
+    );
+    const casesReviewResidents = new Set<number>();
+    for (const row of workspace.interventions) {
+      if (!interventionOpen(row)) continue;
+      const rid = Number(row.resident_id);
+      if (!Number.isFinite(rid) || !activeResidentIdSet.has(rid)) continue;
+      const targetMs = dateOnlyLocalStartMs(row.target_date);
+      const confMs = dateOnlyLocalStartMs(row.case_conference_date);
+      const overdueTarget = targetMs != null && targetMs < dayStartMs;
+      const recentPastConference =
+        confMs != null && confMs < dayStartMs && confMs >= reviewLookbackMs;
+      if (overdueTarget || recentPastConference) {
+        casesReviewResidents.add(rid);
+      }
+    }
+    const casesRequiringReview = casesReviewResidents.size;
 
     const recentGiving30 = workspace.donations.reduce((sum, donation) => {
-      const dt = new Date(String(donation.donation_date ?? ""));
-      if (Number.isNaN(dt.getTime()) || dt < thirtyDaysAgo) return sum;
+      const recordedMs = donationRecordedAtLocalMs(donation);
+      if (recordedMs == null || recordedMs < thirtyDaysWindowStartMs) return sum;
       return sum + toNumber(donation.amount ?? donation.estimated_value);
     }, 0);
 
@@ -3107,7 +3146,7 @@ export function AdminWorkspace() {
     const activeResidents = workspace.residents.filter((r) => (r.case_status ?? "").toLowerCase() === "active");
     const reintegrationDenom = activeResidents.length;
     const reintegrationNumer = activeResidents.filter((r) => {
-      const s = (r.reintegration_status ?? "").trim().toLowerCase();
+      const s = (r.reintegration_status ?? "").trim().toLowerCase().replace(/\s+/g, " ");
       return s === "in progress" || s === "completed";
     }).length;
     const reintegrationProgressPct =
@@ -3127,9 +3166,13 @@ export function AdminWorkspace() {
     () =>
       [...workspace.donations]
         .sort((left, right) => {
-          const leftKey = (left.created_at ?? left.donation_date) as unknown;
-          const rightKey = (right.created_at ?? right.donation_date) as unknown;
-          return compareDatesDescending(leftKey, rightKey) || toNumber(right.donation_id) - toNumber(left.donation_id);
+          const lm = donationRecordedAtLocalMs(left);
+          const rm = donationRecordedAtLocalMs(right);
+          if (lm != null && rm != null && lm !== rm) return rm - lm;
+          return (
+            compareDatesDescending(left.created_at ?? left.donation_date, right.created_at ?? right.donation_date) ||
+            toNumber(right.donation_id) - toNumber(left.donation_id)
+          );
         })
         .slice(0, 8),
     [workspace.donations],
