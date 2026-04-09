@@ -288,6 +288,7 @@ app.MapGet("/api/profiles/{userId}", async (
 {
     try
     {
+        userId = userId.Trim();
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseServiceRoleConfigured(settings);
@@ -319,6 +320,7 @@ app.MapPut("/api/profiles/{userId}/role", async (
 {
     try
     {
+        userId = userId.Trim();
         if (string.IsNullOrWhiteSpace(requestBody.Role))
         {
             return Results.BadRequest(new { message = "A role is required." });
@@ -357,9 +359,21 @@ app.MapPut("/api/profiles/{userId}/role", async (
             userId,
             normalizedRole);
 
-        return updated is null
-            ? Results.NotFound(new { message = $"Profile {userId} was not found." })
-            : Results.Ok(updated);
+        if (updated is not null)
+        {
+            return Results.Ok(updated);
+        }
+
+        var existing = await FetchProfileByUserIdAsync(client, settings.Url!, settings.Key!, userId);
+        if (existing is null)
+        {
+            return Results.NotFound(new { message = $"Profile {userId} was not found." });
+        }
+
+        return Results.Problem(
+            detail:
+            "This account appears in the list but the role could not be saved. Confirm the API uses SUPABASE_SERVICE_ROLE_KEY (not the anon key) and that Supabase policies allow updating public.profiles.role.",
+            statusCode: StatusCodes.Status502BadGateway);
     }
     catch (Exception ex)
     {
@@ -377,6 +391,7 @@ app.MapPatch("/api/profiles/{userId}", async (
 {
     try
     {
+        userId = userId.Trim();
         var hasFirst = requestBody.FirstName is not null;
         var hasLast = requestBody.LastName is not null;
         var hasEmail = !string.IsNullOrWhiteSpace(requestBody.Email);
@@ -401,18 +416,37 @@ app.MapPatch("/api/profiles/{userId}", async (
             return Results.BadRequest(new { message = "Email must be a valid address." });
         }
 
-        if (hasEmail)
+        var existingProfile = await FetchProfileByUserIdAsync(client, settings.Url!, settings.Key!, userId);
+        var nextEmailTrimmed = hasEmail ? requestBody.Email!.Trim() : null;
+        var emailChanged = hasEmail
+            && (existingProfile is null
+                || !existingProfile.TryGetValue("email", out var existingEmailObj)
+                || existingEmailObj is null
+                || !string.Equals(
+                    existingEmailObj.ToString()?.Trim(),
+                    nextEmailTrimmed,
+                    StringComparison.OrdinalIgnoreCase));
+
+        if (emailChanged && nextEmailTrimmed is not null)
         {
             var (authOk, authErr) = await UpdateAuthUserEmailAsync(
                 client,
                 settings.Url!,
                 settings.Key!,
                 userId,
-                requestBody.Email!.Trim());
+                nextEmailTrimmed);
             if (!authOk)
             {
+                var detail = authErr ?? "Unable to update sign-in email in Supabase Auth.";
+                if (detail.Contains("no_authorization", StringComparison.OrdinalIgnoreCase)
+                    || detail.Contains("\"code\":401", StringComparison.Ordinal))
+                {
+                    detail +=
+                        " The Auth Admin API requires a valid service role JWT: set SUPABASE_SERVICE_ROLE_KEY for the API host (not VITE_), with no surrounding quotes, for the same Supabase project as VITE_SUPABASE_URL.";
+                }
+
                 return Results.Problem(
-                    detail: authErr ?? "Unable to update sign-in email in Supabase Auth.",
+                    detail: detail,
                     statusCode: StatusCodes.Status502BadGateway);
             }
         }
@@ -432,9 +466,9 @@ app.MapPatch("/api/profiles/{userId}", async (
                 : requestBody.LastName.Trim();
         }
 
-        if (hasEmail)
+        if (hasEmail && nextEmailTrimmed is not null)
         {
-            updates["email"] = requestBody.Email!.Trim();
+            updates["email"] = nextEmailTrimmed;
         }
 
         var updated = await UpdateProfileFieldsAsync(client, settings.Url!, settings.Key!, userId, updates);
@@ -457,6 +491,7 @@ app.MapDelete("/api/profiles/{userId}", async (
 {
     try
     {
+        userId = userId.Trim();
         var repoRoot = GetRepoRoot(environment);
         var settings = ResolveSupabaseSettings(configuration, repoRoot);
         EnsureSupabaseServiceRoleConfigured(settings);
@@ -2568,20 +2603,42 @@ static string StabilityFlag(int posts)
     };
 }
 
+/// <summary>
+/// Trims and strips a single pair of surrounding quotes from .env / config values so JWT keys stay valid.
+/// </summary>
+static string? NormalizeSecretConfigValue(string? raw)
+{
+    if (string.IsNullOrWhiteSpace(raw))
+    {
+        return null;
+    }
+
+    var trimmed = raw.Trim();
+    if (trimmed.Length >= 2
+        && ((trimmed[0] == '"' && trimmed[^1] == '"')
+            || (trimmed[0] == '\'' && trimmed[^1] == '\'')))
+    {
+        trimmed = trimmed[1..^1].Trim();
+    }
+
+    return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+}
+
 static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, string repoRoot)
 {
-    var serviceRoleKey =
+    var serviceRoleKey = NormalizeSecretConfigValue(
         configuration["Supabase:ServiceRoleKey"]
-        ?? Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
-    var anonKey =
+        ?? Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY"));
+    var anonKey = NormalizeSecretConfigValue(
         configuration["Supabase:AnonKey"]
-        ?? Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY");
+        ?? Environment.GetEnvironmentVariable("SUPABASE_ANON_KEY"));
 
     var settings = new SupabaseSettings
     {
-        Url = configuration["Supabase:Url"] ?? Environment.GetEnvironmentVariable("SUPABASE_URL"),
+        Url = NormalizeSecretConfigValue(
+            configuration["Supabase:Url"] ?? Environment.GetEnvironmentVariable("SUPABASE_URL")),
         Key = serviceRoleKey ?? anonKey,
-        UsingServiceRoleKey = !string.IsNullOrWhiteSpace(serviceRoleKey),
+        UsingServiceRoleKey = serviceRoleKey is not null,
     };
 
     if (!string.IsNullOrWhiteSpace(settings.Url) && !string.IsNullOrWhiteSpace(settings.Key))
@@ -2609,7 +2666,7 @@ static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, st
 
         var splitIndex = line.IndexOf('=');
         var key = line[..splitIndex].Trim();
-        var value = line[(splitIndex + 1)..].Trim();
+        var value = NormalizeSecretConfigValue(line[(splitIndex + 1)..]);
 
         switch (key)
         {
@@ -2750,13 +2807,14 @@ static async Task<Dictionary<string, object?>?> FetchProfileByUserIdAsync(
     string apiKey,
     string userId)
 {
+    var id = userId.Trim();
     var rows = await FetchPagedTableAsync(
         client,
         supabaseUrl,
         apiKey,
         "profiles",
         select: "id,email,first_name,last_name,role",
-        filters: [$"id=eq.{Uri.EscapeDataString(userId)}"]);
+        filters: [$"id=eq.{Uri.EscapeDataString(id)}"]);
 
     return rows.FirstOrDefault();
 }
@@ -2854,10 +2912,11 @@ static async Task<Dictionary<string, object?>?> UpdateProfileRoleAsync(
     string userId,
     string role)
 {
+    var id = userId.Trim();
     var baseUrl = supabaseUrl.TrimEnd('/');
     using var request = new HttpRequestMessage(
         HttpMethod.Patch,
-        $"{baseUrl}/rest/v1/profiles?id=eq.{Uri.EscapeDataString(userId)}&select=id,email,first_name,last_name,role");
+        $"{baseUrl}/rest/v1/profiles?id=eq.{Uri.EscapeDataString(id)}&select=id,email,first_name,last_name,role");
     request.Headers.TryAddWithoutValidation("apikey", apiKey);
     request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
     request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
@@ -2871,7 +2930,24 @@ static async Task<Dictionary<string, object?>?> UpdateProfileRoleAsync(
 
     var body = await response.Content.ReadAsStringAsync();
     var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
-    return rows.FirstOrDefault();
+    var updated = rows.FirstOrDefault();
+    if (updated is not null)
+    {
+        return updated;
+    }
+
+    // PostgREST occasionally returns an empty array on success; treat matching role as success.
+    var current = await FetchProfileByUserIdAsync(client, supabaseUrl, apiKey, id);
+    if (current is null)
+    {
+        return null;
+    }
+
+    var currentRole =
+        current.TryGetValue("role", out var roleValue) && roleValue is not null
+            ? roleValue.ToString()?.Trim().ToLowerInvariant()
+            : null;
+    return string.Equals(currentRole, role, StringComparison.Ordinal) ? current : null;
 }
 
 static async Task<string?> GetBearerAuthUserIdAsync(
@@ -2947,6 +3023,39 @@ static async Task<(bool ok, string? error)> DeleteAuthUserAsync(
     return (false, string.IsNullOrWhiteSpace(errBody) ? response.ReasonPhrase : errBody);
 }
 
+static bool ProfileFieldMatchesUpdate(string field, object? actual, object? expected)
+{
+    if (field == "email")
+    {
+        return string.Equals(
+            actual?.ToString()?.Trim(),
+            expected?.ToString()?.Trim(),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    var a = actual?.ToString()?.Trim() ?? "";
+    var e = expected?.ToString()?.Trim() ?? "";
+    return string.Equals(a, e, StringComparison.Ordinal);
+}
+
+static bool ProfileContainsUpdates(Dictionary<string, object?> profile, Dictionary<string, object?> updates)
+{
+    foreach (var kv in updates)
+    {
+        if (!profile.TryGetValue(kv.Key, out var actual))
+        {
+            return false;
+        }
+
+        if (!ProfileFieldMatchesUpdate(kv.Key, actual, kv.Value))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 static async Task<Dictionary<string, object?>?> UpdateProfileFieldsAsync(
     HttpClient client,
     string supabaseUrl,
@@ -2954,15 +3063,16 @@ static async Task<Dictionary<string, object?>?> UpdateProfileFieldsAsync(
     string userId,
     Dictionary<string, object?> updates)
 {
+    var id = userId.Trim();
     if (updates.Count == 0)
     {
-        return await FetchProfileByUserIdAsync(client, supabaseUrl, apiKey, userId);
+        return await FetchProfileByUserIdAsync(client, supabaseUrl, apiKey, id);
     }
 
     var baseUrl = supabaseUrl.TrimEnd('/');
     using var request = new HttpRequestMessage(
         HttpMethod.Patch,
-        $"{baseUrl}/rest/v1/profiles?id=eq.{Uri.EscapeDataString(userId)}&select=id,email,first_name,last_name,role");
+        $"{baseUrl}/rest/v1/profiles?id=eq.{Uri.EscapeDataString(id)}&select=id,email,first_name,last_name,role");
     request.Headers.TryAddWithoutValidation("apikey", apiKey);
     request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
     request.Headers.TryAddWithoutValidation("Prefer", "return=representation");
@@ -2976,7 +3086,19 @@ static async Task<Dictionary<string, object?>?> UpdateProfileFieldsAsync(
 
     var body = await response.Content.ReadAsStringAsync();
     var rows = JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(body, JsonOptions()) ?? [];
-    return rows.FirstOrDefault();
+    var updated = rows.FirstOrDefault();
+    if (updated is not null)
+    {
+        return updated;
+    }
+
+    var current = await FetchProfileByUserIdAsync(client, supabaseUrl, apiKey, id);
+    if (current is not null && ProfileContainsUpdates(current, updates))
+    {
+        return current;
+    }
+
+    return null;
 }
 
 static async Task<Dictionary<string, object?>?> FetchResidentProfileBundleAsync(
