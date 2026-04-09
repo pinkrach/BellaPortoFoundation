@@ -4,14 +4,35 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using BellaPorto.Api.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
+
+// ASP.NET Identity: password policy for lab (UserManager / validators). Interactive sign-in uses
+// Supabase + JWT; [Authorize] on API routes uses JwtBearer via FallbackPolicy, not cookie defaults.
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseInMemoryDatabase("IdentityPasswordPolicy"));
+
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+    {
+        // Length-only policy; overrides Identity default complexity rules.
+        options.Password.RequiredLength = 14;
+        options.Password.RequireDigit = false;
+        options.Password.RequireLowercase = false;
+        options.Password.RequireUppercase = false;
+        options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequiredUniqueChars = 0;
+    })
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
 
 var defaultCorsOrigins = new[]
 {

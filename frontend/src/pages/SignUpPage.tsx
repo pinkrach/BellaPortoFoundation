@@ -31,19 +31,15 @@ const SignUpPage = () => {
   const navigate = useNavigate();
 
   const emailIsValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()), [email]);
-  const hasMinLength = useMemo(() => password.length >= 8, [password]);
-  const hasUppercase = useMemo(() => /[A-Z]/.test(password), [password]);
-  const hasSpecial = useMemo(() => /[!@#$%^&*]/.test(password), [password]);
-  const passwordMeetsRequirements = useMemo(
-    () => hasMinLength && hasUppercase && hasSpecial,
-    [hasMinLength, hasUppercase, hasSpecial],
-  );
+  const passwordMeetsRequirements = useMemo(() => password.length >= 14, [password]);
   const confirmHasText = useMemo(() => confirmPassword.trim().length > 0, [confirmPassword]);
   const passwordsMatch = useMemo(() => password === confirmPassword, [password, confirmPassword]);
 
-  const showPasswordError = (passwordTouched || submitAttempted) && password.trim().length > 0 && !passwordMeetsRequirements;
+  const showPasswordError = (passwordTouched || submitAttempted) && password.length > 0 && !passwordMeetsRequirements;
   const showConfirmMismatch = (confirmTouched || submitAttempted) && confirmHasText && !passwordsMatch;
-  const passwordErrorText = "Password must be at least 8 characters and include an uppercase letter and a special character.";
+  const passwordHelperText =
+    "Security Requirement: Password must be at least 14 characters long (no symbols or caps required).";
+  const passwordErrorText = "Password must be at least 14 characters long.";
   const confirmErrorText = "Passwords do not match";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,7 +53,7 @@ const SignUpPage = () => {
     if (!emailIsValid) return setError("Please enter a valid email address.");
     if (!password) return setError("Password is required.");
     if (!passwordMeetsRequirements) {
-      return setError(passwordErrorText);
+      return setError(passwordHelperText);
     }
     if (confirmHasText && password !== confirmPassword) return setError(confirmErrorText);
     if (!captchaVal) return setError("Please complete the CAPTCHA.");
@@ -255,14 +251,10 @@ const SignUpPage = () => {
                 required
                 autoComplete="new-password"
               />
-              <div
-                className={[
-                  "overflow-hidden transition-[max-height,opacity] duration-200",
-                  showPasswordError ? "max-h-10 opacity-100" : "max-h-0 opacity-0",
-                ].join(" ")}
-              >
+              <p className="mt-1 text-xs text-muted-foreground">{passwordHelperText}</p>
+              {showPasswordError ? (
                 <div className="mt-1 text-xs text-destructive">{passwordErrorText}</div>
-              </div>
+              ) : null}
             </div>
 
             <div>
@@ -301,7 +293,7 @@ const SignUpPage = () => {
 
           <button
             type="submit"
-            disabled={isSubmitting || !captchaVal}
+            disabled={isSubmitting || !captchaVal || !passwordMeetsRequirements}
             className="w-full rounded-full bg-[#6E8F6B] py-3 font-semibold text-[hsl(40_44%_99%)] shadow-warm transition-transform hover:scale-[1.02] disabled:pointer-events-none disabled:opacity-60"
           >
             {isSubmitting ? "Creating account..." : "Sign Up"}
