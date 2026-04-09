@@ -8061,7 +8061,31 @@ export function AdminWorkspace() {
               <SectionCard
                 title="Allocations"
                 description="How donation funds are assigned to safe houses and program areas, with amounts and dates. Rows respect the supporter filter so you see allocations for that donor’s gifts only."
-                action={<TableAddButton label="Add allocation" onClick={() => openAllocationForm()} />}
+                action={
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-xl px-3 text-xs font-medium"
+                        onClick={() => setParams({ tab: "donations", donationsSubTab: "pending-review" })}
+                      >
+                        Review pending donations
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-xl px-3 text-xs font-medium"
+                        onClick={() => openAllocationForm()}
+                      >
+                        Allocate resources
+                      </Button>
+                    </div>
+                    <TableAddButton label="Add allocation" onClick={() => openAllocationForm()} />
+                  </div>
+                }
               >
                 {renderDonationsToolbar()}
                 <Table>
