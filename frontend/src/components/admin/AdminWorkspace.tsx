@@ -5627,7 +5627,7 @@ export function AdminWorkspace() {
                 >
                   Success metrics
                 </h2>
-                <aside className="flex min-h-0 flex-1 rounded-2xl shadow-sm" style={{ backgroundColor: BELLA.sand }}>
+                <aside className="flex min-h-0 flex-1 overflow-hidden rounded-2xl shadow-sm" style={{ backgroundColor: BELLA.sand }}>
                   <div className="flex min-h-0 h-full w-full flex-col p-6">
                     <div className="flex items-center gap-3">
                       <HandCoins className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: BELLA.green }} aria-hidden />
@@ -5635,7 +5635,7 @@ export function AdminWorkspace() {
                         Recent donations
                       </h2>
                     </div>
-                    <div className="mt-5 flex w-full min-w-0 flex-1 flex-col gap-3">
+                    <div className="mt-5 flex w-full min-w-0 flex-1 min-h-0 flex-col gap-3 overflow-y-auto">
                       {dashboardRecentDonations.map((donation) => {
                         const supporter =
                           donation.supporter_id
