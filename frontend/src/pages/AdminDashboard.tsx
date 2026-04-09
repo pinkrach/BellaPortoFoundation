@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { AdminLayout } from "@/components/AdminLayout";
+import { HarborLoadingState } from "@/components/HarborLoadingState";
 
 const AdminWorkspace = lazy(() =>
   import("@/components/admin/AdminWorkspace").then((m) => ({ default: m.AdminWorkspace })),
@@ -9,13 +10,11 @@ const AdminWorkspace = lazy(() =>
 
 function AdminWorkspaceFallback() {
   return (
-    <div
-      className="flex min-h-[50vh] items-center justify-center rounded-2xl border border-dashed border-border/70 bg-muted/20 p-12"
-      role="status"
-      aria-live="polite"
-    >
-      <p className="text-sm text-muted-foreground">Loading workspace…</p>
-    </div>
+    <HarborLoadingState
+      className="min-h-[50vh]"
+      title="Loading admin workspace"
+      description="The harbor is getting your admin tools ready, including reports, tables, and decision-support views."
+    />
   );
 }
 

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import { Button } from "@/components/ui/button";
+import { SocialPlatformLinks } from "@/components/SocialPlatformLinks";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -276,7 +277,15 @@ export const AdminLayout = ({
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>
+        <div className="border-t border-border/70 bg-muted/30 px-4 py-4 lg:px-6">
+          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+            <p className="text-xs text-muted-foreground">
+              Stay connected with Lighthouse Sanctuary. © {new Date().getFullYear()} Bella Bay Foundation.
+            </p>
+            <SocialPlatformLinks className="gap-2" iconClassName="h-4 w-4" />
+          </div>
+        </div>
       </div>
     </div>
   );
