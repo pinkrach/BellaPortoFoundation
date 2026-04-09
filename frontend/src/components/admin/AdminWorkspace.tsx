@@ -2133,8 +2133,6 @@ export function AdminWorkspace() {
 
   const [residentDetailId, setResidentDetailId] = useState<number | null>(null);
   const [residentModalOpen, setResidentModalOpen] = useState(false);
-  const [supporterDetailId, setSupporterDetailId] = useState<number | null>(null);
-  const [supporterDetailModalOpen, setSupporterDetailModalOpen] = useState(false);
   const [donationDetailId, setDonationDetailId] = useState<number | null>(null);
   const [donationDetailModalOpen, setDonationDetailModalOpen] = useState(false);
   const [residentFormOpen, setResidentFormOpen] = useState(false);
@@ -2721,14 +2719,7 @@ export function AdminWorkspace() {
   };
 
   const selectedResidentDetail = residentDetailId ? residentMap.get(residentDetailId) ?? null : null;
-  const selectedSupporterDetail = supporterDetailId ? supporterMap.get(supporterDetailId) ?? null : null;
   const selectedDonationDetail = donationDetailId ? donationMap.get(donationDetailId) ?? null : null;
-
-  const openSupporterDetail = (supporterId: number) => {
-    setParams({ supporterId: String(supporterId) });
-    setSupporterDetailId(supporterId);
-    setSupporterDetailModalOpen(true);
-  };
 
   const openDonationDetail = (donationId: number) => {
     setDonationDetailId(donationId);
@@ -7805,7 +7796,9 @@ export function AdminWorkspace() {
                             <button
                               type="button"
                               className="font-medium text-foreground transition-colors hover:text-primary"
-                              onClick={() => openSupporterDetail(donation.supporter_id)}
+                              onClick={() => {
+                                if (donation.supporter_id != null) openSupporterDetail(donation.supporter_id);
+                              }}
                             >
                               {supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter))}
                             </button>
@@ -8597,78 +8590,6 @@ export function AdminWorkspace() {
         </Dialog>
       )}
 
-      <Dialog open={supporterDetailModalOpen} onOpenChange={setSupporterDetailModalOpen}>
-        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-2xl text-foreground">
-              {selectedSupporterDetail ? supporterLabel(selectedSupporterDetail) : "Supporter detail"}
-            </DialogTitle>
-            <DialogDescription>Complete supporter record with quick edit and delete actions.</DialogDescription>
-          </DialogHeader>
-          {selectedSupporterDetail ? (
-            <div className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                {supporterFields.map((field) => {
-                  const raw = selectedSupporterDetail[field.key as keyof Supporter];
-                  const value = detailFieldDisplayValue(field, raw);
-                  return (
-                    <label
-                      key={field.key}
-                      className={cn(
-                        "grid text-sm",
-                        field.compact ? "gap-1" : "gap-2",
-                        field.type === "textarea" ? "md:col-span-2" : "",
-                      )}
-                    >
-                      <span className="font-medium text-foreground">{field.label}</span>
-                      {field.type === "textarea" ? (
-                        <Textarea
-                          value={value}
-                          readOnly
-                          disabled
-                          className="min-h-28 rounded-xl border-border/80 bg-muted/40 disabled:opacity-100"
-                        />
-                      ) : (
-                        <Input
-                          value={value}
-                          readOnly
-                          disabled
-                          className="h-11 rounded-xl border-border/80 bg-muted/40 disabled:opacity-100"
-                        />
-                      )}
-                    </label>
-                  );
-                })}
-              </div>
-              <div className="flex flex-wrap justify-end gap-3">
-                <Button
-                  variant="outline"
-                  className="rounded-xl"
-                  onClick={() => {
-                    setSupporterDetailModalOpen(false);
-                    openSupporterForm(selectedSupporterDetail);
-                  }}
-                >
-                  <Pencil className="mr-2 h-4 w-4" aria-hidden />
-                  Edit supporter
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="rounded-xl"
-                  onClick={() => {
-                    setSupporterDetailModalOpen(false);
-                    confirmDelete("supporters", selectedSupporterDetail.supporter_id, supporterLabel(selectedSupporterDetail));
-                  }}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" aria-hidden />
-                  Delete supporter
-                </Button>
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={donationDetailModalOpen} onOpenChange={setDonationDetailModalOpen}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
           <DialogHeader>
@@ -8933,6 +8854,31 @@ export function AdminWorkspace() {
                   })}
                 </div>
               </SectionCard>
+
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() => {
+                    closeSupporterDetail();
+                    openSupporterForm(selectedSupporterDetail);
+                  }}
+                >
+                  <Pencil className="mr-2 h-4 w-4" aria-hidden />
+                  Edit supporter
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="rounded-xl"
+                  onClick={() => {
+                    closeSupporterDetail();
+                    confirmDelete("supporters", selectedSupporterDetail.supporter_id, supporterLabel(selectedSupporterDetail));
+                  }}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+                  Delete supporter
+                </Button>
+              </div>
             </div>
           ) : null}
         </DialogContent>
