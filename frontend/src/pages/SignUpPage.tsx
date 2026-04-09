@@ -15,8 +15,9 @@ import {
   passwordMeetsPolicy,
 } from "@/lib/passwordPolicy";
 
-const recaptchaSiteKey =
-  import.meta.env.VITE_RECAPTCHA_SITE_KEY ?? "6LdY6a0sAAAAAB77PQRZ8m95Rq4pwiMkAKtPLAH6";
+/** Set `VITE_RECAPTCHA_SITE_KEY` in `frontend/.env` (see `.env.example`); never commit real keys. */
+const recaptchaSiteKey = (import.meta.env.VITE_RECAPTCHA_SITE_KEY ?? "").trim();
+const recaptchaConfigured = recaptchaSiteKey.length > 0;
 
 const autoCapitalizeName = (value: string) =>
   value
@@ -65,6 +66,11 @@ const SignUpPage = () => {
       return setError(passwordHelperText);
     }
     if (confirmHasText && password !== confirmPassword) return setError(confirmErrorText);
+    if (!recaptchaConfigured) {
+      return setError(
+        "Sign up is unavailable: set VITE_RECAPTCHA_SITE_KEY in frontend/.env (see .env.example).",
+      );
+    }
     if (!captchaVal) return setError("Please complete the CAPTCHA.");
 
     setIsSubmitting(true);
@@ -292,17 +298,31 @@ const SignUpPage = () => {
             </div>
           </div>
 
-          <div className="flex justify-center overflow-x-auto py-1">
-            <ReCAPTCHA
-              ref={recaptchaRef}
-              sitekey={recaptchaSiteKey}
-              onChange={(token: string | null) => setCaptchaVal(token)}
-            />
-          </div>
+          {recaptchaConfigured ? (
+            <div className="flex justify-center overflow-x-auto py-1">
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={recaptchaSiteKey}
+                onChange={(token: string | null) => setCaptchaVal(token)}
+              />
+            </div>
+          ) : (
+            <p className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
+              reCAPTCHA is not configured. Add{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">VITE_RECAPTCHA_SITE_KEY</code> to{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">frontend/.env</code> (see{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">.env.example</code>).
+            </p>
+          )}
 
           <button
             type="submit"
-            disabled={isSubmitting || !captchaVal || !passwordMeetsRequirements}
+            disabled={
+              isSubmitting ||
+              !passwordMeetsRequirements ||
+              !recaptchaConfigured ||
+              !captchaVal
+            }
             className="w-full rounded-full bg-[#C06080] py-3 font-semibold text-[#F5F0E8] shadow-warm transition-transform hover:scale-[1.02] disabled:pointer-events-none disabled:opacity-60"
           >
             {isSubmitting ? "Creating account..." : "Sign Up"}
