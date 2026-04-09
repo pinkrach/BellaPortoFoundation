@@ -1,12 +1,17 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Sailboat } from "lucide-react";
 import { motion } from "framer-motion";
+import ReCAPTCHA from "react-google-recaptcha";
 import { supabase } from "@/lib/supabaseClient";
 import { insertSupporterForNewUser } from "@/lib/supporterRecord";
 import { useAuth } from "@/contexts/AuthContext";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import { PublicLayout } from "@/components/PublicLayout";
+import { buildApiUrl } from "@/lib/api";
+
+const recaptchaSiteKey =
+  import.meta.env.VITE_RECAPTCHA_SITE_KEY ?? "6LdY6a0sAAAAAB77PQRZ8m95Rq4pwiMkAKtPLAH6";
 
 const SignUpPage = () => {
   const [firstName, setFirstName] = useState("");
@@ -19,6 +24,8 @@ const SignUpPage = () => {
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [confirmTouched, setConfirmTouched] = useState(false);
+  const [captchaVal, setCaptchaVal] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   const { setAuthFromProfile } = useAuth();
   const navigate = useNavigate();
@@ -53,11 +60,37 @@ const SignUpPage = () => {
       return setError(passwordErrorText);
     }
     if (confirmHasText && password !== confirmPassword) return setError(confirmErrorText);
+    if (!captchaVal) return setError("Please complete the CAPTCHA.");
 
     setIsSubmitting(true);
     try {
       if (!supabase) {
         setError("Sign up is unavailable: Supabase is not configured.");
+        return;
+      }
+
+      const registerRes = await fetch(buildApiUrl("/api/register"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          captchaToken: captchaVal,
+          email: trimmedEmail,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+        }),
+      });
+
+      if (!registerRes.ok) {
+        let message = "CAPTCHA verification failed.";
+        try {
+          const body = (await registerRes.json()) as { message?: string };
+          if (body?.message) message = body.message;
+        } catch {
+          // keep default message
+        }
+        setError(message);
+        recaptchaRef.current?.reset();
+        setCaptchaVal(null);
         return;
       }
 
@@ -258,9 +291,17 @@ const SignUpPage = () => {
             </div>
           </div>
 
+          <div className="flex justify-center overflow-x-auto py-1">
+            <ReCAPTCHA
+              ref={recaptchaRef}
+              sitekey={recaptchaSiteKey}
+              onChange={(token: string | null) => setCaptchaVal(token)}
+            />
+          </div>
+
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !captchaVal}
             className="w-full rounded-full bg-[#6E8F6B] py-3 font-semibold text-[hsl(40_44%_99%)] shadow-warm transition-transform hover:scale-[1.02] disabled:pointer-events-none disabled:opacity-60"
           >
             {isSubmitting ? "Creating account..." : "Sign Up"}

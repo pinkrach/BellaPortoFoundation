@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
@@ -131,6 +132,40 @@ var healthEndpoint = app.MapGet("/api/health", () => Results.Ok(new { ok = true 
 if (jwtAuthEnabled)
 {
     healthEndpoint.AllowAnonymous();
+}
+
+var registerEndpoint = app.MapPost("/api/register", async (
+    RegisterRequest? body,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration) =>
+{
+    var captchaToken = body?.CaptchaToken?.Trim();
+    if (string.IsNullOrWhiteSpace(captchaToken))
+    {
+        return Results.BadRequest(new { message = "CAPTCHA verification failed." });
+    }
+
+    var secret =
+        configuration["Recaptcha:SecretKey"]
+        ?? Environment.GetEnvironmentVariable("RECAPTCHA_SECRET_KEY");
+    if (string.IsNullOrWhiteSpace(secret))
+    {
+        return Results.Json(
+            new { message = "Registration is temporarily unavailable." },
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    var verified = await VerifyRecaptchaAsync(httpClientFactory.CreateClient(), secret, captchaToken);
+    if (!verified)
+    {
+        return Results.BadRequest(new { message = "CAPTCHA verification failed." });
+    }
+
+    return Results.Ok(new { ok = true });
+});
+if (jwtAuthEnabled)
+{
+    registerEndpoint.AllowAnonymous();
 }
 
 app.MapGet("/api/profiles", async (
@@ -1445,6 +1480,26 @@ static string? ExtractBearerToken(HttpRequest request)
         : null;
 }
 
+static async Task<bool> VerifyRecaptchaAsync(HttpClient client, string secret, string responseToken)
+{
+    using var content = new FormUrlEncodedContent(
+        new Dictionary<string, string>
+        {
+            ["secret"] = secret,
+            ["response"] = responseToken,
+        });
+
+    using var response = await client.PostAsync(
+        "https://www.google.com/recaptcha/api/siteverify",
+        content);
+
+    response.EnsureSuccessStatusCode();
+
+    await using var stream = await response.Content.ReadAsStreamAsync();
+    using var doc = await JsonDocument.ParseAsync(stream);
+    return doc.RootElement.TryGetProperty("success", out var success) && success.GetBoolean();
+}
+
 static async Task<IResult?> EnsureAdminRequestAsync(
     HttpRequest request,
     HttpClient client,
@@ -2743,6 +2798,17 @@ sealed class SupporterRiskRefreshRequest
 sealed class ProfileRoleUpdateRequest
 {
     public string Role { get; set; } = string.Empty;
+}
+
+/// <summary>Pre-registration CAPTCHA check (includes optional profile fields for auditing).</summary>
+sealed class RegisterRequest
+{
+    public string? CaptchaToken { get; set; }
+    public string? Email { get; set; }
+    [JsonPropertyName("first_name")]
+    public string? FirstName { get; set; }
+    [JsonPropertyName("last_name")]
+    public string? LastName { get; set; }
 }
 
 sealed class SupabaseAuthUser
