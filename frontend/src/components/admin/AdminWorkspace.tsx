@@ -4706,9 +4706,35 @@ export function AdminWorkspace() {
     setIncidentFormOpen(false);
   };
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    table:
+      | "residents"
+      | "supporters"
+      | "donations"
+      | "in_kind_donation_items"
+      | "donation_allocations"
+      | "safehouses"
+      | "process_recordings"
+      | "home_visitations"
+      | "education_records"
+      | "health_wellbeing_records"
+      | "intervention_plans"
+      | "incident_reports";
+    id: number;
+    label: string;
+  } | null>(null);
+
   const confirmDelete = (table: "residents" | "supporters" | "donations" | "in_kind_donation_items" | "donation_allocations" | "safehouses" | "process_recordings" | "home_visitations" | "education_records" | "health_wellbeing_records" | "intervention_plans" | "incident_reports", id: number, label: string) => {
-    if (!window.confirm(`Hard delete ${label}? This cannot be undone.`)) return;
-    deleteMutation.mutate({ table, id });
+    setPendingDelete({ table, id, label });
+    setDeleteModalOpen(true);
+  };
+
+  const performDelete = () => {
+    if (!pendingDelete) return;
+    deleteMutation.mutate({ table: pendingDelete.table, id: pendingDelete.id });
+    setDeleteModalOpen(false);
+    setPendingDelete(null);
   };
 
   const goToResidentSubview = (subtab: ResidentsSubTab, residentId: number) => {
@@ -5273,6 +5299,53 @@ export function AdminWorkspace() {
 
   return (
     <div className="space-y-6">
+      <Dialog
+        open={deleteModalOpen}
+        onOpenChange={(open) => {
+          setDeleteModalOpen(open);
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <DialogTitle className="text-left">Confirm deletion</DialogTitle>
+                <DialogDescription className="text-left">
+                  {pendingDelete
+                    ? `Delete ${pendingDelete.label}? This cannot be undone.`
+                    : "This action cannot be undone."}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => {
+                setDeleteModalOpen(false);
+                setPendingDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={performDelete}
+              disabled={!pendingDelete || deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {workspaceQuery.isError ? (
         <Card className="rounded-2xl border-destructive/30 bg-destructive/5 shadow-warm">
           <CardContent className="flex items-center gap-3 p-5 text-sm text-destructive">

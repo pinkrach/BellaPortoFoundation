@@ -143,6 +143,15 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+// Security Audit: Content-Security-Policy Header
+// Note: this runs before endpoint routing (added by the minimal hosting pipeline).
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["Content-Security-Policy"] =
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://www.google.com/recaptcha/;";
+    await next();
+});
+
 if (jwtAuthEnabled)
 {
     app.UseAuthentication();
@@ -2472,6 +2481,7 @@ static async Task DeleteSupporterAsync(
     int supporterId)
 {
     var baseUrl = supabaseUrl.TrimEnd('/');
+
     using var request = new HttpRequestMessage(
         HttpMethod.Delete,
         $"{baseUrl}/rest/v1/supporters?supporter_id=eq.{supporterId}"
