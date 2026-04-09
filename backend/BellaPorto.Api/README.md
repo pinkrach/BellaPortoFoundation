@@ -12,12 +12,14 @@ Endpoints:
 
 - `GET /api/profiles`
 - `GET /api/profiles/{userId}`
+- `PATCH /api/profiles/{userId}` — body: `first_name`, `last_name`, and/or `email` (email updates Supabase Auth admin + `profiles`).
+- `DELETE /api/profiles/{userId}` — removes the Supabase Auth user (profile row should cascade if your DB is set up that way). Callers cannot delete themselves.
 - `PUT /api/profiles/{userId}/role`
   Require both:
   - a valid signed-in bearer token
   - an `admin` role on the caller's profile
 
-These admin endpoints also require the backend to have `SUPABASE_SERVICE_ROLE_KEY`, because they use server-side Supabase access and must never rely on browser credentials alone.
+These admin endpoints also require the backend to have `SUPABASE_SERVICE_ROLE_KEY`, because they use server-side Supabase access and must never rely on browser credentials alone. Admins cannot change their **own** role via `PUT .../role` (returns 403).
 
 ## Required backend environment variables
 
