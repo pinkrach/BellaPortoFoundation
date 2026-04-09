@@ -5618,7 +5618,7 @@ export function AdminWorkspace() {
               </div>
 
               {/* Right column — recent donations list */}
-              <div className="flex min-h-0 h-full flex-col gap-4">
+              <div className="flex min-h-0 h-full w-full flex-col gap-4">
                 {/* Spacer header so Recent Donations aligns with OKR cards (not under the header) */}
                 <h2
                   className="font-heading text-sm font-semibold uppercase tracking-wider opacity-0 select-none"
@@ -5627,15 +5627,15 @@ export function AdminWorkspace() {
                 >
                   Success metrics
                 </h2>
-                <aside className="flex min-h-0 flex-1 rounded-2xl shadow-sm" style={{ backgroundColor: BELLA.sand }}>
-                  <div className="flex min-h-0 h-full flex-col p-6">
+                <aside className="flex min-h-0 flex-1 overflow-hidden rounded-2xl shadow-sm" style={{ backgroundColor: BELLA.sand }}>
+                  <div className="flex min-h-0 h-full w-full flex-col p-6">
                     <div className="flex items-center gap-3">
                       <HandCoins className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: BELLA.green }} aria-hidden />
                       <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: BELLA.green }}>
                         Recent donations
                       </h2>
                     </div>
-                    <div className="mt-5 flex w-full min-w-0 flex-1 flex-col gap-3">
+                    <div className="mt-5 flex w-full min-w-0 flex-1 min-h-0 flex-col gap-3 overflow-y-auto">
                       {dashboardRecentDonations.map((donation) => {
                         const supporter =
                           donation.supporter_id
