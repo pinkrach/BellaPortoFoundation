@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-09T01:12:29.561542+00:00",
+  "generatedAt": "2026-04-09T17:21:12.095162+00:00",
   "dataset": {
     "rowCount": 812,
     "dateMin": "2023-01-05T18:52:00+00:00",
@@ -17,8 +17,8 @@
     "rocAuc": 0.8955,
     "averagePrecision": 0.9473,
     "artifacts": {
-      "classifierPath": "/Users/jimmychurchill/Documents/Intex II/Website/BellaPortoFoundation/ml-pipelines/artifacts/social_referral_live_random_forest.joblib",
-      "regressorPath": "/Users/jimmychurchill/Documents/Intex II/Website/BellaPortoFoundation/ml-pipelines/artifacts/social_donation_live_random_forest.joblib"
+      "classifierPath": "Website/BellaPortoFoundation/ml-pipelines/artifacts/social_referral_live_random_forest.joblib",
+      "regressorPath": "Website/BellaPortoFoundation/ml-pipelines/artifacts/social_donation_live_random_forest.joblib"
     }
   },
   "kpis": [
@@ -108,6 +108,314 @@
       "postType": "EventPromotion",
       "posts": 131,
       "avgDonationValuePhp": 2762.69
+    }
+  ],
+  "platformMediaChart": [
+    {
+      "platform": "Facebook",
+      "mediaType": "Video",
+      "posts": 55,
+      "referralRate": 0.7818,
+      "avgDonationValuePhp": 39652.7,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Facebook",
+      "mediaType": "Carousel",
+      "posts": 33,
+      "referralRate": 0.5758,
+      "avgDonationValuePhp": 26874.67,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Facebook",
+      "mediaType": "Text",
+      "posts": 28,
+      "referralRate": 0.5714,
+      "avgDonationValuePhp": 39946.81,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Facebook",
+      "mediaType": "Photo",
+      "posts": 78,
+      "referralRate": 0.5385,
+      "avgDonationValuePhp": 22739.6,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Facebook",
+      "mediaType": "Reel",
+      "posts": 5,
+      "referralRate": 0.4,
+      "avgDonationValuePhp": 45237.89,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "Instagram",
+      "mediaType": "Reel",
+      "posts": 27,
+      "referralRate": 0.7407,
+      "avgDonationValuePhp": 36574.39,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Instagram",
+      "mediaType": "Carousel",
+      "posts": 41,
+      "referralRate": 0.7317,
+      "avgDonationValuePhp": 53691.87,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Instagram",
+      "mediaType": "Text",
+      "posts": 9,
+      "referralRate": 0.6667,
+      "avgDonationValuePhp": 25205.94,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "Instagram",
+      "mediaType": "Video",
+      "posts": 31,
+      "referralRate": 0.6452,
+      "avgDonationValuePhp": 23258.91,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Instagram",
+      "mediaType": "Photo",
+      "posts": 56,
+      "referralRate": 0.6429,
+      "avgDonationValuePhp": 16883.85,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "LinkedIn",
+      "mediaType": "Carousel",
+      "posts": 8,
+      "referralRate": 0.5,
+      "avgDonationValuePhp": 28367.04,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "LinkedIn",
+      "mediaType": "Text",
+      "posts": 37,
+      "referralRate": 0.4054,
+      "avgDonationValuePhp": 26429.01,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "LinkedIn",
+      "mediaType": "Photo",
+      "posts": 23,
+      "referralRate": 0.3913,
+      "avgDonationValuePhp": 62483.53,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "LinkedIn",
+      "mediaType": "Video",
+      "posts": 11,
+      "referralRate": 0.3636,
+      "avgDonationValuePhp": 10622.84,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "TikTok",
+      "mediaType": "Reel",
+      "posts": 67,
+      "referralRate": 0.8358,
+      "avgDonationValuePhp": 63285.23,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "TikTok",
+      "mediaType": "Video",
+      "posts": 7,
+      "referralRate": 0.5714,
+      "avgDonationValuePhp": 21290.16,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "TikTok",
+      "mediaType": "Text",
+      "posts": 8,
+      "referralRate": 0.5,
+      "avgDonationValuePhp": 47986.32,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "TikTok",
+      "mediaType": "Photo",
+      "posts": 2,
+      "referralRate": 0.5,
+      "avgDonationValuePhp": 3521.1,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "TikTok",
+      "mediaType": "Carousel",
+      "posts": 5,
+      "referralRate": 0.4,
+      "avgDonationValuePhp": 66142.49,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "Twitter",
+      "mediaType": "Reel",
+      "posts": 9,
+      "referralRate": 0.7778,
+      "avgDonationValuePhp": 13626.67,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "Twitter",
+      "mediaType": "Carousel",
+      "posts": 8,
+      "referralRate": 0.75,
+      "avgDonationValuePhp": 6495.8,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "Twitter",
+      "mediaType": "Video",
+      "posts": 19,
+      "referralRate": 0.6842,
+      "avgDonationValuePhp": 19898.57,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Twitter",
+      "mediaType": "Photo",
+      "posts": 31,
+      "referralRate": 0.6129,
+      "avgDonationValuePhp": 17232.72,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Twitter",
+      "mediaType": "Text",
+      "posts": 50,
+      "referralRate": 0.58,
+      "avgDonationValuePhp": 11640.37,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "WhatsApp",
+      "mediaType": "Reel",
+      "posts": 7,
+      "referralRate": 1.0,
+      "avgDonationValuePhp": 85701.88,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "WhatsApp",
+      "mediaType": "Photo",
+      "posts": 37,
+      "referralRate": 0.7297,
+      "avgDonationValuePhp": 85097.6,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "WhatsApp",
+      "mediaType": "Video",
+      "posts": 24,
+      "referralRate": 0.625,
+      "avgDonationValuePhp": 120813.88,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "WhatsApp",
+      "mediaType": "Text",
+      "posts": 22,
+      "referralRate": 0.4545,
+      "avgDonationValuePhp": 27111.89,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "WhatsApp",
+      "mediaType": "Carousel",
+      "posts": 3,
+      "referralRate": 0.3333,
+      "avgDonationValuePhp": 16741.37,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "YouTube",
+      "mediaType": "Reel",
+      "posts": 6,
+      "referralRate": 0.8333,
+      "avgDonationValuePhp": 85495.25,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "YouTube",
+      "mediaType": "Video",
+      "posts": 65,
+      "referralRate": 0.7692,
+      "avgDonationValuePhp": 56620.65,
+      "stabilityFlag": "Trusted default"
+    }
+  ],
+  "platformTrustedMedia": [
+    {
+      "platform": "Facebook",
+      "bestMediaType": "Video",
+      "posts": 55,
+      "referralRate": 0.7818,
+      "avgDonationValuePhp": 39652.7,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Instagram",
+      "bestMediaType": "Reel",
+      "posts": 27,
+      "referralRate": 0.7407,
+      "avgDonationValuePhp": 36574.39,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "LinkedIn",
+      "bestMediaType": "Text",
+      "posts": 37,
+      "referralRate": 0.4054,
+      "avgDonationValuePhp": 26429.01,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "TikTok",
+      "bestMediaType": "Reel",
+      "posts": 67,
+      "referralRate": 0.8358,
+      "avgDonationValuePhp": 63285.23,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Twitter",
+      "bestMediaType": "Video",
+      "posts": 19,
+      "referralRate": 0.6842,
+      "avgDonationValuePhp": 19898.57,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "WhatsApp",
+      "bestMediaType": "Photo",
+      "posts": 37,
+      "referralRate": 0.7297,
+      "avgDonationValuePhp": 85097.6,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "YouTube",
+      "bestMediaType": "Video",
+      "posts": 65,
+      "referralRate": 0.7692,
+      "avgDonationValuePhp": 56620.65,
+      "stabilityFlag": "Trusted default"
     }
   ],
   "liftMetrics": [
@@ -220,12 +528,13 @@
     }
   ],
   "summary": {
-    "headline": "Current data suggests starting with ImpactStory posts when the goal is more donation referrals.",
+    "headline": "Current data suggests starting with ImpactStory posts, especially Reel on TikTok, when the goal is more donation referrals.",
     "bestOverallFormat": "ImpactStory",
     "bestValueFormat": "ImpactStory"
   },
   "recommendations": [
     "Prioritize ImpactStory posts first because they currently lead the dataset for referral performance.",
+    "On TikTok, Reel is the strongest trusted media type for referral performance.",
     "Use ImpactStory when the team wants stronger average donation value per post.",
     "Adding a resident story currently improves referral rate by about 41.0 percentage points.",
     "Adding a CTA currently improves referral rate by about 13.5 percentage points."

@@ -1,0 +1,11 @@
+# Build output
+bin/
+obj/
+
+# Local configuration (may contain secrets); use environment variables or User Secrets instead
+appsettings.Development.json
+
+# Local environment files
+.env
+.env.*
+!.env.example

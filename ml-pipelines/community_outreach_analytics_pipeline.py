@@ -331,6 +331,8 @@ def build_summary(df: pd.DataFrame, model_info: dict[str, Any]) -> dict[str, Any
             "kpis": [],
             "postTypeReachChart": [],
             "platformReachChart": [],
+            "platformMediaChart": [],
+            "platformTrustedMedia": [],
             "timeBucketChart": [],
             "liftMetrics": [],
             "timingSignals": [],
@@ -357,6 +359,20 @@ def build_summary(df: pd.DataFrame, model_info: dict[str, Any]) -> dict[str, Any
             avgReach=("reach", "mean"),
         )
         .sort_values(["avgCommunityReachScore", "posts"], ascending=[False, False])
+    )
+    platform_media_reach = (
+        df.dropna(subset=["platform", "media_type"])
+        .groupby(["platform", "media_type"], as_index=False)
+        .agg(
+            posts=("post_label", "size"),
+            avgCommunityReachScore=("community_reach_score", "mean"),
+            likelyCommunityReferralRate=("likely_community_referral", "mean"),
+            avgShareRate=("share_rate", "mean"),
+        )
+        .sort_values(["platform", "avgCommunityReachScore", "posts"], ascending=[True, False, False])
+    )
+    platform_media_reach["stabilityFlag"] = platform_media_reach["posts"].map(
+        lambda posts: "Trusted default" if posts >= 12 else "Promising, low sample" if posts >= 8 else "Too few posts"
     )
     time_bucket_reach = (
         df.dropna(subset=["time_bucket"])
@@ -433,6 +449,30 @@ def build_summary(df: pd.DataFrame, model_info: dict[str, Any]) -> dict[str, Any
                 "avgReach": safe_round(row["avgReach"], 2),
             }
             for _, row in platform_reach.head(8).iterrows()
+        ],
+        "platformMediaChart": [
+            {
+                "platform": str(row["platform"]),
+                "mediaType": str(row["media_type"]),
+                "posts": int(row["posts"]),
+                "avgCommunityReachScore": safe_round(row["avgCommunityReachScore"], 4),
+                "likelyCommunityReferralRate": safe_round(row["likelyCommunityReferralRate"], 4),
+                "avgShareRate": safe_round(row["avgShareRate"], 4),
+                "stabilityFlag": str(row["stabilityFlag"]),
+            }
+            for _, row in platform_media_reach.iterrows()
+        ],
+        "platformTrustedMedia": [
+            {
+                "platform": str(group.iloc[0]["platform"]),
+                "bestMediaType": str(group.iloc[0]["media_type"]),
+                "posts": int(group.iloc[0]["posts"]),
+                "avgCommunityReachScore": safe_round(group.iloc[0]["avgCommunityReachScore"], 4),
+                "likelyCommunityReferralRate": safe_round(group.iloc[0]["likelyCommunityReferralRate"], 4),
+                "avgShareRate": safe_round(group.iloc[0]["avgShareRate"], 4),
+                "stabilityFlag": str(group.iloc[0]["stabilityFlag"]),
+            }
+            for _, group in platform_media_reach.loc[platform_media_reach["posts"] >= 12].groupby("platform", sort=False)
         ],
         "timeBucketChart": [
             {

@@ -303,6 +303,8 @@ def build_summary(df: pd.DataFrame, model_info: dict[str, Any]) -> dict[str, Any
             "kpis": [],
             "postTypeReferralChart": [],
             "postTypeValueChart": [],
+            "platformMediaChart": [],
+            "platformTrustedMedia": [],
             "liftMetrics": [],
             "hourPerformance": [],
             "recommendations": [],
@@ -335,6 +337,38 @@ def build_summary(df: pd.DataFrame, model_info: dict[str, Any]) -> dict[str, Any
         .sort_values(["avgDonationValuePhp", "posts"], ascending=[False, False])
     )
 
+    platform_media = (
+        df.dropna(subset=["platform", "media_type"])
+        .groupby(["platform", "media_type"], as_index=False)
+        .agg(
+            posts=("post_label", "size"),
+            referralRate=("has_referral", "mean"),
+            avgDonationValuePhp=("estimated_donation_value_php", "mean"),
+        )
+        .sort_values(["platform", "referralRate", "avgDonationValuePhp"], ascending=[True, False, False])
+    )
+    if not platform_media.empty:
+        platform_media["stabilityFlag"] = np.select(
+            [platform_media["posts"] >= 12, platform_media["posts"] >= 8],
+            ["Trusted default", "Promising, low sample"],
+            default="Too few posts",
+        )
+    else:
+        platform_media["stabilityFlag"] = []
+
+    trusted_platform_media = (
+        platform_media.loc[platform_media["posts"] >= 12]
+        .sort_values(["referralRate", "avgDonationValuePhp"], ascending=[False, False])
+        .copy()
+    )
+    trusted_platform_defaults = (
+        trusted_platform_media.sort_values(["platform", "referralRate", "avgDonationValuePhp"], ascending=[True, False, False])
+        .groupby("platform", as_index=False)
+        .first()
+        if not trusted_platform_media.empty
+        else pd.DataFrame(columns=["platform", "media_type", "posts", "referralRate", "avgDonationValuePhp", "stabilityFlag"])
+    )
+
     def lift_metric(feature_col: str, with_label: str, without_label: str) -> dict[str, Any]:
         with_mask = df[feature_col] == "Yes"
         without_mask = df[feature_col] == "No"
@@ -354,6 +388,7 @@ def build_summary(df: pd.DataFrame, model_info: dict[str, Any]) -> dict[str, Any
 
     best_referral_type = post_type_referral.iloc[0]["post_type"] if not post_type_referral.empty else "N/A"
     best_value_type = post_type_value.iloc[0]["post_type"] if not post_type_value.empty else "N/A"
+    best_platform_media = trusted_platform_media.iloc[0] if not trusted_platform_media.empty else None
     best_hour_referral = summarize_group(df, "post_hour", "has_referral", "referralRate", ascending=False, limit=8)
     best_hour_value = summarize_group(df, "post_hour", "estimated_donation_value_php", "avgDonationValuePhp", ascending=False, limit=8)
     best_tone_referral = summarize_group(df, "sentiment_tone", "has_referral", "referralRate", ascending=False, limit=5)
@@ -373,6 +408,11 @@ def build_summary(df: pd.DataFrame, model_info: dict[str, Any]) -> dict[str, Any
         f"Prioritize {best_referral_type} posts first because they currently lead the dataset for referral performance.",
         f"Use {best_value_type} when the team wants stronger average donation value per post.",
     ]
+    if best_platform_media is not None:
+        recommendations.insert(
+            1,
+            f"On {best_platform_media['platform']}, {best_platform_media['media_type']} is the strongest trusted media type for referral performance.",
+        )
     if resident_story_lift.get("liftPoints") is not None:
         recommendations.append(
             f"Adding a resident story currently improves referral rate by about {resident_story_lift['liftPoints']} percentage points."
@@ -439,6 +479,28 @@ def build_summary(df: pd.DataFrame, model_info: dict[str, Any]) -> dict[str, Any
             }
             for _, row in post_type_value.head(8).iterrows()
         ],
+        "platformMediaChart": [
+            {
+                "platform": str(row["platform"]),
+                "mediaType": str(row["media_type"]),
+                "posts": int(row["posts"]),
+                "referralRate": safe_round(row["referralRate"]),
+                "avgDonationValuePhp": safe_round(row["avgDonationValuePhp"], 2),
+                "stabilityFlag": str(row["stabilityFlag"]),
+            }
+            for _, row in platform_media.iterrows()
+        ],
+        "platformTrustedMedia": [
+            {
+                "platform": str(row["platform"]),
+                "bestMediaType": str(row["media_type"]),
+                "posts": int(row["posts"]),
+                "referralRate": safe_round(row["referralRate"]),
+                "avgDonationValuePhp": safe_round(row["avgDonationValuePhp"], 2),
+                "stabilityFlag": str(row["stabilityFlag"]),
+            }
+            for _, row in trusted_platform_defaults.iterrows()
+        ],
         "liftMetrics": [resident_story_lift, cta_lift],
         "hourPerformance": best_hour_referral,
         "tonePerformance": best_tone_referral,
@@ -465,7 +527,15 @@ def build_summary(df: pd.DataFrame, model_info: dict[str, Any]) -> dict[str, Any
             },
         ],
         "summary": {
-            "headline": f"Current data suggests starting with {best_referral_type} posts when the goal is more donation referrals.",
+            "headline": (
+                f"Current data suggests starting with {best_referral_type} posts"
+                + (
+                    f", especially {best_platform_media['media_type']} on {best_platform_media['platform']},"
+                    if best_platform_media is not None
+                    else ""
+                )
+                + " when the goal is more donation referrals."
+            ),
             "bestOverallFormat": best_referral_type,
             "bestValueFormat": best_value_type,
         },
