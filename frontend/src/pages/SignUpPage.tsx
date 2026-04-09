@@ -13,6 +13,11 @@ import { buildApiUrl } from "@/lib/api";
 const recaptchaSiteKey =
   import.meta.env.VITE_RECAPTCHA_SITE_KEY ?? "6LdY6a0sAAAAAB77PQRZ8m95Rq4pwiMkAKtPLAH6";
 
+const autoCapitalizeName = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/\b([a-z])/g, (match) => match.toUpperCase());
+
 const SignUpPage = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -201,7 +206,7 @@ const SignUpPage = () => {
               <input
                 type="text"
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                onChange={(e) => setFirstName(autoCapitalizeName(e.target.value))}
                 placeholder="First name"
                 className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
                 required
@@ -213,7 +218,7 @@ const SignUpPage = () => {
               <input
                 type="text"
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                onChange={(e) => setLastName(autoCapitalizeName(e.target.value))}
                 placeholder="Last name"
                 className="w-full px-4 py-3 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
                 required

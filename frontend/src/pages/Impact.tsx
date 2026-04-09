@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
 import { PublicLayout } from "@/components/PublicLayout";
-import { WaveDivider } from "@/components/WaveDivider";
-import { impactStats, fundraisingGoal, donationsOverTime, donationTypes, safehouseImpact, donationUsage } from "@/data/mockData";
+import { impactStats, donationsOverTime, donationTypes, safehouseImpact, donationUsage } from "@/data/mockData";
 import { Heart, MapPin, DollarSign } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Link } from "react-router-dom";
+import heroImage from "@/assets/hero/portofino-watercolor-hero.png";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -12,20 +13,40 @@ const fadeUp = {
 };
 
 const Impact = () => {
-  const progressPercent = (fundraisingGoal.raised / fundraisingGoal.goal) * 100;
+  const YEARLY_GOAL = 10_000;
+  const yearRaised = donationsOverTime.reduce((sum, entry) => sum + Number(entry.amount ?? 0), 0);
+  const progressPercent = Math.min((yearRaised / YEARLY_GOAL) * 100, 100);
+  const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
   return (
     <PublicLayout>
       {/* Header */}
-      <section className="bg-background py-20 md:py-28">
-        <div className="container mx-auto px-4">
+      <section className="relative overflow-hidden py-20 md:py-28">
+        <div className="absolute inset-0 z-0">
+          <img
+            src={heroImage}
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover object-[35%_100%] sm:object-bottom"
+          />
+        </div>
+        <div className="absolute inset-0 z-[1] bg-[hsl(205_34%_16%_/_0.55)]" aria-hidden="true" />
+        <div className="container relative z-10 mx-auto px-4">
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mx-auto max-w-4xl text-center">
-            <h1 className="font-heading text-4xl font-semibold tracking-tight text-[hsl(200_26%_18%)] md:text-6xl">
+            <h1 className="font-heading text-4xl font-semibold tracking-tight text-white md:text-6xl">
               Our Impact
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[hsl(200_14%_38%)] md:text-xl">
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/90 md:text-xl">
               A clear view into the work your generosity sustains—measured with care, shared with respect.
             </p>
+            <div className="mt-8">
+              <Link
+                to="/signup"
+                className="inline-flex items-center justify-center rounded-full bg-[hsl(278,26%,76%)] px-10 py-4 text-lg font-semibold text-white shadow-lg transition hover:scale-[1.02] hover:bg-[hsl(278,26%,70%)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
+              >
+                Donate Now
+              </Link>
+            </div>
           </motion.div>
         </div>
       </section>
@@ -40,7 +61,7 @@ const Impact = () => {
           custom={0}
           className="mb-10 rounded-3xl border border-border/60 bg-[hsl(40_42%_99%_/_0.45)] p-6 md:p-8"
         >
-          <h2 className="font-heading text-2xl font-semibold text-[hsl(200_24%_18%)]">Monthly fundraising goal</h2>
+          <h2 className="font-heading text-2xl font-semibold text-[hsl(200_24%_18%)]">2026 fundraising goal</h2>
           <div className="mt-5 w-full rounded-full bg-muted/40 h-3 overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
@@ -50,8 +71,8 @@ const Impact = () => {
             />
           </div>
           <p className="mt-4 text-sm font-normal text-[hsl(200_12%_40%)]">
-            <span className="font-semibold text-[#6E8F6B]">${fundraisingGoal.raised}</span> raised of{" "}
-            <span className="font-semibold text-[hsl(200_22%_22%)]">${fundraisingGoal.goal}</span> goal
+            <span className="font-semibold text-[#6E8F6B]">{money.format(yearRaised)}</span> raised this year of{" "}
+            <span className="font-semibold text-[hsl(200_22%_22%)]">{money.format(YEARLY_GOAL)}</span> goal
           </p>
         </motion.div>
 
@@ -60,7 +81,7 @@ const Impact = () => {
           {[
             { icon: Heart, label: "Girls Helped", value: impactStats.girlsServed, color: "text-[hsl(24_26%_58%)]" },
             { icon: MapPin, label: "Locations", value: impactStats.safehouses, color: "text-[hsl(205_22%_40%)]" },
-            { icon: DollarSign, label: "Monthly Donations", value: `$${fundraisingGoal.raised}`, color: "text-[#6E8F6B]" },
+            { icon: DollarSign, label: "Raised This Year", value: money.format(yearRaised), color: "text-[#6E8F6B]" },
           ].map((kpi, i) => (
             <motion.div
               key={kpi.label}

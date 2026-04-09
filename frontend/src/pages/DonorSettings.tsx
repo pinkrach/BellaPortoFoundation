@@ -5,11 +5,26 @@ import { CheckCircle2, CreditCard, Loader2, Pencil, Plus, Save, Shield } from "l
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 
+const autoCapitalizeName = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/\b([a-z])/g, (match) => match.toUpperCase());
+
+const splitFullName = (value: string) => {
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  if (!trimmed) return { first: "", last: "" };
+  const parts = trimmed.split(" ");
+  if (parts.length === 1) return { first: parts[0], last: "" };
+  return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] };
+};
+
 export default function DonorSettings() {
-  const { isLoading: authLoading, userId, userEmail, firstName, lastName, displayName, initials } = useAuth();
+  const { isLoading: authLoading, userId, userEmail, firstName, lastName, displayName, initials, role, setAuthFromProfile } = useAuth();
 
   const [newsletter, setNewsletter] = useState(true);
   const [impactAlerts, setImpactAlerts] = useState(true);
+  const [savedCommunication, setSavedCommunication] = useState({ newsletter: true, impactAlerts: true });
+  const [preferencesIsSaving, setPreferencesIsSaving] = useState(false);
 
   const sessionName = useMemo(() => {
     const combined = [firstName, lastName].filter(Boolean).join(" ").trim();
@@ -33,6 +48,25 @@ export default function DonorSettings() {
       setProfileDraft(next);
     }
   }, [authLoading, userId, sessionEmail, sessionName, profileIsEditing]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const key = `donor-communication-preferences:${userId}`;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<{ newsletter: boolean; impactAlerts: boolean }>;
+      const next = {
+        newsletter: parsed.newsletter !== false,
+        impactAlerts: parsed.impactAlerts !== false,
+      };
+      setNewsletter(next.newsletter);
+      setImpactAlerts(next.impactAlerts);
+      setSavedCommunication(next);
+    } catch {
+      // Ignore malformed local storage and keep defaults.
+    }
+  }, [userId]);
 
   const [billingAddress, setBillingAddress] = useState<string>("");
   const [billingDraft, setBillingDraft] = useState({
@@ -86,6 +120,9 @@ export default function DonorSettings() {
   }, [profileDraft.email]);
 
   const canSaveProfile = profileIsEditing && !profileIsSaving && !profileNameError && !profileEmailError;
+  const canSavePreferences =
+    !preferencesIsSaving &&
+    (newsletter !== savedCommunication.newsletter || impactAlerts !== savedCommunication.impactAlerts);
 
   const showProfileSkeleton = authLoading;
   const identityMissing = !authLoading && !sessionEmail;
@@ -222,7 +259,9 @@ export default function DonorSettings() {
               <div className="mt-2">
                 <input
                   value={profileDraft.name}
-                  onChange={(e) => setProfileDraft((current) => ({ ...current, name: e.target.value }))}
+                  onChange={(e) =>
+                    setProfileDraft((current) => ({ ...current, name: autoCapitalizeName(e.target.value) }))
+                  }
                   disabled={profileIsSaving}
                   className={inputClassName}
                   placeholder="Full name"
@@ -274,11 +313,49 @@ export default function DonorSettings() {
               disabled={!canSaveProfile}
               onClick={async () => {
                 setProfileIsSaving(true);
-                await new Promise((r) => setTimeout(r, 1000));
-                setProfileSaved({ name: profileDraft.name.trim(), email: profileDraft.email.trim() });
-                setProfileIsSaving(false);
-                setProfileIsEditing(false);
-                toast.success("Changes saved successfully!");
+                try {
+                  if (!supabase || !userId) {
+                    throw new Error("Profile save is unavailable right now.");
+                  }
+
+                  const nextName = profileDraft.name.trim().replace(/\s+/g, " ");
+                  const nextEmail = profileDraft.email.trim();
+                  const { first, last } = splitFullName(nextName);
+
+                  const { error: profileUpdateError } = await supabase
+                    .from("profiles")
+                    .update({
+                      first_name: first || null,
+                      last_name: last || null,
+                      email: nextEmail,
+                    })
+                    .eq("id", userId);
+
+                  if (profileUpdateError) throw profileUpdateError;
+
+                  // Keep auth email in sync so future sessions show the new value.
+                  if (nextEmail !== sessionEmail) {
+                    const { error: authUpdateError } = await supabase.auth.updateUser({ email: nextEmail });
+                    if (authUpdateError) throw authUpdateError;
+                  }
+
+                  setAuthFromProfile({
+                    userId,
+                    email: nextEmail,
+                    role: role ?? "donor",
+                    firstName: first || null,
+                    lastName: last || null,
+                  });
+                  setProfileSaved({ name: nextName, email: nextEmail });
+                  setProfileDraft({ name: nextName, email: nextEmail });
+                  setProfileIsEditing(false);
+                  toast.success("Changes saved successfully!");
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : "Unable to save profile changes.";
+                  toast.error(msg);
+                } finally {
+                  setProfileIsSaving(false);
+                }
               }}
               className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-warm hover:shadow-warm-hover transition-shadow disabled:opacity-60 inline-flex items-center gap-2"
             >
@@ -474,6 +551,31 @@ export default function DonorSettings() {
               className="h-5 w-5 accent-[hsl(var(--primary))]"
             />
           </label>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            disabled={!canSavePreferences}
+            onClick={async () => {
+              if (!userId) {
+                toast.error("Please sign in again to save your preferences.");
+                return;
+              }
+              setPreferencesIsSaving(true);
+              try {
+                const next = { newsletter, impactAlerts };
+                window.localStorage.setItem(`donor-communication-preferences:${userId}`, JSON.stringify(next));
+                setSavedCommunication(next);
+                toast.success("Communication preferences saved.");
+              } finally {
+                setPreferencesIsSaving(false);
+              }
+            }}
+            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-warm hover:shadow-warm-hover transition-shadow disabled:opacity-60 inline-flex items-center gap-2"
+          >
+            {preferencesIsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {preferencesIsSaving ? "Saving..." : "Save Preferences"}
+          </button>
         </div>
       </div>
 
