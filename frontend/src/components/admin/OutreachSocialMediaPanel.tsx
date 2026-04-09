@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import {
   AlertCircle,
   BarChart3,
@@ -8,6 +9,7 @@ import {
   Megaphone,
   Plus,
   RefreshCw,
+  Sailboat,
   Sparkles,
   Target,
   Users,
@@ -97,6 +99,22 @@ type SocialAnalyticsResponse = {
   kpis: Array<{ label: string; value: number | null; detail: string }>;
   postTypeReferralChart: Array<{ postType: string; posts: number; referralRate: number | null }>;
   postTypeValueChart: Array<{ postType: string; posts: number; avgDonationValuePhp: number | null }>;
+  platformMediaChart?: Array<{
+    platform: string;
+    mediaType: string;
+    posts: number;
+    referralRate: number | null;
+    avgDonationValuePhp: number | null;
+    stabilityFlag: string;
+  }>;
+  platformTrustedMedia?: Array<{
+    platform: string;
+    bestMediaType: string;
+    posts: number;
+    referralRate: number | null;
+    avgDonationValuePhp: number | null;
+    stabilityFlag: string;
+  }>;
   hourPerformance?: Array<{ label: string; posts: number; referralRate: number | null }>;
   tonePerformance?: Array<{ label: string; posts: number; referralRate: number | null }>;
   liftMetrics: Array<{
@@ -114,6 +132,23 @@ type SocialAnalyticsResponse = {
     bestOverallFormat: string;
     bestValueFormat: string;
   };
+};
+
+type SocialScoreResponse = {
+  prediction: {
+    predictedReferralProbability: number | null;
+    predictedReferralCount: number | null;
+    predictedDonationValuePhp: number | null;
+    likelyReferralDriver: boolean;
+  };
+  selectedPlatform?: string | null;
+  selectedPlatformMedia?: Array<{
+    mediaType: string;
+    posts: number;
+    referralRate: number | null;
+    avgDonationValuePhp: number | null;
+    stabilityFlag: string;
+  }>;
 };
 
 type CommunityAnalyticsResponse = {
@@ -136,6 +171,24 @@ type CommunityAnalyticsResponse = {
   kpis: Array<{ label: string; value: number | null; detail: string; unit?: string }>;
   postTypeReachChart: Array<{ postType: string; posts: number; avgCommunityReachScore: number | null }>;
   platformReachChart: Array<{ platform: string; posts: number; avgCommunityReachScore: number | null; avgReach?: number | null }>;
+  platformMediaChart?: Array<{
+    platform: string;
+    mediaType: string;
+    posts: number;
+    avgCommunityReachScore: number | null;
+    likelyCommunityReferralRate: number | null;
+    avgShareRate: number | null;
+    stabilityFlag: string;
+  }>;
+  platformTrustedMedia?: Array<{
+    platform: string;
+    bestMediaType: string;
+    posts: number;
+    avgCommunityReachScore: number | null;
+    likelyCommunityReferralRate: number | null;
+    avgShareRate: number | null;
+    stabilityFlag: string;
+  }>;
   timeBucketChart: Array<{ timeBucket: string; posts: number; avgCommunityReachScore: number | null }>;
   liftMetrics: Array<{
     factor: string;
@@ -153,6 +206,24 @@ type CommunityAnalyticsResponse = {
     bestFormat: string;
   };
   topDrivers?: Array<{ feature: string; importance: number }>;
+};
+
+type CommunityScoreResponse = {
+  prediction: {
+    predictedCommunityReachScore: number | null;
+    predictedCommunityReferralProbability: number | null;
+    predictedShareRate: number | null;
+    likelyAwarenessDriver: boolean;
+  };
+  selectedPlatform?: string | null;
+  selectedPlatformMedia?: Array<{
+    mediaType: string;
+    posts: number;
+    avgCommunityReachScore: number | null;
+    likelyCommunityReferralRate: number | null;
+    avgShareRate: number | null;
+    stabilityFlag: string;
+  }>;
 };
 
 type HistoricalPostFormState = {
@@ -189,6 +260,25 @@ type HistoricalPostFormState = {
   estimated_donation_value_php: string;
 };
 
+type DraftPostScoreFormState = {
+  platform: string;
+  day_of_week: string;
+  post_hour: string;
+  post_type: string;
+  media_type: string;
+  num_hashtags: string;
+  has_call_to_action: string;
+  call_to_action_type: string;
+  content_topic: string;
+  sentiment_tone: string;
+  caption: string;
+  caption_length: string;
+  features_resident_story: string;
+  campaign_name: string;
+  is_boosted: string;
+  boost_budget_php: string;
+};
+
 const EMPTY_FORM: HistoricalPostFormState = {
   platform: "",
   created_at: "",
@@ -223,9 +313,28 @@ const EMPTY_FORM: HistoricalPostFormState = {
   estimated_donation_value_php: "",
 };
 
+const EMPTY_DRAFT_SCORE_FORM: DraftPostScoreFormState = {
+  platform: "Instagram",
+  day_of_week: "Wednesday",
+  post_hour: "13",
+  post_type: "ImpactStory",
+  media_type: "Reel",
+  num_hashtags: "3",
+  has_call_to_action: "true",
+  call_to_action_type: "Donate",
+  content_topic: "Education",
+  sentiment_tone: "Emotional",
+  caption: "",
+  caption_length: "",
+  features_resident_story: "true",
+  campaign_name: "",
+  is_boosted: "false",
+  boost_budget_php: "",
+};
+
 const FALLBACK_PLATFORMS = ["Facebook", "Instagram", "Twitter", "LinkedIn", "TikTok", "WhatsApp", "YouTube"];
 const FALLBACK_POST_TYPES = ["ImpactStory", "Campaign", "FundraisingAppeal", "ThankYou", "EducationalContent", "EventPromotion"];
-const FALLBACK_MEDIA_TYPES = ["Photo", "Video", "Text", "Carousel", "Graphic"];
+const FALLBACK_MEDIA_TYPES = ["Photo", "Video", "Text", "Carousel", "Reel", "Graphic"];
 const FALLBACK_CTA_TYPES = ["Donate", "LearnMore", "Volunteer", "Share", "ReadMore"];
 const FALLBACK_TOPICS = ["Education", "Health", "Shelter", "Rescue", "Advocacy", "Operations"];
 const FALLBACK_TONES = ["Urgent", "Emotional", "Celebratory", "Grateful", "Informative", "Hopeful"];
@@ -311,6 +420,12 @@ function formatModelFeatureLabel(feature: string | null | undefined) {
   return normalized;
 }
 
+function formatLiftIncrease(withRate: number | null | undefined, withoutRate: number | null | undefined) {
+  if (withRate == null || withoutRate == null || withoutRate <= 0) return "N/A";
+  const lift = ((withRate - withoutRate) / withoutRate) * 100;
+  return `${lift >= 0 ? "+" : ""}${Math.round(lift)}%`;
+}
+
 function uniqueOptions(values: Array<string | null | undefined>, fallbacks: string[]) {
   const derived = values.map((value) => String(value ?? "").trim()).filter(Boolean);
   return Array.from(new Set([...(derived.length ? derived : []), ...fallbacks])).sort((a, b) =>
@@ -370,6 +485,36 @@ async function refreshCommunityAnalytics(): Promise<CommunityAnalyticsResponse> 
   return response.json();
 }
 
+async function scoreDonationPost(payload: Record<string, unknown>): Promise<SocialScoreResponse> {
+  const response = await fetchWithAuth("/api/ml/social/score", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ payload }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Unable to score the planned post.");
+  }
+
+  return response.json();
+}
+
+async function scoreCommunityPost(payload: Record<string, unknown>): Promise<CommunityScoreResponse> {
+  const response = await fetchWithAuth("/api/ml/social/community/score", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ payload }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Unable to score the planned outreach post.");
+  }
+
+  return response.json();
+}
+
 function validateHistoricalPost(form: HistoricalPostFormState): string | null {
   if (!form.platform.trim()) return "Platform is required.";
   if (!form.created_at.trim()) return "Post date and time are required.";
@@ -418,11 +563,83 @@ function validateHistoricalPost(form: HistoricalPostFormState): string | null {
   return null;
 }
 
+function validateDraftPost(form: DraftPostScoreFormState): string | null {
+  if (!form.platform.trim()) return "Platform is required.";
+  if (!form.day_of_week.trim()) return "Day of week is required.";
+  if (!form.post_type.trim()) return "Post type is required.";
+  if (!form.media_type.trim()) return "Media type is required.";
+  if (!form.content_topic.trim()) return "Content topic is required.";
+  if (!form.sentiment_tone.trim()) return "Sentiment tone is required.";
+
+  const hour = Number(form.post_hour);
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return "Post hour must be between 0 and 23.";
+
+  const numericFields: Array<[string, string]> = [
+    ["num_hashtags", form.num_hashtags],
+    ["caption_length", form.caption_length],
+    ["boost_budget_php", form.boost_budget_php],
+  ];
+
+  for (const [label, value] of numericFields) {
+    if (!value.trim()) continue;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return `${label.replaceAll("_", " ")} must be a non-negative number.`;
+  }
+
+  if (form.has_call_to_action === "true" && !form.call_to_action_type.trim()) {
+    return "Choose a call-to-action type when CTA is enabled.";
+  }
+
+  return null;
+}
+
 function formatChartValue(value: number, chartType: DetailChartType) {
   if (chartType === "percent") return `${Math.round(value * 100)}%`;
   if (chartType === "currency") return formatPeso(value);
   if (chartType === "score") return `${Math.round(value * 1000) / 10}%`;
   return value.toLocaleString();
+}
+
+function buildCommunityScoredRows(socialPosts: SocialPostRow[]) {
+  const numericColumns = {
+    reach: socialPosts.map((post) => toNumber(post.reach)),
+    shares: socialPosts.map((post) => toNumber(post.shares)),
+    saves: socialPosts.map((post) => toNumber(post.saves)),
+    forwards: socialPosts.map((post) => toNumber(post.forwards)),
+    clicks: socialPosts.map((post) => toNumber(post.click_throughs)),
+  };
+
+  const bounds = Object.fromEntries(
+    Object.entries(numericColumns).map(([key, values]) => [key, { min: Math.min(...values), max: Math.max(...values) }]),
+  ) as Record<string, { min: number; max: number }>;
+
+  const sharesSorted = [...numericColumns.shares].sort((left, right) => left - right);
+  const clicksSorted = [...numericColumns.clicks].sort((left, right) => left - right);
+  const shareMedian = sharesSorted[Math.floor(sharesSorted.length / 2)] ?? 0;
+  const clickMedian = clicksSorted[Math.floor(clicksSorted.length / 2)] ?? 0;
+
+  const scale = (value: number, min: number, max: number) => (max > min ? (value - min) / (max - min) : 0);
+
+  return socialPosts.map((post) => {
+    const reach = toNumber(post.reach);
+    const shares = toNumber(post.shares);
+    const saves = toNumber(post.saves);
+    const forwards = toNumber(post.forwards);
+    const clicks = toNumber(post.click_throughs);
+    const communityReachScore =
+      0.3 * scale(reach, bounds.reach.min, bounds.reach.max) +
+      0.25 * scale(shares, bounds.shares.min, bounds.shares.max) +
+      0.2 * scale(saves, bounds.saves.min, bounds.saves.max) +
+      0.15 * scale(forwards, bounds.forwards.min, bounds.forwards.max) +
+      0.1 * scale(clicks, bounds.clicks.min, bounds.clicks.max);
+
+    return {
+      ...post,
+      communityReachScore,
+      likelyCommunityReferral: shares >= shareMedian && clicks >= clickMedian ? 1 : 0,
+      shareRate: reach > 0 ? shares / reach : 0,
+    };
+  });
 }
 
 function MiniPreviewChart({
@@ -441,6 +658,35 @@ function MiniPreviewChart({
           <Bar dataKey="value" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+function PlannerLoadingState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="mt-5 rounded-2xl border border-border/70 bg-muted/20 p-6">
+      <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-r from-primary/5 via-background to-primary/5 p-6">
+        <div className="absolute inset-x-6 bottom-6 h-px bg-border/70" />
+        <div className="relative h-24">
+          <motion.div
+            className="absolute bottom-2 left-0 text-primary"
+            animate={{ x: [0, 180, 0], y: [0, -5, 0], rotate: [-4, 3, -4] }}
+            transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <Sailboat className="h-12 w-12" strokeWidth={1.75} />
+          </motion.div>
+        </div>
+        <div className="mt-3">
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -519,6 +765,550 @@ function DetailDialog({
   );
 }
 
+function DonationPlannerDialog({
+  open,
+  onOpenChange,
+  socialPosts,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  socialPosts: SocialPostRow[];
+}) {
+  const [draftForm, setDraftForm] = useState<DraftPostScoreFormState>(EMPTY_DRAFT_SCORE_FORM);
+  const [draftCaptionLengthEdited, setDraftCaptionLengthEdited] = useState(false);
+
+  const scoreMutation = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => scoreDonationPost(payload),
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Unable to score the planned post.");
+    },
+  });
+
+  const platformOptions = useMemo(() => uniqueOptions(socialPosts.map((post) => post.platform), FALLBACK_PLATFORMS), [socialPosts]);
+  const draftPayload = useMemo(
+    () => ({
+      platform: draftForm.platform,
+      day_of_week: draftForm.day_of_week,
+      post_hour: Number(draftForm.post_hour),
+      post_type: draftForm.post_type,
+      media_type: draftForm.media_type,
+      num_hashtags: toNullableNumber(draftForm.num_hashtags) ?? 0,
+      has_call_to_action: toNullableBoolean(draftForm.has_call_to_action) ?? false,
+      call_to_action_type: draftForm.has_call_to_action === "true" ? draftForm.call_to_action_type || null : null,
+      content_topic: draftForm.content_topic || null,
+      sentiment_tone: draftForm.sentiment_tone || null,
+      caption: draftForm.caption || null,
+      caption_length: toNullableNumber(draftForm.caption_length) ?? draftForm.caption.length,
+      features_resident_story: toNullableBoolean(draftForm.features_resident_story) ?? false,
+      campaign_name: draftForm.campaign_name || null,
+      is_boosted: toNullableBoolean(draftForm.is_boosted) ?? false,
+      boost_budget_php: draftForm.is_boosted === "true" ? toNullableNumber(draftForm.boost_budget_php) : null,
+    }),
+    [draftForm],
+  );
+
+  const draftValidationError = useMemo(() => validateDraftPost(draftForm), [draftForm]);
+
+  useEffect(() => {
+    if (draftCaptionLengthEdited) return;
+    setDraftForm((current) => ({ ...current, caption_length: current.caption.length ? String(current.caption.length) : "" }));
+  }, [draftForm.caption, draftCaptionLengthEdited]);
+
+  useEffect(() => {
+    if (!open || !hasLiveApi || draftValidationError) return;
+    const timer = window.setTimeout(() => {
+      scoreMutation.mutate(draftPayload);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [open, draftPayload, draftValidationError]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] max-w-6xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+        <DialogHeader>
+          <DialogTitle className="font-heading text-2xl text-foreground">Live Donation Post Planner</DialogTitle>
+          <DialogDescription>
+            Adjust the post features below and the predictions update live as you change the draft.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Platform</span>
+              <select value={draftForm.platform} onChange={(event) => setDraftForm((current) => ({ ...current, platform: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {platformOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Day of week</span>
+              <select value={draftForm.day_of_week} onChange={(event) => setDraftForm((current) => ({ ...current, day_of_week: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Post hour</span>
+              <Input type="number" min={0} max={23} value={draftForm.post_hour} onChange={(event) => setDraftForm((current) => ({ ...current, post_hour: event.target.value }))} className="h-11 rounded-xl border-border/80" />
+            </label>
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Post type</span>
+              <select value={draftForm.post_type} onChange={(event) => setDraftForm((current) => ({ ...current, post_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {FALLBACK_POST_TYPES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Media type</span>
+              <select value={draftForm.media_type} onChange={(event) => setDraftForm((current) => ({ ...current, media_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {FALLBACK_MEDIA_TYPES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Hashtags</span>
+              <Input type="number" min={0} value={draftForm.num_hashtags} onChange={(event) => setDraftForm((current) => ({ ...current, num_hashtags: event.target.value }))} className="h-11 rounded-xl border-border/80" />
+            </label>
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">CTA</span>
+              <select value={draftForm.has_call_to_action} onChange={(event) => setDraftForm((current) => ({ ...current, has_call_to_action: event.target.value, call_to_action_type: event.target.value === "true" ? current.call_to_action_type || "Donate" : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+
+            {draftForm.has_call_to_action === "true" ? (
+              <label className="grid gap-2 text-sm">
+                <span className="font-medium text-foreground">CTA type</span>
+                <select value={draftForm.call_to_action_type} onChange={(event) => setDraftForm((current) => ({ ...current, call_to_action_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                  {FALLBACK_CTA_TYPES.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Content topic</span>
+              <select value={draftForm.content_topic} onChange={(event) => setDraftForm((current) => ({ ...current, content_topic: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {FALLBACK_TOPICS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Tone</span>
+              <select value={draftForm.sentiment_tone} onChange={(event) => setDraftForm((current) => ({ ...current, sentiment_tone: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {FALLBACK_TONES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Resident story</span>
+              <select value={draftForm.features_resident_story} onChange={(event) => setDraftForm((current) => ({ ...current, features_resident_story: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                <option value="true">Included</option>
+                <option value="false">Not included</option>
+              </select>
+            </label>
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Boosted</span>
+              <select value={draftForm.is_boosted} onChange={(event) => setDraftForm((current) => ({ ...current, is_boosted: event.target.value, boost_budget_php: event.target.value === "true" ? current.boost_budget_php : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                <option value="false">Organic</option>
+                <option value="true">Boosted</option>
+              </select>
+            </label>
+
+            {draftForm.is_boosted === "true" ? (
+              <label className="grid gap-2 text-sm">
+                <span className="font-medium text-foreground">Boost budget (PHP)</span>
+                <Input type="number" min={0} value={draftForm.boost_budget_php} onChange={(event) => setDraftForm((current) => ({ ...current, boost_budget_php: event.target.value }))} className="h-11 rounded-xl border-border/80" />
+              </label>
+            ) : null}
+
+            <label className="grid gap-2 text-sm md:col-span-2 xl:col-span-3">
+              <span className="font-medium text-foreground">Caption</span>
+              <Textarea value={draftForm.caption} onChange={(event) => setDraftForm((current) => ({ ...current, caption: event.target.value }))} className="min-h-[96px] rounded-2xl border-border/80" placeholder="Write the draft caption here..." />
+            </label>
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Caption length</span>
+              <Input
+                type="number"
+                min={0}
+                value={draftForm.caption_length}
+                onChange={(event) => {
+                  setDraftCaptionLengthEdited(true);
+                  setDraftForm((current) => ({ ...current, caption_length: event.target.value }));
+                }}
+                className="h-11 rounded-xl border-border/80"
+              />
+            </label>
+
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Campaign name</span>
+              <Input value={draftForm.campaign_name} onChange={(event) => setDraftForm((current) => ({ ...current, campaign_name: event.target.value }))} className="h-11 rounded-xl border-border/80" placeholder="Optional campaign label" />
+            </label>
+          </div>
+
+          <div className="space-y-4">
+            {draftValidationError ? (
+              <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4">
+                <p className="text-sm text-destructive">{draftValidationError}</p>
+              </div>
+            ) : null}
+
+            {scoreMutation.isPending ? (
+              <PlannerLoadingState
+                title="Scoring donation draft"
+                description="The planner is recalculating referral probability, likely referrals, and expected donation value for your current selections."
+              />
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+                  <div className="rounded-2xl bg-muted/25 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-primary">Referral probability</p>
+                    <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? formatPercent(scoreMutation.data.prediction.predictedReferralProbability) : "..."}</p>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Likelihood that the post produces at least one donation referral.</p>
+                  </div>
+                  <div className="rounded-2xl bg-muted/25 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-primary">Likely referrals</p>
+                    <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? formatDecimal(scoreMutation.data.prediction.predictedReferralCount) : "..."}</p>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Predicted donation referrals for a post with this setup.</p>
+                  </div>
+                  <div className="rounded-2xl bg-muted/25 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-primary">Expected donation value</p>
+                    <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? formatPeso(scoreMutation.data.prediction.predictedDonationValuePhp) : "..."}</p>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Expected donation value tied to the same draft configuration.</p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-primary/6 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-primary">Live read</p>
+                  <p className="mt-3 text-sm leading-6 text-foreground">
+                    {scoreMutation.data
+                      ? scoreMutation.data.prediction.likelyReferralDriver
+                        ? "This draft currently looks referral-first. To keep that edge, hold onto the CTA and story choices that are already boosting conversion."
+                        : "This draft currently looks more value-oriented than referral-oriented. To push it toward more direct referrals, try a stronger CTA or the best media type for the selected platform."
+                      : "Predictions update live as you change the settings on the left."}
+                  </p>
+                </div>
+              </>
+            )}
+
+            {scoreMutation.data?.selectedPlatformMedia?.length && !scoreMutation.isPending ? (
+              <div className="rounded-2xl bg-muted/25 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-primary">Selected platform benchmark</p>
+                <div className="mt-4 h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={scoreMutation.data.selectedPlatformMedia} layout="vertical" margin={{ left: 18, right: 18 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis type="number" domain={[0, 1]} tickFormatter={(value) => `${Math.round(Number(value) * 100)}%`} />
+                      <YAxis type="category" dataKey="mediaType" width={120} />
+                      <Tooltip formatter={(value: number) => `${Math.round(value * 100)}%`} />
+                      <Bar dataKey="referralRate" fill="hsl(var(--primary))" radius={[0, 12, 12, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" className="rounded-full" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CommunityPlannerDialog({
+  open,
+  onOpenChange,
+  socialPosts,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  socialPosts: SocialPostRow[];
+}) {
+  const [draftForm, setDraftForm] = useState<DraftPostScoreFormState>(EMPTY_DRAFT_SCORE_FORM);
+  const [draftCaptionLengthEdited, setDraftCaptionLengthEdited] = useState(false);
+
+  const scoreMutation = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => scoreCommunityPost(payload),
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Unable to score the planned outreach post.");
+    },
+  });
+
+  const platformOptions = useMemo(() => uniqueOptions(socialPosts.map((post) => post.platform), FALLBACK_PLATFORMS), [socialPosts]);
+  const draftPayload = useMemo(
+    () => ({
+      platform: draftForm.platform,
+      day_of_week: draftForm.day_of_week,
+      post_hour: Number(draftForm.post_hour),
+      post_type: draftForm.post_type,
+      media_type: draftForm.media_type,
+      num_hashtags: toNullableNumber(draftForm.num_hashtags) ?? 0,
+      has_call_to_action: toNullableBoolean(draftForm.has_call_to_action) ?? false,
+      call_to_action_type: draftForm.has_call_to_action === "true" ? draftForm.call_to_action_type || null : null,
+      content_topic: draftForm.content_topic || null,
+      sentiment_tone: draftForm.sentiment_tone || null,
+      caption: draftForm.caption || null,
+      caption_length: toNullableNumber(draftForm.caption_length) ?? draftForm.caption.length,
+      features_resident_story: toNullableBoolean(draftForm.features_resident_story) ?? false,
+      campaign_name: draftForm.campaign_name || null,
+      is_boosted: toNullableBoolean(draftForm.is_boosted) ?? false,
+      boost_budget_php: draftForm.is_boosted === "true" ? toNullableNumber(draftForm.boost_budget_php) : null,
+    }),
+    [draftForm],
+  );
+  const draftValidationError = useMemo(() => validateDraftPost(draftForm), [draftForm]);
+
+  useEffect(() => {
+    if (draftCaptionLengthEdited) return;
+    setDraftForm((current) => ({ ...current, caption_length: current.caption.length ? String(current.caption.length) : "" }));
+  }, [draftForm.caption, draftCaptionLengthEdited]);
+
+  useEffect(() => {
+    if (!open || !hasLiveApi || draftValidationError) return;
+    const timer = window.setTimeout(() => {
+      scoreMutation.mutate(draftPayload);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [open, draftPayload, draftValidationError]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] max-w-6xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+        <DialogHeader>
+          <DialogTitle className="font-heading text-2xl text-foreground">Live Community Outreach Planner</DialogTitle>
+          <DialogDescription>
+            Change the planned outreach post settings and the awareness predictions update live.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Platform</span>
+              <select value={draftForm.platform} onChange={(event) => setDraftForm((current) => ({ ...current, platform: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {platformOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Day of week</span>
+              <select value={draftForm.day_of_week} onChange={(event) => setDraftForm((current) => ({ ...current, day_of_week: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Post hour</span>
+              <Input type="number" min={0} max={23} value={draftForm.post_hour} onChange={(event) => setDraftForm((current) => ({ ...current, post_hour: event.target.value }))} className="h-11 rounded-xl border-border/80" />
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Post type</span>
+              <select value={draftForm.post_type} onChange={(event) => setDraftForm((current) => ({ ...current, post_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {FALLBACK_POST_TYPES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Media type</span>
+              <select value={draftForm.media_type} onChange={(event) => setDraftForm((current) => ({ ...current, media_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {FALLBACK_MEDIA_TYPES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Hashtags</span>
+              <Input type="number" min={0} value={draftForm.num_hashtags} onChange={(event) => setDraftForm((current) => ({ ...current, num_hashtags: event.target.value }))} className="h-11 rounded-xl border-border/80" />
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">CTA</span>
+              <select value={draftForm.has_call_to_action} onChange={(event) => setDraftForm((current) => ({ ...current, has_call_to_action: event.target.value, call_to_action_type: event.target.value === "true" ? current.call_to_action_type || "LearnMore" : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+            {draftForm.has_call_to_action === "true" ? (
+              <label className="grid gap-2 text-sm">
+                <span className="font-medium text-foreground">CTA type</span>
+                <select value={draftForm.call_to_action_type} onChange={(event) => setDraftForm((current) => ({ ...current, call_to_action_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                  {FALLBACK_CTA_TYPES.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Content topic</span>
+              <select value={draftForm.content_topic} onChange={(event) => setDraftForm((current) => ({ ...current, content_topic: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {FALLBACK_TOPICS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Tone</span>
+              <select value={draftForm.sentiment_tone} onChange={(event) => setDraftForm((current) => ({ ...current, sentiment_tone: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                {FALLBACK_TONES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Resident story</span>
+              <select value={draftForm.features_resident_story} onChange={(event) => setDraftForm((current) => ({ ...current, features_resident_story: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                <option value="true">Included</option>
+                <option value="false">Not included</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Boosted</span>
+              <select value={draftForm.is_boosted} onChange={(event) => setDraftForm((current) => ({ ...current, is_boosted: event.target.value, boost_budget_php: event.target.value === "true" ? current.boost_budget_php : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                <option value="false">Organic</option>
+                <option value="true">Boosted</option>
+              </select>
+            </label>
+            {draftForm.is_boosted === "true" ? (
+              <label className="grid gap-2 text-sm">
+                <span className="font-medium text-foreground">Boost budget (PHP)</span>
+                <Input type="number" min={0} value={draftForm.boost_budget_php} onChange={(event) => setDraftForm((current) => ({ ...current, boost_budget_php: event.target.value }))} className="h-11 rounded-xl border-border/80" />
+              </label>
+            ) : null}
+            <label className="grid gap-2 text-sm md:col-span-2 xl:col-span-3">
+              <span className="font-medium text-foreground">Caption</span>
+              <Textarea value={draftForm.caption} onChange={(event) => setDraftForm((current) => ({ ...current, caption: event.target.value }))} className="min-h-[96px] rounded-2xl border-border/80" placeholder="Write the outreach draft caption here..." />
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Caption length</span>
+              <Input type="number" min={0} value={draftForm.caption_length} onChange={(event) => { setDraftCaptionLengthEdited(true); setDraftForm((current) => ({ ...current, caption_length: event.target.value })); }} className="h-11 rounded-xl border-border/80" />
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Campaign name</span>
+              <Input value={draftForm.campaign_name} onChange={(event) => setDraftForm((current) => ({ ...current, campaign_name: event.target.value }))} className="h-11 rounded-xl border-border/80" placeholder="Optional outreach campaign" />
+            </label>
+          </div>
+
+          <div className="space-y-4">
+            {draftValidationError ? <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4"><p className="text-sm text-destructive">{draftValidationError}</p></div> : null}
+            {scoreMutation.isPending ? (
+              <PlannerLoadingState
+                title="Scoring outreach draft"
+                description="The planner is recalculating awareness reach, community referral potential, and share-friendly performance for your current selections."
+              />
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+                  <div className="rounded-2xl bg-muted/25 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-primary">Community reach score</p>
+                    <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? formatDisplayPercent((scoreMutation.data.prediction.predictedCommunityReachScore ?? 0) * 100) : "..."}</p>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Predicted blended awareness score for this outreach draft.</p>
+                  </div>
+                  <div className="rounded-2xl bg-muted/25 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-primary">Referral potential</p>
+                    <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? formatPercent(scoreMutation.data.prediction.predictedCommunityReferralProbability) : "..."}</p>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Likelihood the post crosses the community-referral proxy threshold.</p>
+                  </div>
+                  <div className="rounded-2xl bg-muted/25 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-primary">Share-friendly strength</p>
+                    <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? `${Math.round((scoreMutation.data.prediction.predictedShareRate ?? 0) * 1000)} per 1k` : "..."}</p>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Expected shares per 1,000 reaches, which reads better than a tiny raw share rate.</p>
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-primary/6 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-primary">Live read</p>
+                  <p className="mt-3 text-sm leading-6 text-foreground">
+                    {scoreMutation.data
+                      ? scoreMutation.data.prediction.likelyAwarenessDriver
+                        ? "This draft currently looks strong for awareness-building. Keep the story angle and native media format if broad reach is the goal."
+                        : "This draft looks weaker for community spread right now. Try the strongest media type for the selected platform, or add a resident story or CTA if that fits the message."
+                      : "Predictions update live as you change the settings on the left."}
+                  </p>
+                </div>
+              </>
+            )}
+            {scoreMutation.data?.selectedPlatformMedia?.length && !scoreMutation.isPending ? (
+              <div className="rounded-2xl bg-muted/25 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-primary">Selected platform benchmark</p>
+                <div className="mt-4 h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={scoreMutation.data.selectedPlatformMedia} layout="vertical" margin={{ left: 18, right: 18 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis type="number" domain={[0, 1]} tickFormatter={(value) => `${Math.round(Number(value) * 100)}%`} />
+                      <YAxis type="category" dataKey="mediaType" width={120} />
+                      <Tooltip formatter={(value: number) => `${Math.round(value * 100)}%`} />
+                      <Bar dataKey="avgCommunityReachScore" fill="hsl(var(--primary))" radius={[0, 12, 12, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" className="rounded-full" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function DonationAnalyticsView({
   data,
   socialPosts,
@@ -529,6 +1319,12 @@ function DonationAnalyticsView({
   const [activeKpiLabel, setActiveKpiLabel] = useState<string | null>(null);
   const [activeInsightId, setActiveInsightId] = useState<string | null>(null);
   const [activeChartId, setActiveChartId] = useState<string | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("Instagram");
+  const [strategyOpen, setStrategyOpen] = useState(false);
+  const [strategyResidentStoryOnly, setStrategyResidentStoryOnly] = useState(false);
+  const [strategyCtaOnly, setStrategyCtaOnly] = useState(false);
+  const [strategyImpactStoryOnly, setStrategyImpactStoryOnly] = useState(false);
+  const [strategyBoostedOnly, setStrategyBoostedOnly] = useState(false);
 
   const platformDonationChart = useMemo(() => {
     const grouped = new Map<string, { posts: number; donationValueTotal: number; referredPosts: number }>();
@@ -551,13 +1347,129 @@ function DonationAnalyticsView({
       .sort((left, right) => right.avgDonationValuePhp - left.avgDonationValuePhp);
   }, [socialPosts]);
 
+  const platformMediaSummary = useMemo(() => {
+    if (data.platformMediaChart?.length) {
+      return data.platformMediaChart
+        .map((row) => ({
+          platform: row.platform,
+          mediaType: row.mediaType,
+          posts: row.posts,
+          referralRate: row.referralRate ?? 0,
+          avgDonationValuePhp: row.avgDonationValuePhp ?? 0,
+          stabilityFlag: row.stabilityFlag || "Observe",
+        }))
+        .sort((left, right) => right.referralRate - left.referralRate);
+    }
+
+    const grouped = new Map<string, { posts: number; referredPosts: number; donationValueTotal: number }>();
+    for (const post of socialPosts) {
+      const platform = String(post.platform ?? "").trim();
+      const mediaType = String(post.media_type ?? "").trim();
+      if (!platform || !mediaType) continue;
+      const key = `${platform}|||${mediaType}`;
+      const current = grouped.get(key) ?? { posts: 0, referredPosts: 0, donationValueTotal: 0 };
+      current.posts += 1;
+      if (toNumber(post.donation_referrals) > 0) current.referredPosts += 1;
+      current.donationValueTotal += toNumber(post.estimated_donation_value_php);
+      grouped.set(key, current);
+    }
+
+    return Array.from(grouped.entries())
+      .map(([key, metrics]) => {
+        const [platform, mediaType] = key.split("|||");
+        return {
+          platform,
+          mediaType,
+          posts: metrics.posts,
+          referralRate: metrics.posts ? metrics.referredPosts / metrics.posts : 0,
+          avgDonationValuePhp: metrics.posts ? metrics.donationValueTotal / metrics.posts : 0,
+          stabilityFlag: metrics.posts >= 12 ? "Trusted" : metrics.posts >= 8 ? "Promising" : "Use caution",
+        };
+      })
+      .sort((left, right) => right.referralRate - left.referralRate);
+  }, [data.platformMediaChart, socialPosts]);
+
+  const trustedPlatformDefaults = useMemo(() => {
+    if (data.platformTrustedMedia?.length) {
+      return data.platformTrustedMedia.map((row) => ({
+        platform: row.platform,
+        mediaType: row.bestMediaType,
+        posts: row.posts,
+        referralRate: row.referralRate ?? 0,
+        avgDonationValuePhp: row.avgDonationValuePhp ?? 0,
+        stabilityFlag: row.stabilityFlag || "Trusted",
+      }));
+    }
+
+    const grouped = new Map<string, typeof platformMediaSummary>();
+    for (const row of platformMediaSummary.filter((item) => item.posts >= 12)) {
+      const current = grouped.get(row.platform) ?? [];
+      current.push(row);
+      grouped.set(row.platform, current);
+    }
+
+    return Array.from(grouped.entries())
+      .map(([platform, rows]) => {
+        const best = [...rows].sort((left, right) => right.referralRate - left.referralRate)[0];
+        return { ...best, platform };
+      })
+      .sort((left, right) => right.referralRate - left.referralRate);
+  }, [data.platformTrustedMedia, platformMediaSummary]);
+
+  const platformOptions = useMemo(() => {
+    const options = new Set<string>([...platformMediaSummary.map((item) => item.platform), ...FALLBACK_PLATFORMS]);
+    return Array.from(options).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [platformMediaSummary]);
+
+  useEffect(() => {
+    if (!platformOptions.includes(selectedPlatform)) {
+      setSelectedPlatform(platformOptions[0] ?? "Instagram");
+    }
+  }, [platformOptions, selectedPlatform]);
+
   const topReferralType = data.postTypeReferralChart[0];
   const topValueType = data.postTypeValueChart[0];
   const bestReferralHour = data.timingSignals.find((signal) => signal.label === "Best referral hour");
   const bestValueHour = data.timingSignals.find((signal) => signal.label === "Best donation-value hour");
   const bestReferralTone = data.timingSignals.find((signal) => signal.label === "Best referral tone");
   const bestValueTone = data.timingSignals.find((signal) => signal.label === "Best donation-value tone");
+  const residentStoryMetric = data.liftMetrics[0];
+  const ctaMetric = data.liftMetrics[1];
   const topDonationPlatform = platformDonationChart[0];
+  const selectedPlatformMedia = platformMediaSummary.filter((row) => row.platform === selectedPlatform).sort((left, right) => right.referralRate - left.referralRate);
+  const selectedPlatformBestMedia = selectedPlatformMedia[0];
+  const overallBestPlatformMedia = trustedPlatformDefaults[0];
+  const strategyChartData = useMemo(() => {
+    const filtered = socialPosts.filter((post) => {
+      if (String(post.platform ?? "").trim() !== selectedPlatform) return false;
+      if (strategyResidentStoryOnly && !asBoolean(post.features_resident_story)) return false;
+      if (strategyCtaOnly && !asBoolean(post.has_call_to_action)) return false;
+      if (strategyImpactStoryOnly && String(post.post_type ?? "").trim() !== "ImpactStory") return false;
+      if (strategyBoostedOnly && !asBoolean(post.is_boosted)) return false;
+      return true;
+    });
+
+    const grouped = new Map<string, { posts: number; referredPosts: number; donationValueTotal: number }>();
+    for (const post of filtered) {
+      const mediaType = String(post.media_type ?? "").trim();
+      if (!mediaType) continue;
+      const current = grouped.get(mediaType) ?? { posts: 0, referredPosts: 0, donationValueTotal: 0 };
+      current.posts += 1;
+      if (toNumber(post.donation_referrals) > 0) current.referredPosts += 1;
+      current.donationValueTotal += toNumber(post.estimated_donation_value_php);
+      grouped.set(mediaType, current);
+    }
+
+    return Array.from(grouped.entries())
+      .map(([mediaType, metrics]) => ({
+        mediaType,
+        posts: metrics.posts,
+        referralRate: metrics.posts ? metrics.referredPosts / metrics.posts : 0,
+        avgDonationValuePhp: metrics.posts ? metrics.donationValueTotal / metrics.posts : 0,
+      }))
+      .sort((left, right) => right.referralRate - left.referralRate);
+  }, [selectedPlatform, socialPosts, strategyResidentStoryOnly, strategyCtaOnly, strategyImpactStoryOnly, strategyBoostedOnly]);
+  const strategyBestMedia = strategyChartData[0];
 
   const topKpiCards = [
     {
@@ -578,11 +1490,11 @@ function DonationAnalyticsView({
         : "Platform donation performance is not available yet",
     },
     {
-      label: "Best referral format",
-      value: topReferralType?.postType ?? "N/A",
-      detail: topReferralType
-        ? `${formatPercent(topReferralType.referralRate)} referral rate in the current dataset`
-        : "Referral format performance is not available yet",
+      label: "Best platform-media pair",
+      value: overallBestPlatformMedia ? `${overallBestPlatformMedia.platform} · ${overallBestPlatformMedia.mediaType}` : "N/A",
+      detail: overallBestPlatformMedia
+        ? `${formatPercent(overallBestPlatformMedia.referralRate)} referral rate across ${overallBestPlatformMedia.posts.toLocaleString()} posts`
+        : "Trusted platform-media recommendations are not available yet",
     },
   ];
 
@@ -598,7 +1510,7 @@ function DonationAnalyticsView({
           highlights: [
             topReferralType ? `${topReferralType.postType} is the strongest current referral format at ${formatPercent(topReferralType.referralRate)}.` : "No top referral format is available yet.",
             bestReferralHour ? `${bestReferralHour.label} is currently ${formatHourLabel(bestReferralHour.value)}.` : "Best referral hour is not available yet.",
-            bestReferralTone ? `${bestReferralTone.label} is currently ${bestReferralTone.value}.` : "Best referral tone is not available yet.",
+            overallBestPlatformMedia ? `${overallBestPlatformMedia.platform} ${overallBestPlatformMedia.mediaType} is the strongest trusted platform-media combination.` : "No trusted platform-media recommendation is available yet.",
           ],
         };
       case "Avg donation value":
@@ -610,8 +1522,8 @@ function DonationAnalyticsView({
           chartData: data.postTypeValueChart.map((point) => ({ label: point.postType, value: point.avgDonationValuePhp ?? 0 })),
           highlights: [
             topValueType ? `${topValueType.postType} currently leads expected value at ${formatPeso(topValueType.avgDonationValuePhp)} per post.` : "No value-leading post type is available yet.",
+            topDonationPlatform ? `${topDonationPlatform.label} is the strongest channel for donation value.` : "No channel leader is available yet.",
             bestValueHour ? `${bestValueHour.label} is currently ${formatHourLabel(bestValueHour.value)}.` : "Best donation-value hour is not available yet.",
-            bestValueTone ? `${bestValueTone.label} is currently ${bestValueTone.value}.` : "Best donation-value tone is not available yet.",
           ],
         };
       case "Best donation platform":
@@ -622,26 +1534,22 @@ function DonationAnalyticsView({
           chartType: "currency",
           chartData: platformDonationChart.map((point) => ({ label: point.label, value: point.avgDonationValuePhp })),
           highlights: [
-            topDonationPlatform
-              ? `${topDonationPlatform.label} currently leads at ${formatPeso(topDonationPlatform.avgDonationValuePhp)} average donation value per post.`
-              : "No leading donation platform is available yet.",
-            topDonationPlatform
-              ? `${formatPercent(topDonationPlatform.referralRate)} of ${topDonationPlatform.posts.toLocaleString()} tracked posts on ${topDonationPlatform.label} produced at least one referral.`
-              : "Platform referral context is not available yet.",
+            topDonationPlatform ? `${topDonationPlatform.label} currently leads at ${formatPeso(topDonationPlatform.avgDonationValuePhp)} average donation value per post.` : "No leading donation platform is available yet.",
+            topDonationPlatform ? `${formatPercent(topDonationPlatform.referralRate)} of ${topDonationPlatform.posts.toLocaleString()} tracked posts on ${topDonationPlatform.label} produced at least one referral.` : "Platform referral context is not available yet.",
             "Use this when choosing where to place the next high-value fundraising push.",
           ],
         };
-      case "Best referral format":
+      case "Best platform-media pair":
         return {
-          title: "Best referral format",
-          description: "This shows which content format is currently most effective at generating at least one donation referral.",
-          chartTitle: "Referral rate by post type",
+          title: "Best platform-media pair",
+          description: "This KPI surfaces the strongest trusted combination of platform and media type from the notebook's reliability-filtered analysis.",
+          chartTitle: "Trusted referral rate by platform-media pair",
           chartType: "percent",
-          chartData: data.postTypeReferralChart.map((point) => ({ label: point.postType, value: point.referralRate ?? 0 })),
+          chartData: trustedPlatformDefaults.map((point) => ({ label: `${point.platform} · ${point.mediaType}`, value: point.referralRate ?? 0 })),
           highlights: [
-            topReferralType ? `${topReferralType.postType} leads current referral performance at ${formatPercent(topReferralType.referralRate)}.` : "No leading referral format is available yet.",
-            data.summary.bestOverallFormat ? `The planning summary also flags ${data.summary.bestOverallFormat} as the best overall format.` : "No overall format summary is available yet.",
-            "This is the strongest KPI for deciding what type of post to create next.",
+            overallBestPlatformMedia ? `${overallBestPlatformMedia.platform} ${overallBestPlatformMedia.mediaType} currently leads trusted referral performance at ${formatPercent(overallBestPlatformMedia.referralRate)}.` : "No trusted platform-media leader is available yet.",
+            "These recommendations exclude tiny samples so the planner stays more statistically believable.",
+            "Use this to choose both the channel and the native content format together.",
           ],
         };
       default:
@@ -652,35 +1560,21 @@ function DonationAnalyticsView({
   const insightCards = [
     {
       id: "resident-story",
-      title: "Resident story",
-      value: data.liftMetrics[0]?.liftPoints == null ? "N/A" : `${data.liftMetrics[0].liftPoints > 0 ? "+" : ""}${data.liftMetrics[0].liftPoints} pts`,
-      detail: data.liftMetrics[0]
-        ? `${data.liftMetrics[0].withLabel}: ${formatPercent(data.liftMetrics[0].withRate)}. ${data.liftMetrics[0].withoutLabel}: ${formatPercent(data.liftMetrics[0].withoutRate)}.`
-        : "No resident-story comparison is available yet.",
+      title: "Resident story lift",
+      value: residentStoryMetric ? formatLiftIncrease(residentStoryMetric.withRate, residentStoryMetric.withoutRate) : "N/A",
+      detail: residentStoryMetric ? `${residentStoryMetric.withLabel}: ${formatPercent(residentStoryMetric.withRate)}. ${residentStoryMetric.withoutLabel}: ${formatPercent(residentStoryMetric.withoutRate)}.` : "No resident-story comparison is available yet.",
       icon: Sparkles,
       chartType: "percent" as DetailChartType,
-      miniChartData: data.liftMetrics[0]
-        ? [
-            { label: data.liftMetrics[0].withLabel, value: data.liftMetrics[0].withRate ?? 0 },
-            { label: data.liftMetrics[0].withoutLabel, value: data.liftMetrics[0].withoutRate ?? 0 },
-          ]
-        : [],
+      miniChartData: residentStoryMetric ? [{ label: residentStoryMetric.withLabel, value: residentStoryMetric.withRate ?? 0 }, { label: residentStoryMetric.withoutLabel, value: residentStoryMetric.withoutRate ?? 0 }] : [],
     },
     {
       id: "cta",
-      title: "CTA",
-      value: data.liftMetrics[1]?.liftPoints == null ? "N/A" : `${data.liftMetrics[1].liftPoints > 0 ? "+" : ""}${data.liftMetrics[1].liftPoints} pts`,
-      detail: data.liftMetrics[1]
-        ? `${data.liftMetrics[1].withLabel}: ${formatPercent(data.liftMetrics[1].withRate)}. ${data.liftMetrics[1].withoutLabel}: ${formatPercent(data.liftMetrics[1].withoutRate)}.`
-        : "No CTA comparison is available yet.",
+      title: "CTA lift",
+      value: ctaMetric ? formatLiftIncrease(ctaMetric.withRate, ctaMetric.withoutRate) : "N/A",
+      detail: ctaMetric ? `${ctaMetric.withLabel}: ${formatPercent(ctaMetric.withRate)}. ${ctaMetric.withoutLabel}: ${formatPercent(ctaMetric.withoutRate)}.` : "No CTA comparison is available yet.",
       icon: Sparkles,
       chartType: "percent" as DetailChartType,
-      miniChartData: data.liftMetrics[1]
-        ? [
-            { label: data.liftMetrics[1].withLabel, value: data.liftMetrics[1].withRate ?? 0 },
-            { label: data.liftMetrics[1].withoutLabel, value: data.liftMetrics[1].withoutRate ?? 0 },
-          ]
-        : [],
+      miniChartData: ctaMetric ? [{ label: ctaMetric.withLabel, value: ctaMetric.withRate ?? 0 }, { label: ctaMetric.withoutLabel, value: ctaMetric.withoutRate ?? 0 }] : [],
     },
     {
       id: "best-referral-hour",
@@ -692,57 +1586,47 @@ function DonationAnalyticsView({
       miniChartData: (data.hourPerformance ?? []).slice(0, 6).map((point) => ({ label: point.label, value: point.referralRate ?? 0 })),
     },
     {
-      id: "best-donation-tone",
-      title: "Best donation-value tone",
-      value: bestValueTone?.value ?? "N/A",
-      detail: bestValueTone?.detail ?? "No tone performance comparison is available yet.",
+      id: "selected-platform-media",
+      title: `${selectedPlatform} best media`,
+      value: selectedPlatformBestMedia?.mediaType ?? "N/A",
+      detail: selectedPlatformBestMedia ? `${formatPercent(selectedPlatformBestMedia.referralRate)} referral rate across ${selectedPlatformBestMedia.posts.toLocaleString()} posts` : `No media-type benchmark is available for ${selectedPlatform}.`,
       icon: BarChart3,
       chartType: "percent" as DetailChartType,
-      miniChartData: (data.tonePerformance ?? []).slice(0, 5).map((point) => ({ label: point.label, value: point.referralRate ?? 0 })),
+      miniChartData: selectedPlatformMedia.slice(0, 5).map((point) => ({ label: point.mediaType, value: point.referralRate ?? 0 })),
     },
   ];
 
   const activeInsight = insightCards.find((card) => card.id === activeInsightId) ?? null;
 
   const insightDetail: DetailConfig | null = (() => {
-    if (activeInsightId === "resident-story" && data.liftMetrics[0]) {
-      const metric = data.liftMetrics[0];
+    if (activeInsightId === "resident-story" && residentStoryMetric) {
       return {
         title: "Resident story lift",
         description: "This compares referral performance when posts include a resident story versus when they do not.",
         chartTitle: "Referral rate with vs without resident story",
         chartType: "percent",
-        chartData: [
-          { label: metric.withLabel, value: metric.withRate ?? 0 },
-          { label: metric.withoutLabel, value: metric.withoutRate ?? 0 },
-        ],
+        chartData: [{ label: residentStoryMetric.withLabel, value: residentStoryMetric.withRate ?? 0 }, { label: residentStoryMetric.withoutLabel, value: residentStoryMetric.withoutRate ?? 0 }],
         highlights: [
-          `${metric.factor} adds ${metric.liftPoints ?? 0} points of referral lift in the current dataset.`,
-          `Posts with a resident story convert at ${formatPercent(metric.withRate)} versus ${formatPercent(metric.withoutRate)} without one.`,
+          `Resident-story posts show a ${formatLiftIncrease(residentStoryMetric.withRate, residentStoryMetric.withoutRate)} relative referral lift.`,
+          `Posts with a resident story convert at ${formatPercent(residentStoryMetric.withRate)} versus ${formatPercent(residentStoryMetric.withoutRate)} without one.`,
           "This is a relationship signal, not proof of causation, but it is strong enough to guide content planning.",
         ],
       };
     }
-
-    if (activeInsightId === "cta" && data.liftMetrics[1]) {
-      const metric = data.liftMetrics[1];
+    if (activeInsightId === "cta" && ctaMetric) {
       return {
         title: "CTA lift",
         description: "This compares referral performance for posts with a call to action versus posts without one.",
         chartTitle: "Referral rate with vs without CTA",
         chartType: "percent",
-        chartData: [
-          { label: metric.withLabel, value: metric.withRate ?? 0 },
-          { label: metric.withoutLabel, value: metric.withoutRate ?? 0 },
-        ],
+        chartData: [{ label: ctaMetric.withLabel, value: ctaMetric.withRate ?? 0 }, { label: ctaMetric.withoutLabel, value: ctaMetric.withoutRate ?? 0 }],
         highlights: [
-          `${metric.factor} adds ${metric.liftPoints ?? 0} points of referral lift in the current dataset.`,
-          `Posts with a CTA convert at ${formatPercent(metric.withRate)} versus ${formatPercent(metric.withoutRate)} without one.`,
+          `CTA posts show a ${formatLiftIncrease(ctaMetric.withRate, ctaMetric.withoutRate)} relative referral lift.`,
+          `Posts with a CTA convert at ${formatPercent(ctaMetric.withRate)} versus ${formatPercent(ctaMetric.withoutRate)} without one.`,
           "This is most useful for deciding whether a post should ask for a donation action directly.",
         ],
       };
     }
-
     if (activeInsightId === "best-referral-hour") {
       return {
         title: "Best referral hour",
@@ -753,26 +1637,10 @@ function DonationAnalyticsView({
         highlights: [
           bestReferralHour ? `${bestReferralHour.label} is currently ${formatHourLabel(bestReferralHour.value)}.` : "Best referral hour is not available yet.",
           bestValueHour ? `${bestValueHour.label} is ${formatHourLabel(bestValueHour.value)} for donation value.` : "Best donation-value hour is not available yet.",
-          "Use this as a planning default, then layer in content type and CTA choices.",
+          "Use this as a planning default, then layer in platform-native media and creative choices.",
         ],
       };
     }
-
-    if (activeInsightId === "best-donation-tone") {
-      return {
-        title: "Best donation-value tone",
-        description: "This compares message tones so the team can see which emotional framing tends to align with stronger fundraising results.",
-        chartTitle: "Referral rate by tone",
-        chartType: "percent",
-        chartData: (data.tonePerformance ?? []).map((point) => ({ label: point.label, value: point.referralRate ?? 0 })),
-        highlights: [
-          bestValueTone ? `${bestValueTone.label} is currently ${bestValueTone.value}.` : "No leading donation-value tone is available yet.",
-          bestReferralTone ? `${bestReferralTone.label} is currently ${bestReferralTone.value} for referral rate.` : "No leading referral tone is available yet.",
-          "Use tone as a messaging choice after you have already picked the right platform and format.",
-        ],
-      };
-    }
-
     return null;
   })();
 
@@ -787,11 +1655,10 @@ function DonationAnalyticsView({
         highlights: [
           topReferralType ? `${topReferralType.postType} is the strongest current referral format at ${formatPercent(topReferralType.referralRate)}.` : "No top referral format is available yet.",
           topReferralType ? `${topReferralType.posts.toLocaleString()} tracked posts contribute to that format benchmark.` : "No tracked-post count is available yet.",
-          "Use this chart to decide what type of content to create next when the goal is getting donors to act.",
+          "ImpactStory remains a strong overall pattern, especially when paired with the right platform-native media type.",
         ],
       };
     }
-
     if (activeChartId === "platform-value-chart") {
       return {
         title: "Best platforms for donation value",
@@ -800,17 +1667,12 @@ function DonationAnalyticsView({
         chartType: "currency",
         chartData: platformDonationChart.map((point) => ({ label: point.label, value: point.avgDonationValuePhp })),
         highlights: [
-          topDonationPlatform
-            ? `${topDonationPlatform.label} currently leads at ${formatPeso(topDonationPlatform.avgDonationValuePhp)} average donation value per post.`
-            : "No leading donation platform is available yet.",
-          topDonationPlatform
-            ? `${formatPercent(topDonationPlatform.referralRate)} of ${topDonationPlatform.posts.toLocaleString()} tracked posts on ${topDonationPlatform.label} produced at least one referral.`
-            : "Platform referral context is not available yet.",
+          topDonationPlatform ? `${topDonationPlatform.label} currently leads at ${formatPeso(topDonationPlatform.avgDonationValuePhp)} average donation value per post.` : "No leading donation platform is available yet.",
+          topDonationPlatform ? `${formatPercent(topDonationPlatform.referralRate)} of ${topDonationPlatform.posts.toLocaleString()} tracked posts on ${topDonationPlatform.label} produced at least one referral.` : "Platform referral context is not available yet.",
           "Use this after picking the right message format to decide where the post should run.",
         ],
       };
     }
-
     return null;
   })();
 
@@ -890,7 +1752,13 @@ function DonationAnalyticsView({
             <button
               key={card.id}
               type="button"
-              onClick={() => setActiveInsightId(card.id)}
+              onClick={() => {
+                if (card.id === "selected-platform-media") {
+                  setStrategyOpen(true);
+                  return;
+                }
+                setActiveInsightId(card.id);
+              }}
               className="rounded-2xl border border-border/70 bg-card p-5 text-left shadow-warm transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg"
             >
               <div className="flex items-center justify-between gap-2">
@@ -905,49 +1773,161 @@ function DonationAnalyticsView({
         })}
       </div>
 
-      <div className="rounded-2xl bg-card p-6 shadow-warm">
+      <button
+        type="button"
+        onClick={() => setStrategyOpen(true)}
+        className="w-full rounded-2xl bg-card p-6 text-left shadow-warm transition hover:-translate-y-0.5 hover:shadow-lg"
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-primary">What To Post Next</p>
             <h4 className="mt-2 font-heading text-2xl font-bold text-foreground">{data.summary.headline}</h4>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Use referral probability to choose which content is most likely to convert, then use expected donation value to prioritize the strongest upside among those top candidates.
+              Use referral probability to choose which content is most likely to convert, then use expected donation value to prioritize the strongest upside among those top candidates. Click this section to open the deeper strategy view with platform, media, CTA, and story toggles.
             </p>
           </div>
           <div className="rounded-2xl bg-primary/8 px-4 py-3 text-right">
             <p className="text-xs text-foreground/70">Best overall format</p>
             <p className="text-2xl font-bold text-foreground">{data.summary.bestOverallFormat}</p>
-            <p className="text-xs text-foreground/70">Best value format: {data.summary.bestValueFormat}</p>
+            <p className="text-xs text-foreground/70">Trusted combo: {overallBestPlatformMedia ? `${overallBestPlatformMedia.platform} ${overallBestPlatformMedia.mediaType}` : "Not available"}</p>
           </div>
         </div>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {data.recommendations.slice(0, 3).map((item, index) => (
-            <div key={`${item}-${index}`} className="rounded-2xl bg-muted/25 p-4">
-              <div className="flex items-center gap-2 text-primary">
-                <Brain className="h-4 w-4" />
-                <span className="text-xs font-semibold uppercase tracking-[0.18em]">Recommendation</span>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-foreground">{item}</p>
+          <div className="rounded-2xl bg-muted/25 p-4">
+            <div className="flex items-center gap-2 text-primary">
+              <Brain className="h-4 w-4" />
+              <span className="text-xs font-semibold uppercase tracking-[0.18em]">Recommendation</span>
             </div>
-          ))}
+            <p className="mt-3 text-sm leading-6 text-foreground">
+              Start with <span className="font-semibold">{topReferralType?.postType ?? data.summary.bestOverallFormat}</span> posts, and use <span className="font-semibold">{selectedPlatformBestMedia?.mediaType ?? "the strongest media type"}</span> when publishing on <span className="font-semibold">{selectedPlatform}</span>.
+            </p>
+          </div>
 
           <div className="rounded-2xl bg-muted/25 p-4">
             <div className="flex items-center gap-2 text-primary">
               <Sparkles className="h-4 w-4" />
-              <span className="text-xs font-semibold uppercase tracking-[0.18em]">Model readiness</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.18em]">Creative driver</span>
             </div>
-            <div className="mt-3">
-              <Badge variant="secondary" className={cn("rounded-full", data.model.isTrained ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>
-                {data.model.isTrained ? "Model ready" : "Snapshot only"}
-              </Badge>
+            <p className="mt-3 text-sm leading-6 text-foreground">
+              {residentStoryMetric ? `Including a resident story is linked to a ${formatLiftIncrease(residentStoryMetric.withRate, residentStoryMetric.withoutRate)} referral lift.` : "Resident-story lift is not available yet."}
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-muted/25 p-4">
+            <div className="flex items-center gap-2 text-primary">
+              <Target className="h-4 w-4" />
+              <span className="text-xs font-semibold uppercase tracking-[0.18em]">Platform note</span>
             </div>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              The classifier uses a {Math.round(data.model.threshold * 100)}% threshold, and the KPI cards above open the supporting evidence behind each summary.
+            <p className="mt-3 text-sm leading-6 text-foreground">
+              {selectedPlatformBestMedia ? `${selectedPlatform} currently favors ${selectedPlatformBestMedia.mediaType} over other media types, with ${formatPercent(selectedPlatformBestMedia.referralRate)} referral performance on a ${selectedPlatformBestMedia.stabilityFlag.toLowerCase()} sample.` : `No platform-native media recommendation is available for ${selectedPlatform} yet.`}
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-muted/25 p-4">
+            <div className="flex items-center gap-2 text-primary">
+              <Clock3 className="h-4 w-4" />
+              <span className="text-xs font-semibold uppercase tracking-[0.18em]">Timing cue</span>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-foreground">
+              {bestReferralHour ? `Default to ${formatHourLabel(bestReferralHour.value)} when you need a referral-first posting window, then adjust by platform and campaign context.` : "Best referral hour is not available yet."}
             </p>
           </div>
         </div>
-      </div>
+      </button>
+
+      <Dialog open={strategyOpen} onOpenChange={setStrategyOpen}>
+        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl text-foreground">What to post next strategy view</DialogTitle>
+            <DialogDescription>
+              Switch platforms and toggle high-impact post features to see how the best media type changes for donation referrals.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-6">
+            <div className="flex flex-wrap gap-2">
+              {platformOptions.map((platform) => (
+                <button
+                  key={platform}
+                  type="button"
+                  onClick={() => setSelectedPlatform(platform)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    selectedPlatform === platform
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border/70 bg-background text-muted-foreground hover:border-primary/35 hover:text-foreground",
+                  )}
+                >
+                  {platform}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Resident story", active: strategyResidentStoryOnly, setActive: setStrategyResidentStoryOnly },
+                { label: "CTA", active: strategyCtaOnly, setActive: setStrategyCtaOnly },
+                { label: "ImpactStory", active: strategyImpactStoryOnly, setActive: setStrategyImpactStoryOnly },
+                { label: "Boosted", active: strategyBoostedOnly, setActive: setStrategyBoostedOnly },
+              ].map((toggle) => (
+                <button
+                  key={toggle.label}
+                  type="button"
+                  onClick={() => toggle.setActive(!toggle.active)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    toggle.active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/70 bg-background text-muted-foreground hover:border-primary/35 hover:text-foreground",
+                  )}
+                >
+                  {toggle.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl bg-muted/25 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-primary">Best media now</p>
+                <p className="mt-3 text-3xl font-bold text-foreground">{strategyBestMedia?.mediaType ?? "N/A"}</p>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  {strategyBestMedia ? `${formatPercent(strategyBestMedia.referralRate)} referral rate across ${strategyBestMedia.posts.toLocaleString()} posts.` : "No posts match the current filter set."}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-muted/25 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-primary">Avg donation value</p>
+                <p className="mt-3 text-3xl font-bold text-foreground">{formatPeso(strategyBestMedia?.avgDonationValuePhp)}</p>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">Average donation value for the current best media choice.</p>
+              </div>
+              <div className="rounded-2xl bg-muted/25 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-primary">Recommendation read</p>
+                <p className="mt-3 text-sm leading-6 text-foreground">
+                  {strategyBestMedia
+                    ? `On ${selectedPlatform}, ${strategyBestMedia.mediaType} is the strongest current format under these feature filters.`
+                    : `No tracked posts match the current ${selectedPlatform} filter combination yet.`}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-warm">
+              <h4 className="font-heading text-lg font-semibold text-foreground">Referral rate by media type on {selectedPlatform}</h4>
+              <p className="mt-1 text-sm text-muted-foreground">The chart updates as you change platform and feature toggles above.</p>
+              <div className="mt-5 h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={strategyChartData} layout="vertical" margin={{ left: 18, right: 18 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis type="number" domain={[0, 1]} tickFormatter={(value) => `${Math.round(Number(value) * 100)}%`} />
+                    <YAxis type="category" dataKey="mediaType" width={130} />
+                    <Tooltip formatter={(value: number) => `${Math.round(value * 100)}%`} />
+                    <Bar dataKey="referralRate" fill="hsl(var(--primary))" radius={[0, 12, 12, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <DetailDialog detail={kpiDetail} open={Boolean(kpiDetail)} onOpenChange={(open) => setActiveKpiLabel(open ? activeKpiLabel : null)} badgeLabel={topKpiCards.find((kpi) => kpi.label === activeKpiLabel)?.detail} />
       <DetailDialog detail={insightDetail} open={Boolean(insightDetail)} onOpenChange={(open) => setActiveInsightId(open ? activeInsightId : null)} badgeLabel={activeInsight?.title ?? null} />
@@ -966,6 +1946,12 @@ function CommunityAnalyticsView({
   const [activeKpiLabel, setActiveKpiLabel] = useState<string | null>(null);
   const [activeInsightId, setActiveInsightId] = useState<string | null>(null);
   const [activeChartId, setActiveChartId] = useState<string | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("Instagram");
+  const [strategyOpen, setStrategyOpen] = useState(false);
+  const [strategyResidentStoryOnly, setStrategyResidentStoryOnly] = useState(false);
+  const [strategyCtaOnly, setStrategyCtaOnly] = useState(false);
+  const [strategyImpactStoryOnly, setStrategyImpactStoryOnly] = useState(false);
+  const [strategyBoostedOnly, setStrategyBoostedOnly] = useState(false);
 
   const shareRateByPlatform = useMemo(() => {
     const grouped = new Map<string, { shares: number; reach: number; posts: number }>();
@@ -986,6 +1972,53 @@ function CommunityAnalyticsView({
       }))
       .sort((left, right) => right.shareRate - left.shareRate);
   }, [socialPosts]);
+  const communityRows = useMemo(() => buildCommunityScoredRows(socialPosts), [socialPosts]);
+  const platformMediaSummary = useMemo(() => {
+    if (data.platformMediaChart?.length) {
+      return data.platformMediaChart.map((row) => ({
+        platform: row.platform,
+        mediaType: row.mediaType,
+        posts: row.posts,
+        avgCommunityReachScore: row.avgCommunityReachScore ?? 0,
+        likelyCommunityReferralRate: row.likelyCommunityReferralRate ?? 0,
+        avgShareRate: row.avgShareRate ?? 0,
+        stabilityFlag: row.stabilityFlag || "Observe",
+      }));
+    }
+
+    const grouped = new Map<string, { posts: number; scoreTotal: number; referralTotal: number; shareRateTotal: number }>();
+    for (const post of communityRows) {
+      const platform = String(post.platform ?? "").trim();
+      const mediaType = String(post.media_type ?? "").trim();
+      if (!platform || !mediaType) continue;
+      const key = `${platform}|||${mediaType}`;
+      const current = grouped.get(key) ?? { posts: 0, scoreTotal: 0, referralTotal: 0, shareRateTotal: 0 };
+      current.posts += 1;
+      current.scoreTotal += post.communityReachScore;
+      current.referralTotal += post.likelyCommunityReferral;
+      current.shareRateTotal += post.shareRate;
+      grouped.set(key, current);
+    }
+    return Array.from(grouped.entries()).map(([key, metrics]) => {
+      const [platform, mediaType] = key.split("|||");
+      return {
+        platform,
+        mediaType,
+        posts: metrics.posts,
+        avgCommunityReachScore: metrics.posts ? metrics.scoreTotal / metrics.posts : 0,
+        likelyCommunityReferralRate: metrics.posts ? metrics.referralTotal / metrics.posts : 0,
+        avgShareRate: metrics.posts ? metrics.shareRateTotal / metrics.posts : 0,
+        stabilityFlag: metrics.posts >= 12 ? "Trusted default" : metrics.posts >= 8 ? "Promising, low sample" : "Too few posts",
+      };
+    });
+  }, [communityRows, data.platformMediaChart]);
+  const platformOptions = useMemo(() => {
+    const options = new Set<string>([...platformMediaSummary.map((item) => item.platform), ...FALLBACK_PLATFORMS]);
+    return Array.from(options).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [platformMediaSummary]);
+  useEffect(() => {
+    if (!platformOptions.includes(selectedPlatform)) setSelectedPlatform(platformOptions[0] ?? "Instagram");
+  }, [platformOptions, selectedPlatform]);
 
   const topPlatform = data.platformReachChart[0];
   const topFormat = data.postTypeReachChart[0];
@@ -994,6 +2027,42 @@ function CommunityAnalyticsView({
   const boostedWinner = data.timingSignals.find((signal) => signal.label === "Boosted winner");
   const topDriver = (data.topDrivers ?? data.model.topDrivers ?? [])[0];
   const topSharePlatform = shareRateByPlatform[0];
+  const selectedPlatformMedia = platformMediaSummary
+    .filter((row) => row.platform === selectedPlatform)
+    .sort((left, right) => right.avgCommunityReachScore - left.avgCommunityReachScore);
+  const selectedPlatformBestMedia = selectedPlatformMedia[0];
+  const strategyChartData = useMemo(() => {
+    const filtered = communityRows.filter((post) => {
+      if (String(post.platform ?? "").trim() !== selectedPlatform) return false;
+      if (strategyResidentStoryOnly && !asBoolean(post.features_resident_story)) return false;
+      if (strategyCtaOnly && !asBoolean(post.has_call_to_action)) return false;
+      if (strategyImpactStoryOnly && String(post.post_type ?? "").trim() !== "ImpactStory") return false;
+      if (strategyBoostedOnly && !asBoolean(post.is_boosted)) return false;
+      return true;
+    });
+
+    const grouped = new Map<string, { posts: number; scoreTotal: number; referralTotal: number; shareRateTotal: number }>();
+    for (const post of filtered) {
+      const mediaType = String(post.media_type ?? "").trim();
+      if (!mediaType) continue;
+      const current = grouped.get(mediaType) ?? { posts: 0, scoreTotal: 0, referralTotal: 0, shareRateTotal: 0 };
+      current.posts += 1;
+      current.scoreTotal += post.communityReachScore;
+      current.referralTotal += post.likelyCommunityReferral;
+      current.shareRateTotal += post.shareRate;
+      grouped.set(mediaType, current);
+    }
+    return Array.from(grouped.entries())
+      .map(([mediaType, metrics]) => ({
+        mediaType,
+        posts: metrics.posts,
+        avgCommunityReachScore: metrics.posts ? metrics.scoreTotal / metrics.posts : 0,
+        likelyCommunityReferralRate: metrics.posts ? metrics.referralTotal / metrics.posts : 0,
+        avgShareRate: metrics.posts ? metrics.shareRateTotal / metrics.posts : 0,
+      }))
+      .sort((left, right) => right.avgCommunityReachScore - left.avgCommunityReachScore);
+  }, [communityRows, selectedPlatform, strategyResidentStoryOnly, strategyCtaOnly, strategyImpactStoryOnly, strategyBoostedOnly]);
+  const strategyBestMedia = strategyChartData[0];
 
   const topKpiCards = [
     {
@@ -1085,7 +2154,7 @@ function CommunityAnalyticsView({
     {
       id: "resident-story",
       title: "Resident story lift",
-      value: data.liftMetrics[0]?.liftPoints == null ? "N/A" : `${data.liftMetrics[0].liftPoints > 0 ? "+" : ""}${data.liftMetrics[0].liftPoints} pts`,
+      value: data.liftMetrics[0] ? formatLiftIncrease(data.liftMetrics[0].withRate, data.liftMetrics[0].withoutRate) : "N/A",
       detail: data.liftMetrics[0]
         ? `${data.liftMetrics[0].withLabel}: ${formatPercent(data.liftMetrics[0].withRate)}. ${data.liftMetrics[0].withoutLabel}: ${formatPercent(data.liftMetrics[0].withoutRate)}.`
         : "No resident-story lift is available yet.",
@@ -1101,7 +2170,7 @@ function CommunityAnalyticsView({
     {
       id: "cta",
       title: "CTA lift",
-      value: data.liftMetrics[1]?.liftPoints == null ? "N/A" : `${data.liftMetrics[1].liftPoints > 0 ? "+" : ""}${data.liftMetrics[1].liftPoints} pts`,
+      value: data.liftMetrics[1] ? formatLiftIncrease(data.liftMetrics[1].withRate, data.liftMetrics[1].withoutRate) : "N/A",
       detail: data.liftMetrics[1]
         ? `${data.liftMetrics[1].withLabel}: ${formatPercent(data.liftMetrics[1].withRate)}. ${data.liftMetrics[1].withoutLabel}: ${formatPercent(data.liftMetrics[1].withoutRate)}.`
         : "No CTA lift is available yet.",
@@ -1124,15 +2193,17 @@ function CommunityAnalyticsView({
       miniChartData: data.timeBucketChart.map((point) => ({ label: formatTimeBucketLabel(point.timeBucket), value: point.avgCommunityReachScore ?? 0 })),
     },
     {
-      id: "top-driver",
-      title: "Top model driver",
-      value: topDriver?.feature ? formatModelFeatureLabel(topDriver.feature) : "N/A",
-      detail: topDriver ? `Importance score ${Math.round((topDriver.importance ?? 0) * 100) / 100}` : "No top-driver summary is available yet.",
+      id: "selected-platform-media",
+      title: `${selectedPlatform} best media`,
+      value: selectedPlatformBestMedia?.mediaType ?? "N/A",
+      detail: selectedPlatformBestMedia
+        ? `${formatDisplayPercent((selectedPlatformBestMedia.avgCommunityReachScore ?? 0) * 100)} reach score across ${selectedPlatformBestMedia.posts.toLocaleString()} posts`
+        : `No media-type benchmark is available for ${selectedPlatform}.`,
       icon: Brain,
-      chartType: "count" as DetailChartType,
-      miniChartData: (data.topDrivers ?? data.model.topDrivers ?? []).slice(0, 5).map((point) => ({
-        label: formatModelFeatureLabel(point.feature),
-        value: point.importance,
+      chartType: "score" as DetailChartType,
+      miniChartData: selectedPlatformMedia.slice(0, 5).map((point) => ({
+        label: point.mediaType,
+        value: point.avgCommunityReachScore ?? 0,
       })),
     },
   ];
@@ -1152,7 +2223,7 @@ function CommunityAnalyticsView({
           { label: metric.withoutLabel, value: metric.withoutRate ?? 0 },
         ],
         highlights: [
-          `${metric.factor} adds ${metric.liftPoints ?? 0} points of community-referral lift in the current dataset.`,
+          `${metric.factor} shows a ${formatLiftIncrease(metric.withRate, metric.withoutRate)} relative lift in the current dataset.`,
           `Resident-story posts currently outperform non-story posts for awareness and sharing.`,
           "This is still correlational, but it is a strong strategic cue for outreach storytelling.",
         ],
@@ -1171,7 +2242,7 @@ function CommunityAnalyticsView({
           { label: metric.withoutLabel, value: metric.withoutRate ?? 0 },
         ],
         highlights: [
-          `${metric.factor} adds ${metric.liftPoints ?? 0} points of lift in the community-referral proxy.`,
+          `${metric.factor} shows a ${formatLiftIncrease(metric.withRate, metric.withoutRate)} relative lift in the community-referral proxy.`,
           "For outreach campaigns, this helps staff decide whether a post should ask the audience to share, report, or learn more.",
           "This is most useful when paired with the best platform and best format signals above.",
         ],
@@ -1322,7 +2393,13 @@ function CommunityAnalyticsView({
             <button
               key={card.id}
               type="button"
-              onClick={() => setActiveInsightId(card.id)}
+              onClick={() => {
+                if (card.id === "selected-platform-media") {
+                  setStrategyOpen(true);
+                  return;
+                }
+                setActiveInsightId(card.id);
+              }}
               className="rounded-2xl border border-border/70 bg-card p-5 text-left shadow-warm transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg"
             >
               <div className="flex items-center justify-between gap-2">
@@ -1337,13 +2414,17 @@ function CommunityAnalyticsView({
         })}
       </div>
 
-      <div className="rounded-2xl bg-card p-6 shadow-warm">
+      <button
+        type="button"
+        onClick={() => setStrategyOpen(true)}
+        className="w-full rounded-2xl bg-card p-6 text-left shadow-warm transition hover:-translate-y-0.5 hover:shadow-lg"
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-primary">What To Post Next</p>
             <h4 className="mt-2 font-heading text-2xl font-bold text-foreground">{data.summary.headline}</h4>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Use the community reach score to choose formats that spread awareness, then use platform and timing signals to put those posts where local networks are most likely to see and share them.
+              Use the community reach score to choose formats that spread awareness, then use platform and timing signals to put those posts where local networks are most likely to see and share them. Click this section to open the deeper strategy view with platform, media, story, CTA, and boost toggles.
             </p>
           </div>
           <div className="rounded-2xl bg-primary/8 px-4 py-3 text-right">
@@ -1379,7 +2460,98 @@ function CommunityAnalyticsView({
             </p>
           </div>
         </div>
-      </div>
+      </button>
+
+      <Dialog open={strategyOpen} onOpenChange={setStrategyOpen}>
+        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl text-foreground">Community outreach strategy view</DialogTitle>
+            <DialogDescription>
+              Switch platforms and toggle key outreach features to see how the best media type changes for awareness and community referral potential.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-6">
+            <div className="flex flex-wrap gap-2">
+              {platformOptions.map((platform) => (
+                <button
+                  key={platform}
+                  type="button"
+                  onClick={() => setSelectedPlatform(platform)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    selectedPlatform === platform
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border/70 bg-background text-muted-foreground hover:border-primary/35 hover:text-foreground",
+                  )}
+                >
+                  {platform}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: "Resident story", active: strategyResidentStoryOnly, setActive: setStrategyResidentStoryOnly },
+                { label: "CTA", active: strategyCtaOnly, setActive: setStrategyCtaOnly },
+                { label: "ImpactStory", active: strategyImpactStoryOnly, setActive: setStrategyImpactStoryOnly },
+                { label: "Boosted", active: strategyBoostedOnly, setActive: setStrategyBoostedOnly },
+              ].map((toggle) => (
+                <button
+                  key={toggle.label}
+                  type="button"
+                  onClick={() => toggle.setActive(!toggle.active)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    toggle.active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/70 bg-background text-muted-foreground hover:border-primary/35 hover:text-foreground",
+                  )}
+                >
+                  {toggle.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl bg-muted/25 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-primary">Best media now</p>
+                <p className="mt-3 text-3xl font-bold text-foreground">{strategyBestMedia?.mediaType ?? "N/A"}</p>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  {strategyBestMedia ? `${formatDisplayPercent((strategyBestMedia.avgCommunityReachScore ?? 0) * 100)} reach score across ${strategyBestMedia.posts.toLocaleString()} posts.` : "No posts match the current filter set."}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-muted/25 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-primary">Share rate</p>
+                <p className="mt-3 text-3xl font-bold text-foreground">{formatPercent(strategyBestMedia?.avgShareRate)}</p>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">Average share rate for the current best media choice.</p>
+              </div>
+              <div className="rounded-2xl bg-muted/25 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-primary">Recommendation read</p>
+                <p className="mt-3 text-sm leading-6 text-foreground">
+                  {strategyBestMedia ? `On ${selectedPlatform}, ${strategyBestMedia.mediaType} is the strongest current outreach format under these feature filters.` : `No tracked posts match the current ${selectedPlatform} filter combination yet.`}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-warm">
+              <h4 className="font-heading text-lg font-semibold text-foreground">Community reach score by media type on {selectedPlatform}</h4>
+              <p className="mt-1 text-sm text-muted-foreground">The chart updates as you change platform and feature toggles above.</p>
+              <div className="mt-5 h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={strategyChartData} layout="vertical" margin={{ left: 18, right: 18 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis type="number" domain={[0, 1]} tickFormatter={(value) => `${Math.round(Number(value) * 100)}%`} />
+                    <YAxis type="category" dataKey="mediaType" width={130} />
+                    <Tooltip formatter={(value: number) => `${Math.round(value * 100)}%`} />
+                    <Bar dataKey="avgCommunityReachScore" fill="hsl(var(--primary))" radius={[0, 12, 12, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <DetailDialog detail={kpiDetail} open={Boolean(kpiDetail)} onOpenChange={(open) => setActiveKpiLabel(open ? activeKpiLabel : null)} badgeLabel={topKpiCards.find((kpi) => kpi.label === activeKpiLabel)?.detail} />
       <DetailDialog detail={insightDetail} open={Boolean(insightDetail)} onOpenChange={(open) => setActiveInsightId(open ? activeInsightId : null)} badgeLabel={activeInsight?.title ?? null} />
@@ -1392,6 +2564,8 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
   const queryClient = useQueryClient();
   const [plannerMode, setPlannerMode] = useState<PlannerMode>("donation");
   const [formOpen, setFormOpen] = useState(false);
+  const [plannerDialogOpen, setPlannerDialogOpen] = useState(false);
+  const [communityPlannerDialogOpen, setCommunityPlannerDialogOpen] = useState(false);
   const [form, setForm] = useState<HistoricalPostFormState>(EMPTY_FORM);
   const [captionLengthEdited, setCaptionLengthEdited] = useState(false);
 
@@ -1510,16 +2684,16 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
       ? {
           title: "Community Outreach Intelligence",
           description:
-            "Use the awareness-focused pipeline to identify what platform, posting window, and content style best expands reach, sharing, and community referrals.",
-          primaryBadge: "Primary model: community reach regressor",
-          secondaryBadge: "Secondary lens: community referral proxy",
+            "Open the live planner to test an outreach draft before it goes out. As you change platform, media type, CTA, resident story, and timing, the awareness predictions update to show likely reach and community-referral potential.",
+          primaryBadge: "",
+          secondaryBadge: "",
         }
       : {
           title: "Social Media Intelligence",
           description:
-            "Use referral probability to rank likely converting posts, then use expected donation value to break ties and prioritize stronger upside.",
-          primaryBadge: "Primary model: donation referral classifier",
-          secondaryBadge: "Secondary model: donation value regressor",
+            "Open the live planner to test a draft post before it goes out. As you change platform, media type, CTA, resident story, and other settings, the predictions update to show likely referrals and donation value.",
+          primaryBadge: "",
+          secondaryBadge: "",
         };
 
   return (
@@ -1546,15 +2720,20 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
             <div>
               <h3 className="font-heading text-2xl font-bold text-foreground">{plannerCopy.title}</h3>
               <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">{plannerCopy.description}</p>
+              {plannerMode === "donation" ? (
+                <Button type="button" variant="outline" className="mt-4 rounded-full" onClick={() => setPlannerDialogOpen(true)}>
+                  <Brain className="mr-2 h-4 w-4" />
+                  Open live planner
+                </Button>
+              ) : plannerMode === "community" ? (
+                <Button type="button" variant="outline" className="mt-4 rounded-full" onClick={() => setCommunityPlannerDialogOpen(true)}>
+                  <Brain className="mr-2 h-4 w-4" />
+                  Open live planner
+                </Button>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="rounded-full border-primary/30 bg-primary/5 text-primary">
-                {plannerCopy.primaryBadge}
-              </Badge>
-              <Badge variant="outline" className="rounded-full">
-                {plannerCopy.secondaryBadge}
-              </Badge>
               <span>Last refreshed: {generatedAt ? formatDateTime(generatedAt) : "No refresh yet"}</span>
             </div>
           </div>
@@ -1613,6 +2792,9 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
           <p className="text-sm text-muted-foreground">Loading the latest community outreach analytics snapshot...</p>
         </div>
       ) : null}
+
+      <DonationPlannerDialog open={plannerDialogOpen} onOpenChange={setPlannerDialogOpen} socialPosts={socialPosts} />
+      <CommunityPlannerDialog open={communityPlannerDialogOpen} onOpenChange={setCommunityPlannerDialogOpen} socialPosts={socialPosts} />
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto rounded-2xl border-border/80 bg-background">

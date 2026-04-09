@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -11,8 +11,8 @@ import {
   PanelLeftOpen,
   Settings,
   Gift,
-  ChevronDown,
   Info,
+  LayoutDashboard,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import DonorGivingHistory from "@/pages/DonorGivingHistory";
@@ -23,6 +23,12 @@ import { donorDonationDataQueryKey, fetchDonorDonationData, type DonationRow } f
 import { supabase } from "@/lib/supabaseClient";
 import safehouseImage from "@/assets/hero/portofino-watercolor-hero.png";
 import houseLogo from "@/assets/icons/houseIcon.svg";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const fadeUp = {
@@ -57,13 +63,11 @@ const DonorDashboard = () => {
   const [params, setParams] = useSearchParams();
   const tab = (params.get("tab") || "impact").toLowerCase();
 
-  const { userEmail, displayName, firstName, lastName, initials, logout } = useAuth();
+  const { userEmail, displayName, firstName, lastName, initials, role, logout } = useAuth();
   const queryClient = useQueryClient();
   const [donationModalOpen, setDonationModalOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState<DonationRow | null>(null);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Match AdminLayout behavior (collapsible sidebar + mobile overlay)
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -182,7 +186,6 @@ const DonorDashboard = () => {
     else nextParams.set("tab", next);
     setParams(nextParams, { replace: true });
     setSidebarOpen(false);
-    setUserMenuOpen(false);
   };
 
   const showHistory = tab === "history";
@@ -194,18 +197,6 @@ const DonorDashboard = () => {
     { key: "history", label: "Giving History", icon: History },
     { key: "settings", label: "Settings", icon: Settings },
   ] as const;
-
-  useEffect(() => {
-    if (!userMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as Node | null;
-      if (!target) return;
-      if (userMenuRef.current && userMenuRef.current.contains(target)) return;
-      setUserMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [userMenuOpen]);
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -307,53 +298,40 @@ const DonorDashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div ref={userMenuRef} className="relative">
-              <button
-                type="button"
-                onClick={() => setUserMenuOpen((o) => !o)}
-                className="group inline-flex items-center gap-2 rounded-full border border-border bg-background px-2 py-1.5 hover:bg-muted/40 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
-                aria-haspopup="menu"
-                aria-expanded={userMenuOpen}
-              >
-                <div
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground shadow-warm group-hover:shadow-warm-hover transition-shadow"
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   title={displayName ?? userEmail ?? "Signed-in user"}
+                  aria-label={displayName ? `Signed in as ${displayName}` : "Signed-in user"}
                 >
                   {initials}
-                </div>
-                <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-              </button>
-
-              {userMenuOpen ? (
-                <div
-                  role="menu"
-                  className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-border bg-background shadow-warm z-50"
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44 rounded-xl">
+                {role === "admin" ? (
+                  <DropdownMenuItem onClick={() => navigate("/admin")} className="flex items-center gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Return to admin view
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem onClick={() => onSelectTab("settings")} className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await logout();
+                    navigate("/login");
+                  }}
+                  className="flex items-center gap-2 text-destructive hover:text-black focus:text-black"
                 >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => onSelectTab("settings")}
-                    className="w-full text-left px-3 py-2.5 text-sm text-foreground hover:bg-muted/40 transition-colors flex items-center gap-2"
-                  >
-                    <Settings className="h-4 w-4 text-muted-foreground" />
-                    Settings
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={async () => {
-                      setUserMenuOpen(false);
-                      await logout();
-                      navigate("/login");
-                    }}
-                    className="w-full text-left px-3 py-2.5 text-sm text-foreground hover:bg-muted/40 transition-colors flex items-center gap-2"
-                  >
-                    <LogOut className="h-4 w-4 text-muted-foreground" />
-                    Sign Out
-                  </button>
-                </div>
-              ) : null}
-            </div>
+                  <LogOut className="h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
@@ -381,7 +359,7 @@ const DonorDashboard = () => {
                     initial="hidden"
                     animate="visible"
                     variants={fadeUp}
-                    className="bg-card rounded-2xl p-5 shadow-warm border-t-4 border-secondary hover:shadow-warm-hover transition-shadow"
+                    className="rounded-2xl border border-border/70 bg-card p-5 shadow-warm transition-transform hover:-translate-y-0.5"
                   >
                     <div className="flex items-center justify-between mb-3">
                       <kpi.icon className="h-5 w-5 text-muted-foreground" />
@@ -402,7 +380,7 @@ const DonorDashboard = () => {
               </div>
 
               {/* Beyond the Dollar */}
-              <div className="bg-card rounded-2xl p-6 shadow-warm mb-8">
+              <div className="mb-8 rounded-2xl border border-border/70 bg-card p-6 shadow-warm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="font-heading text-lg font-semibold text-foreground">Service &amp; In-Kind Impact</h3>
@@ -453,7 +431,7 @@ const DonorDashboard = () => {
               ) : (
                 <div className="grid lg:grid-cols-2 gap-6 items-stretch">
                   {/* Impact visual */}
-                  <div className="bg-card rounded-2xl p-6 shadow-warm h-full flex flex-col">
+                  <div className="h-full flex flex-col rounded-2xl border border-border/70 bg-card p-6 shadow-warm">
                     <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-muted/20 flex-1 min-h-[320px]">
                       <img
                         src={safehouseImage}
@@ -482,7 +460,7 @@ const DonorDashboard = () => {
                   {/* Right column */}
                   <div className="h-full flex flex-col">
                     {/* Recent Donations (match AdminDashboard table formatting) */}
-                    <div className="bg-card rounded-2xl p-6 shadow-warm h-full flex flex-col">
+                    <div className="h-full flex flex-col rounded-2xl border border-border/70 bg-card p-6 shadow-warm">
                       <h3 className="font-heading text-base font-semibold text-foreground mb-4">Recent Donations</h3>
                       <div className="overflow-x-auto flex-1">
                         <table className="w-full text-sm">

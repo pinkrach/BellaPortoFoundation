@@ -5,9 +5,11 @@ import { ReactNode } from "react";
 export const ProtectedRoute = ({
   children,
   requiredRole,
+  requiredRoles,
 }: {
   children: ReactNode;
   requiredRole?: "admin" | "donor";
+  requiredRoles?: Array<"admin" | "donor">;
 }) => {
   const { isAuthenticated, isLoading, role } = useAuth();
 
@@ -20,13 +22,15 @@ export const ProtectedRoute = ({
   }
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  if (requiredRole && role && role !== requiredRole) {
+  const allowedRoles = requiredRoles?.length ? requiredRoles : requiredRole ? [requiredRole] : undefined;
+
+  if (allowedRoles && role && !allowedRoles.includes(role)) {
     return <Navigate to={role === "admin" ? "/admin" : "/dashboard"} replace />;
   }
 
   // If role hasn't loaded/doesn't exist, allow the route to render only when
   // no role requirement is specified.
-  if (requiredRole && !role) {
+  if (allowedRoles && !role) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="max-w-md text-center">

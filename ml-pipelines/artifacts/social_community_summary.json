@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-09T02:23:31.590993+00:00",
+  "generatedAt": "2026-04-09T18:08:29.301758+00:00",
   "dataset": {
     "rowCount": 812,
     "dateMin": "2023-01-05T18:52:00+00:00",
@@ -149,6 +149,352 @@
       "posts": 79,
       "avgCommunityReachScore": 0.0436,
       "avgReach": 1749.92
+    }
+  ],
+  "platformMediaChart": [
+    {
+      "platform": "Facebook",
+      "mediaType": "Video",
+      "posts": 55,
+      "avgCommunityReachScore": 0.0997,
+      "likelyCommunityReferralRate": 0.4364,
+      "avgShareRate": 0.0214,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Facebook",
+      "mediaType": "Carousel",
+      "posts": 33,
+      "avgCommunityReachScore": 0.0974,
+      "likelyCommunityReferralRate": 0.4242,
+      "avgShareRate": 0.0171,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Facebook",
+      "mediaType": "Photo",
+      "posts": 78,
+      "avgCommunityReachScore": 0.0783,
+      "likelyCommunityReferralRate": 0.3846,
+      "avgShareRate": 0.0194,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Facebook",
+      "mediaType": "Text",
+      "posts": 28,
+      "avgCommunityReachScore": 0.064,
+      "likelyCommunityReferralRate": 0.2857,
+      "avgShareRate": 0.0222,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Facebook",
+      "mediaType": "Reel",
+      "posts": 5,
+      "avgCommunityReachScore": 0.056,
+      "likelyCommunityReferralRate": 0.2,
+      "avgShareRate": 0.0188,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "Instagram",
+      "mediaType": "Video",
+      "posts": 31,
+      "avgCommunityReachScore": 0.1206,
+      "likelyCommunityReferralRate": 0.5484,
+      "avgShareRate": 0.0206,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Instagram",
+      "mediaType": "Carousel",
+      "posts": 41,
+      "avgCommunityReachScore": 0.1202,
+      "likelyCommunityReferralRate": 0.4878,
+      "avgShareRate": 0.0262,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Instagram",
+      "mediaType": "Reel",
+      "posts": 27,
+      "avgCommunityReachScore": 0.1108,
+      "likelyCommunityReferralRate": 0.4074,
+      "avgShareRate": 0.0224,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Instagram",
+      "mediaType": "Text",
+      "posts": 9,
+      "avgCommunityReachScore": 0.0907,
+      "likelyCommunityReferralRate": 0.5556,
+      "avgShareRate": 0.0248,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "Instagram",
+      "mediaType": "Photo",
+      "posts": 56,
+      "avgCommunityReachScore": 0.0846,
+      "likelyCommunityReferralRate": 0.3929,
+      "avgShareRate": 0.0203,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "LinkedIn",
+      "mediaType": "Carousel",
+      "posts": 8,
+      "avgCommunityReachScore": 0.0563,
+      "likelyCommunityReferralRate": 0.125,
+      "avgShareRate": 0.0162,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "LinkedIn",
+      "mediaType": "Photo",
+      "posts": 23,
+      "avgCommunityReachScore": 0.0546,
+      "likelyCommunityReferralRate": 0.2174,
+      "avgShareRate": 0.0226,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "LinkedIn",
+      "mediaType": "Video",
+      "posts": 11,
+      "avgCommunityReachScore": 0.0502,
+      "likelyCommunityReferralRate": 0.3636,
+      "avgShareRate": 0.0163,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "LinkedIn",
+      "mediaType": "Text",
+      "posts": 37,
+      "avgCommunityReachScore": 0.032,
+      "likelyCommunityReferralRate": 0.1622,
+      "avgShareRate": 0.0188,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "TikTok",
+      "mediaType": "Carousel",
+      "posts": 5,
+      "avgCommunityReachScore": 0.2359,
+      "likelyCommunityReferralRate": 0.8,
+      "avgShareRate": 0.026,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "TikTok",
+      "mediaType": "Reel",
+      "posts": 67,
+      "avgCommunityReachScore": 0.1979,
+      "likelyCommunityReferralRate": 0.6866,
+      "avgShareRate": 0.0209,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "TikTok",
+      "mediaType": "Text",
+      "posts": 8,
+      "avgCommunityReachScore": 0.095,
+      "likelyCommunityReferralRate": 0.375,
+      "avgShareRate": 0.0237,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "TikTok",
+      "mediaType": "Video",
+      "posts": 7,
+      "avgCommunityReachScore": 0.0635,
+      "likelyCommunityReferralRate": 0.4286,
+      "avgShareRate": 0.0135,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "TikTok",
+      "mediaType": "Photo",
+      "posts": 2,
+      "avgCommunityReachScore": 0.0199,
+      "likelyCommunityReferralRate": 0.0,
+      "avgShareRate": 0.0052,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "Twitter",
+      "mediaType": "Reel",
+      "posts": 9,
+      "avgCommunityReachScore": 0.1156,
+      "likelyCommunityReferralRate": 0.5556,
+      "avgShareRate": 0.0254,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "Twitter",
+      "mediaType": "Carousel",
+      "posts": 8,
+      "avgCommunityReachScore": 0.0709,
+      "likelyCommunityReferralRate": 0.5,
+      "avgShareRate": 0.0212,
+      "stabilityFlag": "Promising, low sample"
+    },
+    {
+      "platform": "Twitter",
+      "mediaType": "Video",
+      "posts": 19,
+      "avgCommunityReachScore": 0.0669,
+      "likelyCommunityReferralRate": 0.4737,
+      "avgShareRate": 0.0186,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Twitter",
+      "mediaType": "Photo",
+      "posts": 31,
+      "avgCommunityReachScore": 0.0604,
+      "likelyCommunityReferralRate": 0.2903,
+      "avgShareRate": 0.0215,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Twitter",
+      "mediaType": "Text",
+      "posts": 50,
+      "avgCommunityReachScore": 0.0346,
+      "likelyCommunityReferralRate": 0.2,
+      "avgShareRate": 0.02,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "WhatsApp",
+      "mediaType": "Reel",
+      "posts": 7,
+      "avgCommunityReachScore": 0.074,
+      "likelyCommunityReferralRate": 0.1429,
+      "avgShareRate": 0.0228,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "WhatsApp",
+      "mediaType": "Video",
+      "posts": 24,
+      "avgCommunityReachScore": 0.0545,
+      "likelyCommunityReferralRate": 0.1667,
+      "avgShareRate": 0.0178,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "WhatsApp",
+      "mediaType": "Photo",
+      "posts": 37,
+      "avgCommunityReachScore": 0.0476,
+      "likelyCommunityReferralRate": 0.1892,
+      "avgShareRate": 0.0249,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "WhatsApp",
+      "mediaType": "Carousel",
+      "posts": 3,
+      "avgCommunityReachScore": 0.0248,
+      "likelyCommunityReferralRate": 0.0,
+      "avgShareRate": 0.0156,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "WhatsApp",
+      "mediaType": "Text",
+      "posts": 22,
+      "avgCommunityReachScore": 0.0181,
+      "likelyCommunityReferralRate": 0.0,
+      "avgShareRate": 0.0181,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "YouTube",
+      "mediaType": "Reel",
+      "posts": 6,
+      "avgCommunityReachScore": 0.3149,
+      "likelyCommunityReferralRate": 0.8333,
+      "avgShareRate": 0.0182,
+      "stabilityFlag": "Too few posts"
+    },
+    {
+      "platform": "YouTube",
+      "mediaType": "Video",
+      "posts": 65,
+      "avgCommunityReachScore": 0.1695,
+      "likelyCommunityReferralRate": 0.6308,
+      "avgShareRate": 0.0219,
+      "stabilityFlag": "Trusted default"
+    }
+  ],
+  "platformTrustedMedia": [
+    {
+      "platform": "Facebook",
+      "bestMediaType": "Video",
+      "posts": 55,
+      "avgCommunityReachScore": 0.0997,
+      "likelyCommunityReferralRate": 0.4364,
+      "avgShareRate": 0.0214,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Instagram",
+      "bestMediaType": "Video",
+      "posts": 31,
+      "avgCommunityReachScore": 0.1206,
+      "likelyCommunityReferralRate": 0.5484,
+      "avgShareRate": 0.0206,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "LinkedIn",
+      "bestMediaType": "Photo",
+      "posts": 23,
+      "avgCommunityReachScore": 0.0546,
+      "likelyCommunityReferralRate": 0.2174,
+      "avgShareRate": 0.0226,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "TikTok",
+      "bestMediaType": "Reel",
+      "posts": 67,
+      "avgCommunityReachScore": 0.1979,
+      "likelyCommunityReferralRate": 0.6866,
+      "avgShareRate": 0.0209,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "Twitter",
+      "bestMediaType": "Video",
+      "posts": 19,
+      "avgCommunityReachScore": 0.0669,
+      "likelyCommunityReferralRate": 0.4737,
+      "avgShareRate": 0.0186,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "WhatsApp",
+      "bestMediaType": "Video",
+      "posts": 24,
+      "avgCommunityReachScore": 0.0545,
+      "likelyCommunityReferralRate": 0.1667,
+      "avgShareRate": 0.0178,
+      "stabilityFlag": "Trusted default"
+    },
+    {
+      "platform": "YouTube",
+      "bestMediaType": "Video",
+      "posts": 65,
+      "avgCommunityReachScore": 0.1695,
+      "likelyCommunityReferralRate": 0.6308,
+      "avgShareRate": 0.0219,
+      "stabilityFlag": "Trusted default"
     }
   ],
   "timeBucketChart": [

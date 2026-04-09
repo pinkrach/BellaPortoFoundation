@@ -20,7 +20,7 @@ function AdminWorkspaceFallback() {
 }
 
 const TAB_TITLES: Record<string, string> = {
-  dashboard: "Command center",
+  dashboard: "Dashboard",
   residents: "Residents",
   donations: "Donations",
   "safe-houses": "Safe Houses",

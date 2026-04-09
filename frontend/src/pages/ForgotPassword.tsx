@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Leaf } from "lucide-react";
+import { Sailboat } from "lucide-react";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
@@ -54,11 +54,11 @@ const ForgotPassword = () => {
 
   return (
     <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
-      <div className="absolute top-10 right-10 text-accent/20">
-        <Leaf className="h-32 w-32 rotate-45" />
+      <div className="pointer-events-none absolute top-10 right-10 hidden text-accent/20 md:block">
+        <Sailboat className="h-32 w-32 rotate-12" />
       </div>
-      <div className="absolute bottom-10 left-10 text-lavender/20">
-        <Leaf className="h-24 w-24 -rotate-12" />
+      <div className="pointer-events-none absolute bottom-10 left-10 hidden text-lavender/20 md:block">
+        <Sailboat className="h-24 w-24 -rotate-6" />
       </div>
 
       <motion.div

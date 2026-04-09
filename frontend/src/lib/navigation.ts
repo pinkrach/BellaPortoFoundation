@@ -25,7 +25,7 @@ export const publicNavItems: AppNavItem[] = [
 ];
 
 export const adminSidebarItems: AppNavItem[] = [
-  { label: "Command center", to: "/admin?tab=dashboard", icon: LayoutDashboard, matchTab: "dashboard" },
+  { label: "Dashboard", to: "/admin?tab=dashboard", icon: LayoutDashboard, matchTab: "dashboard" },
   { label: "Residents", to: "/admin?tab=residents", icon: Users, matchTab: "residents" },
   { label: "Donations", to: "/admin?tab=donations", icon: HandCoins, matchTab: "donations" },
   { label: "Safe Houses", to: "/admin?tab=safe-houses", icon: Building2, matchTab: "safe-houses" },
