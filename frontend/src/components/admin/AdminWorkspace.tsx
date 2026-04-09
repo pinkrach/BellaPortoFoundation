@@ -901,10 +901,14 @@ function CompactAnalyticsCard({
     <button
       type="button"
       onClick={onClick}
+      aria-label={`Open expanded chart: ${config.title}`}
       className="group relative w-[258px] overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-warm transition duration-200 hover:scale-[1.02] hover:shadow-lg"
     >
-      <span className="absolute right-2 top-2 z-10 rounded-full bg-background/90 p-1 text-muted-foreground shadow-sm transition-colors group-hover:text-foreground">
-        <ArrowUpRight className="h-3.5 w-3.5" />
+      <span
+        className="absolute right-2 top-2 z-10 rounded-full bg-background/90 p-1 text-muted-foreground shadow-sm transition-colors group-hover:text-foreground"
+        aria-hidden
+      >
+        <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
       </span>
       <div className="h-[76px] bg-muted/20">
         <AnalyticsPreviewChart config={config} />
@@ -1298,10 +1302,20 @@ function SortableTableHead({
   const active = activeSort?.key === columnKey;
   const dir = activeSort?.dir;
   const alignRight = Boolean(className?.includes("text-right"));
+  const sortLabel =
+    typeof children === "string" || typeof children === "number" ? String(children) : "this column";
   return (
-    <TableHead className={cn("select-none", className)}>
+    <TableHead
+      className={cn("select-none", className)}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+    >
       <button
         type="button"
+        aria-label={
+          active
+            ? `Sorted ${dir === "asc" ? "ascending" : "descending"} by ${sortLabel}. Click to reverse.`
+            : `Sort by ${sortLabel}`
+        }
         className={cn(
           "inline-flex max-w-full items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-foreground hover:bg-muted/60",
           alignRight ? "ms-auto w-full justify-end" : "-mx-2 -my-1 justify-start text-left",
@@ -1383,6 +1397,7 @@ function TablePagination({
               <PaginationLink
                 href="#"
                 isActive={entry === page}
+                aria-label={`Go to page ${entry}`}
                 onClick={(event) => {
                   event.preventDefault();
                   onPageChange(entry);
@@ -5075,10 +5090,11 @@ export function AdminWorkspace() {
                 <button
                   type="button"
                   onClick={() => setParams({ safehouseId: null })}
+                  aria-label={`Clear safe house filter: ${safehouseMap.get(selectedSafehouseId)?.name ?? `Safe House ${selectedSafehouseId}`}`}
                   className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
                 >
                   {safehouseMap.get(selectedSafehouseId)?.name ?? `Safe House ${selectedSafehouseId}`}
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 </button>
               </div>
             ) : (
@@ -7283,11 +7299,15 @@ export function AdminWorkspace() {
             <div className="space-y-5">
               {expandedChart.modalOptions?.length ? (
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm font-medium text-foreground">View:</span>
+                  <label htmlFor="admin-expanded-chart-view" className="text-sm font-medium text-foreground">
+                    View:
+                  </label>
                   <select
+                    id="admin-expanded-chart-view"
                     value={expandedChart.selectedOption}
                     onChange={(event) => expandedChart.onOptionChange?.(event.target.value)}
                     className="h-10 rounded-full border border-input bg-background px-4 text-sm text-foreground"
+                    aria-label={`${expandedChart.title} data view`}
                   >
                     {expandedChart.modalOptions.map((option) => (
                       <option key={option.value} value={option.value}>
