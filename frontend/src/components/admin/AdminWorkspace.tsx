@@ -1227,7 +1227,7 @@ function SuccessMetricTile({
         border: borderHex ? `1px solid ${borderHex}` : undefined,
       }}
     >
-      <div className="p-4">
+      <div className="p-6">
         <div className="flex items-start gap-3">
           <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: accentHex }} aria-hidden />
           <div className="min-w-0">
@@ -1239,7 +1239,7 @@ function SuccessMetricTile({
             </div>
           </div>
         </div>
-        <div className="mt-3 font-heading text-3xl font-semibold tabular-nums tracking-tight" style={{ color: BELLA.deepBay }}>
+        <div className="mt-5 font-heading text-4xl font-semibold tabular-nums tracking-tight" style={{ color: BELLA.deepBay }}>
           {value}
         </div>
       </div>
@@ -5579,7 +5579,7 @@ export function AdminWorkspace() {
                 {/* Funding + Outreach (parallel) */}
                 <section aria-label="Funding and outreach" className="space-y-3">
                   <div className="grid gap-6 sm:grid-cols-2 sm:items-stretch">
-                    <div className="space-y-3">
+                    <div className="space-y-1">
                       <h2
                         className="font-heading text-sm font-semibold uppercase tracking-wider"
                         style={{ color: BELLA.stone }}
@@ -5596,7 +5596,7 @@ export function AdminWorkspace() {
                         valueSpacing="tight"
                       />
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-1">
                       <h2
                         className="font-heading text-sm font-semibold uppercase tracking-wider"
                         style={{ color: BELLA.stone }}
@@ -5618,7 +5618,7 @@ export function AdminWorkspace() {
               </div>
 
               {/* Right column — recent donations list */}
-              <div className="flex min-h-0 h-full w-full flex-col gap-4">
+              <div className="flex min-h-0 h-full flex-col gap-4">
                 {/* Spacer header so Recent Donations aligns with OKR cards (not under the header) */}
                 <h2
                   className="font-heading text-sm font-semibold uppercase tracking-wider opacity-0 select-none"
@@ -5627,15 +5627,15 @@ export function AdminWorkspace() {
                 >
                   Success metrics
                 </h2>
-                <aside className="flex min-h-0 flex-1 overflow-hidden rounded-2xl shadow-sm" style={{ backgroundColor: BELLA.sand }}>
-                  <div className="flex min-h-0 h-full w-full flex-col p-6">
+                <aside className="flex min-h-0 flex-1 rounded-2xl shadow-sm" style={{ backgroundColor: BELLA.sand }}>
+                  <div className="flex min-h-0 h-full flex-col p-6">
                     <div className="flex items-center gap-3">
                       <HandCoins className="h-5 w-5 shrink-0" strokeWidth={1.5} style={{ color: BELLA.green }} aria-hidden />
                       <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: BELLA.green }}>
                         Recent donations
                       </h2>
                     </div>
-                    <div className="mt-5 flex w-full min-w-0 flex-1 min-h-0 flex-col gap-3 overflow-y-auto">
+                    <div className="mt-5 flex w-full min-w-0 flex-1 flex-col gap-3">
                       {dashboardRecentDonations.map((donation) => {
                         const supporter =
                           donation.supporter_id
