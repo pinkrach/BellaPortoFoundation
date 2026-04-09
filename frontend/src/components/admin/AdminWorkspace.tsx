@@ -5,10 +5,12 @@ import {
   AlertTriangle,
   BarChart3,
   Building2,
+  Bed,
   CalendarDays,
   ChevronDown,
   ChevronUp,
   ChevronRight,
+  ClipboardCheck,
   ClipboardList,
   Download,
   FileHeart,
@@ -28,6 +30,7 @@ import {
   Sparkles,
   Trash2,
   Users,
+  Wallet,
   X,
 } from "lucide-react";
 import {
@@ -636,6 +639,18 @@ function sortUpcomingThenRecent<T extends Record<string, unknown>>(rows: T[], da
   return [...future, ...past];
 }
 
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function addCalendarDays(d: Date, days: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + days);
+  return x;
+}
+
 function splitFutureRows<T extends Record<string, unknown>>(rows: T[], dateKey: string) {
   const now = new Date();
   const upcoming = rows
@@ -756,6 +771,56 @@ function KpiCard({
         <p className="mt-2 text-sm text-muted-foreground">{detail}</p>
       </CardContent>
     </Card>
+  );
+}
+
+/** Portofino / Bella Bay command-center tile: soft tint, no accent strip, outline icons, neutral figures. */
+type FounderTone = "lavender" | "coastal" | "sand" | "terracotta" | "sage";
+
+const FOUNDER_TONE: Record<FounderTone, { surface: string; ink: string }> = {
+  lavender: { surface: "bg-[hsl(278_26%_76%/0.08)]", ink: "text-[hsl(278_22%_38%)]" },
+  coastal: { surface: "bg-[hsl(188_46%_34%/0.07)]", ink: "text-[hsl(188_40%_30%)]" },
+  sand: { surface: "bg-[hsl(32_36%_88%/0.55)]", ink: "text-[hsl(24_26%_36%)]" },
+  terracotta: { surface: "bg-[hsl(28_42%_90%/0.65)]", ink: "text-[hsl(22_30%_38%)]" },
+  sage: { surface: "bg-[hsl(150_24%_48%/0.08)]", ink: "text-[hsl(150_22%_32%)]" },
+};
+
+function FounderCommandTile({
+  label,
+  value,
+  sub,
+  tone,
+  icon: Icon,
+  to,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone: FounderTone;
+  icon: typeof Heart;
+  to: string;
+}) {
+  const t = FOUNDER_TONE[tone];
+  const inner = (
+    <>
+      <div className="flex items-start gap-3">
+        <Icon className={cn("h-5 w-5 shrink-0", t.ink)} strokeWidth={1.5} aria-hidden />
+        <span className={cn("text-xs font-semibold uppercase tracking-wider", t.ink)}>{label}</span>
+      </div>
+      <p className="mt-4 font-heading text-3xl font-semibold tabular-nums tracking-tight text-foreground">{value}</p>
+      {sub ? <p className="mt-1 text-sm text-muted-foreground">{sub}</p> : null}
+    </>
+  );
+  return (
+    <Link
+      to={to}
+      className={cn(
+        "block rounded-2xl shadow-sm outline-none transition-[box-shadow,transform] hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        t.surface,
+      )}
+    >
+      <div className="p-6">{inner}</div>
+    </Link>
   );
 }
 
@@ -1949,113 +2014,90 @@ export function AdminWorkspace() {
     [selectedSafehouseId, workspace.monthlyMetrics],
   );
 
-  const dashboardKpis = useMemo(() => {
-    const activeResidents = workspace.residents.filter((resident) => (resident.case_status ?? "").toLowerCase() === "active").length;
+  const founderDashboardStats = useMemo(() => {
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const newResidents = workspace.residents.filter((resident) => {
-      const date = new Date(String(resident.created_at ?? resident.date_of_admission ?? ""));
-      return !Number.isNaN(date.getTime()) && date >= monthStart;
+    const dayStart = startOfDay(now);
+    const horizonEnd = addCalendarDays(dayStart, 14);
+    horizonEnd.setHours(23, 59, 59, 999);
+    const thirtyDaysAgo = addCalendarDays(dayStart, -30);
+
+    const inactiveHouseStatuses = new Set(["closed", "inactive", "archived"]);
+
+    const activeResidents = workspace.residents.filter((r) => (r.case_status ?? "").toLowerCase() === "active").length;
+    const activeSafehouses = workspace.safehouses.filter((s) => {
+      const st = (s.status ?? "").toLowerCase().trim();
+      return !inactiveHouseStatuses.has(st);
     }).length;
-    const upcomingVisitations = workspace.visitations.filter((row) => {
-      const date = new Date(String(row.visit_date ?? ""));
-      return !Number.isNaN(date.getTime()) && date >= now;
+    const unresolvedIncidents = workspace.incidents.filter((row) => !String(row.resolved ?? "").toLowerCase().startsWith("true")).length;
+
+    const totalCapacity = workspace.safehouses.reduce((sum, s) => sum + toNumber(s.capacity_girls), 0);
+    const totalOccupancy = workspace.safehouses.reduce((sum, s) => sum + toNumber(s.current_occupancy), 0);
+    const bedUtilPercent = totalCapacity ? Math.round((totalOccupancy / totalCapacity) * 100) : null;
+
+    const terminalIntervention = new Set(["completed", "closed", "done", "resolved", "cancelled", "complete"]);
+    const interventionOpen = (row: RecordRow) => {
+      const status = String(row.status ?? "").toLowerCase();
+      return !terminalIntervention.has(status);
+    };
+
+    const overdueActions = workspace.interventions.filter((row) => {
+      if (!interventionOpen(row)) return false;
+      const td = new Date(String(row.target_date ?? ""));
+      return !Number.isNaN(td.getTime()) && td < dayStart;
     }).length;
-    const openIncidents = workspace.incidents.filter((row) => !String(row.resolved ?? "").toLowerCase().startsWith("true")).length;
-    const donationsThisMonth = workspace.donations
-      .filter((donation) => {
-        const date = new Date(String(donation.donation_date ?? ""));
-        return !Number.isNaN(date.getTime()) && date >= monthStart;
-      })
-      .reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0);
-    const totalCapacity = workspace.safehouses.reduce((sum, safehouse) => sum + toNumber(safehouse.capacity_girls), 0);
-    const totalOccupancy = workspace.safehouses.reduce((sum, safehouse) => sum + toNumber(safehouse.current_occupancy), 0);
-    const occupancy = totalCapacity ? `${Math.round((totalOccupancy / totalCapacity) * 100)}%` : "0%";
-    const totalAllocated = workspace.allocations.reduce((sum, allocation) => sum + toNumber(allocation.amount_allocated), 0);
-    const totalDonated = workspace.donations.reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0);
-    const unallocated = Math.max(totalDonated - totalAllocated, 0);
 
-    return [
-      {
-        label: "Total Active Residents",
-        value: String(activeResidents),
-        detail: "Current open and active caseload",
-        icon: Users,
-      },
-      {
-        label: "New Residents This Month",
-        value: String(newResidents),
-        detail: "Residents added since the month opened",
-        icon: Sparkles,
-      },
-      {
-        label: "Upcoming Visitations",
-        value: String(upcomingVisitations),
-        detail: "Scheduled follow-ups still ahead",
-        icon: CalendarDays,
-      },
-      {
-        label: "Open Incidents",
-        value: String(openIncidents),
-        detail: "Incidents still needing closure",
-        icon: AlertTriangle,
-      },
-      {
-        label: "Total Donations This Month",
-        value: formatCurrency(donationsThisMonth),
-        detail: "Combined monetary and estimated value",
-        icon: Heart,
-      },
-      {
-        label: "Safe House Occupancy %",
-        value: occupancy,
-        detail: "Current occupancy across all houses",
-        icon: Building2,
-      },
-      {
-        label: "Unallocated Donations",
-        value: formatCurrency(unallocated),
-        detail: "Donation value still awaiting assignment",
-        icon: ClipboardList,
-      },
-    ];
-  }, [workspace.allocations, workspace.donations, workspace.incidents, workspace.residents, workspace.safehouses, workspace.visitations]);
+    let upcomingDeadlines14 = 0;
+    for (const row of workspace.visitations) {
+      const d = new Date(String(row.visit_date ?? ""));
+      if (Number.isNaN(d.getTime()) || d <= now || d > horizonEnd) continue;
+      upcomingDeadlines14 += 1;
+    }
+    for (const row of workspace.interventions) {
+      if (!interventionOpen(row)) continue;
+      const d = new Date(String(row.target_date ?? ""));
+      if (Number.isNaN(d.getTime()) || d <= now || d > horizonEnd) continue;
+      upcomingDeadlines14 += 1;
+    }
 
-  const dashboardRecentIncidents = useMemo(
-    () => [...workspace.incidents].sort((left, right) => compareDatesDescending(left.incident_date, right.incident_date)).slice(0, 6),
-    [workspace.incidents],
-  );
-  const dashboardUpcomingVisitations = residentVisitationSplit.upcoming.slice(0, 6);
-  const dashboardRecentDonations = filteredDonations.slice(0, 6);
+    const casesRequiringReview = workspace.interventions.filter((row) => {
+      if (!interventionOpen(row)) return false;
+      const d = new Date(String(row.case_conference_date ?? ""));
+      if (Number.isNaN(d.getTime())) return false;
+      if (d < dayStart) return true;
+      return d <= horizonEnd;
+    }).length;
 
-  const occupancyChartData = useMemo(
-    () =>
-      workspace.safehouses.map((safehouse, index) => ({
-        name: safehouse.name ?? `Safe House ${safehouse.safehouse_id}`,
-        occupancy: toNumber(safehouse.current_occupancy),
-        capacity: toNumber(safehouse.capacity_girls),
-        fill: CHART_COLORS[index % CHART_COLORS.length],
-      })),
-    [workspace.safehouses],
-  );
+    const recentGiving30 = workspace.donations.reduce((sum, donation) => {
+      const dt = new Date(String(donation.donation_date ?? ""));
+      if (Number.isNaN(dt.getTime()) || dt < thirtyDaysAgo) return sum;
+      return sum + toNumber(donation.amount ?? donation.estimated_value);
+    }, 0);
 
-  const recentActivity = useMemo(() => {
-    const incidentActivity = workspace.incidents.slice(0, 4).map((row) => ({
-      id: `incident-${row.incident_id}`,
-      label: `${row.incident_type ?? "Incident"} logged`,
-      detail: residentLabel(residentMap.get(toNumber(row.resident_id)) ?? ({} as Resident)),
-      date: String(row.incident_date ?? ""),
-    }));
-    const donationActivity = workspace.donations.slice(0, 4).map((row) => ({
-      id: `donation-${row.donation_id}`,
-      label: `${row.donation_type ?? "Donation"} received`,
-      detail: row.supporter_id ? supporterLabel(supporterMap.get(row.supporter_id) ?? ({} as Supporter)) : "Anonymous",
-      date: String(row.donation_date ?? ""),
-    }));
-    return [...incidentActivity, ...donationActivity]
-      .sort((left, right) => compareDatesDescending(left.date, right.date))
-      .slice(0, 8);
-  }, [residentMap, supporterMap, workspace.donations, workspace.incidents]);
+    const totalAllocated = workspace.allocations.reduce((sum, a) => sum + toNumber(a.amount_allocated), 0);
+    const totalDonated = workspace.donations.reduce((sum, d) => sum + toNumber(d.amount ?? d.estimated_value), 0);
+    const unallocatedBalance = Math.max(totalDonated - totalAllocated, 0);
+
+    return {
+      activeResidents,
+      activeSafehouses,
+      unresolvedIncidents,
+      bedUtilPercent,
+      bedSub: totalCapacity > 0 ? `${totalOccupancy}/${totalCapacity} beds` : undefined,
+      overdueActions,
+      upcomingDeadlines14,
+      casesRequiringReview,
+      recentGiving30,
+      unallocatedBalance,
+    };
+  }, [
+    workspace.allocations,
+    workspace.donations,
+    workspace.incidents,
+    workspace.interventions,
+    workspace.residents,
+    workspace.safehouses,
+    workspace.visitations,
+  ]);
 
   const donationSummary = useMemo(() => {
     const total = filteredDonations.reduce((sum, donation) => sum + toNumber(donation.amount ?? donation.estimated_value), 0);
@@ -3075,121 +3117,117 @@ export function AdminWorkspace() {
       ) : null}
 
       <Tabs value={currentTab} onValueChange={(value) => setTab(value as MainTab)} className="space-y-6">
-        <TabsContent value="dashboard" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {dashboardKpis.map((kpi) => (
-              <KpiCard key={kpi.label} icon={kpi.icon} label={kpi.label} value={kpi.value} detail={kpi.detail} />
-            ))}
-          </div>
+        <TabsContent value="dashboard" className="space-y-10">
+          {workspaceQuery.isPending ? (
+            <p className="text-sm text-muted-foreground">Loading workspace data…</p>
+          ) : null}
 
-          <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-            <SectionCard title="Recent incidents" description="Newest incident reports needing attention first.">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Resident</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Severity</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dashboardRecentIncidents.map((incident) => (
-                    <TableRow key={String(incident.incident_id)}>
-                      <TableCell>{residentLabel(residentMap.get(toNumber(incident.resident_id)) ?? ({} as Resident))}</TableCell>
-                      <TableCell>{asDisplayDate(incident.incident_date)}</TableCell>
-                      <TableCell>{asText(incident.incident_type)}</TableCell>
-                      <TableCell>{asText(incident.severity)}</TableCell>
-                      <TableCell>
-                        <StatusBadge
-                          value={String(incident.resolved).toLowerCase() === "true" ? "Resolved" : "Open"}
-                          tone={String(incident.resolved).toLowerCase() === "true" ? "outline" : "destructive"}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </SectionCard>
-
-            <SectionCard title="Recent activity feed" description="A quick stream of the latest operational changes.">
-              <div className="space-y-3">
-                {recentActivity.map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-border/70 bg-muted/30 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-medium text-foreground">{item.label}</p>
-                      <span className="text-xs text-muted-foreground">{asDisplayDate(item.date)}</span>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{item.detail}</p>
+          {!workspaceQuery.isPending ? (
+            <div className="relative overflow-hidden rounded-3xl">
+              <div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[hsl(278_26%_76%/0.09)] via-transparent to-[hsl(188_46%_34%/0.06)]"
+                aria-hidden
+              />
+              <div className="relative space-y-10 px-1 py-2 sm:px-2">
+                <section aria-labelledby="founder-primary-heading">
+                  <h2
+                    id="founder-primary-heading"
+                    className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    At a glance
+                  </h2>
+                  <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+                    <FounderCommandTile
+                      label="Active residents"
+                      value={String(founderDashboardStats.activeResidents)}
+                      tone="lavender"
+                      icon={Heart}
+                      to="/admin?tab=residents"
+                    />
+                    <FounderCommandTile
+                      label="Active safe houses"
+                      value={String(founderDashboardStats.activeSafehouses)}
+                      tone="coastal"
+                      icon={Home}
+                      to="/admin?tab=safe-houses"
+                    />
+                    <FounderCommandTile
+                      label="Unresolved incidents"
+                      value={String(founderDashboardStats.unresolvedIncidents)}
+                      tone="sand"
+                      icon={ShieldAlert}
+                      to="/admin?tab=residents&residentsSubTab=incidents"
+                    />
+                    <FounderCommandTile
+                      label="Bed utilization"
+                      value={founderDashboardStats.bedUtilPercent != null ? `${founderDashboardStats.bedUtilPercent}%` : "—"}
+                      sub={founderDashboardStats.bedSub}
+                      tone="coastal"
+                      icon={Bed}
+                      to="/admin?tab=safe-houses"
+                    />
                   </div>
-                ))}
-              </div>
-            </SectionCard>
-          </div>
+                </section>
 
-          <div className="grid gap-6 xl:grid-cols-2">
-            <SectionCard title="Upcoming visitations" description="Scheduled home and follow-up visits across the caseload.">
-              <div className="space-y-3">
-                {dashboardUpcomingVisitations.map((visit) => (
-                  <div key={String(visit.visitation_id)} className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/30 p-4">
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {residentLabel(residentMap.get(toNumber(visit.resident_id)) ?? ({} as Resident))}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{asText(visit.location_visited)} • {asText(visit.visit_type)}</p>
-                    </div>
-                    <StatusBadge value={asDisplayDate(visit.visit_date)} tone="outline" />
+                <section aria-labelledby="founder-attention-heading">
+                  <h2
+                    id="founder-attention-heading"
+                    className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    Follow-ups
+                  </h2>
+                  <div className="grid gap-6 sm:grid-cols-3">
+                    <FounderCommandTile
+                      label="Overdue actions"
+                      value={String(founderDashboardStats.overdueActions)}
+                      tone="terracotta"
+                      icon={AlertTriangle}
+                      to="/admin?tab=residents&residentsSubTab=interventions"
+                    />
+                    <FounderCommandTile
+                      label="Upcoming · 14 days"
+                      value={String(founderDashboardStats.upcomingDeadlines14)}
+                      tone="terracotta"
+                      icon={CalendarDays}
+                      to="/admin?tab=residents&residentsSubTab=visitations"
+                    />
+                    <FounderCommandTile
+                      label="Cases to review"
+                      value={String(founderDashboardStats.casesRequiringReview)}
+                      tone="terracotta"
+                      icon={ClipboardCheck}
+                      to="/admin?tab=residents&residentsSubTab=interventions"
+                    />
                   </div>
-                ))}
-                {!dashboardUpcomingVisitations.length ? (
-                  <EmptyState title="No upcoming visitations" description="Scheduled visitations will appear here when dates are available." />
-                ) : null}
+                </section>
+
+                <section aria-labelledby="founder-funding-heading">
+                  <h2
+                    id="founder-funding-heading"
+                    className="mb-4 font-heading text-sm font-semibold uppercase tracking-wider text-muted-foreground"
+                  >
+                    Funding
+                  </h2>
+                  <div className="grid max-w-3xl gap-6 sm:grid-cols-2">
+                    <FounderCommandTile
+                      label="Recent giving · 30 days"
+                      value={formatCurrency(founderDashboardStats.recentGiving30)}
+                      tone="sage"
+                      icon={HandCoins}
+                      to="/admin?tab=donations"
+                    />
+                    <FounderCommandTile
+                      label="Unallocated balance"
+                      value={formatCurrency(founderDashboardStats.unallocatedBalance)}
+                      tone="sage"
+                      icon={Wallet}
+                      to="/admin?tab=donations&donationsSubTab=allocations"
+                    />
+                  </div>
+                </section>
               </div>
-            </SectionCard>
-
-            <SectionCard title="Recent donations summary" description="Most recent donations, supporter names, and allocation context.">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Supporter</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Value</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dashboardRecentDonations.map((donation) => (
-                    <TableRow key={donation.donation_id}>
-                      <TableCell>{donation.supporter_id ? supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter)) : donation.supporter_name ?? "Anonymous"}</TableCell>
-                      <TableCell>{asDisplayDate(donation.donation_date)}</TableCell>
-                      <TableCell>{asText(donation.donation_type)}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(donation.amount ?? donation.estimated_value, donation.currency_code ?? "PHP")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </SectionCard>
-          </div>
-
-          <SectionCard title="Safe house occupancy chart" description="Current occupancy against stated capacity across every house.">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={occupancyChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="occupancy" radius={[8, 8, 0, 0]}>
-                  {occupancyChartData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.fill} />
-                  ))}
-                </Bar>
-                <Bar dataKey="capacity" radius={[8, 8, 0, 0]} fill="hsl(var(--accent) / 0.45)" />
-              </BarChart>
-            </ResponsiveContainer>
-          </SectionCard>
+            </div>
+          ) : null}
         </TabsContent>
 
         <TabsContent value="residents" className="space-y-6">

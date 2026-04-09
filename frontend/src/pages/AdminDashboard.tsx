@@ -5,7 +5,7 @@ import { AdminLayout } from "@/components/AdminLayout";
 import { AdminWorkspace } from "@/components/admin/AdminWorkspace";
 
 const TAB_TITLES: Record<string, string> = {
-  dashboard: "Dashboard",
+  dashboard: "Command center",
   residents: "Residents",
   donations: "Donations",
   "safe-houses": "Safe Houses",
@@ -19,7 +19,7 @@ const AdminDashboard = () => {
   const title = useMemo(() => TAB_TITLES[searchParams.get("tab") ?? "dashboard"] ?? "Dashboard", [searchParams]);
 
   return (
-    <AdminLayout title={title} subtitle="Unified tab-based workspace for resident care, donations, reporting, and outreach">
+    <AdminLayout title={title} subtitle="Bella Bay operational workspace — calm overview, detail in each tab.">
       <AdminWorkspace />
     </AdminLayout>
   );
