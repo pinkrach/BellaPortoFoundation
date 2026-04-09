@@ -4,7 +4,18 @@ const isLocalHost =
   typeof window !== "undefined" &&
   (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
-export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || (isLocalHost ? "http://localhost:5250" : "");
+/**
+ * If `VITE_API_BASE_URL` is missing at build time (common on Vercel), relative `/api/...` calls hit the
+ * static host and admin actions silently fail. Set `VITE_API_BASE_URL` in Vercel to your Azure API URL.
+ * This fallback matches the deployed backend used in `vercel.json` CSP `connect-src`.
+ */
+const productionApiFallback = "https://bellaporto-dsh6ebcvcha6g7aj.westus3-01.azurewebsites.net";
+
+const configuredApiBase =
+  typeof import.meta.env.VITE_API_BASE_URL === "string" ? import.meta.env.VITE_API_BASE_URL.trim() : "";
+
+export const apiBaseUrl =
+  configuredApiBase || (isLocalHost ? "http://localhost:5250" : productionApiFallback);
 
 export const buildApiUrl = (path: string) => (apiBaseUrl ? `${apiBaseUrl}${path}` : path);
 

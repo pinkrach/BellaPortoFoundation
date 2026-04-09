@@ -186,8 +186,9 @@ const SettingsPage = () => {
 
     setSavingUserEdit(true);
     try {
+      // PUT avoids PATCH being rejected with 403 on some IIS / Azure App Service setups (role uses PUT and worked).
       const updated = await fetchJsonWithAuth<ProfileRecord>(`/api/profiles/${editUser.id}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           first_name: editFirstName.trim(),
@@ -212,8 +213,8 @@ const SettingsPage = () => {
     if (!deleteUser) return;
     setDeletingUserId(deleteUser.id);
     try {
-      await fetchJsonWithAuth<{ ok: boolean }>(`/api/profiles/${deleteUser.id}`, {
-        method: "DELETE",
+      await fetchJsonWithAuth<{ ok: boolean }>(`/api/profiles/${deleteUser.id}/delete`, {
+        method: "POST",
       });
       setProfiles((current) => current.filter((item) => item.id !== deleteUser.id));
       toast.success(`Removed ${profileLabel(deleteUser)}.`);

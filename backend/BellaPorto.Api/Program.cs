@@ -78,6 +78,13 @@ builder.Services.AddCors(options =>
                     {
                         return true;
                     }
+
+                    // Vercel production + preview deployments (branch/PR URLs are *.vercel.app).
+                    if (uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase)
+                        && uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
                 }
 
                 return false;
@@ -381,6 +388,7 @@ app.MapPut("/api/profiles/{userId}/role", async (
     }
 });
 
+<<<<<<< Updated upstream
 app.MapPatch("/api/profiles/{userId}", async (
     string userId,
     ProfileUpdateRequest requestBody,
@@ -527,6 +535,14 @@ app.MapDelete("/api/profiles/{userId}", async (
         return Results.Problem(ex.Message);
     }
 });
+=======
+// PATCH kept for API clients; Settings UI uses PUT because some IIS/Azure fronts return 403 for PATCH.
+app.MapPatch("/api/profiles/{userId}", HandleAdminProfileFieldsUpdateAsync);
+app.MapPut("/api/profiles/{userId}", HandleAdminProfileFieldsUpdateAsync);
+// DELETE kept for API clients; Settings UI uses POST …/delete when DELETE is blocked upstream.
+app.MapDelete("/api/profiles/{userId}", HandleAdminProfileDeleteAsync);
+app.MapPost("/api/profiles/{userId}/delete", HandleAdminProfileDeleteAsync);
+>>>>>>> Stashed changes
 
 app.MapGet("/api/supporters", async (
     HttpRequest request,
@@ -2240,6 +2256,151 @@ static string? ExtractBearerToken(HttpRequest request)
         : null;
 }
 
+/// <summary>
+/// Admin profile field update (shared by PATCH and PUT). PUT is registered for hosts that block PATCH (e.g. some IIS / Azure front ends).
+/// </summary>
+static async Task<IResult> HandleAdminProfileFieldsUpdateAsync(
+    string userId,
+    ProfileUpdateRequest requestBody,
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment)
+{
+    try
+    {
+        var hasFirst = requestBody.FirstName is not null;
+        var hasLast = requestBody.LastName is not null;
+        var hasEmail = !string.IsNullOrWhiteSpace(requestBody.Email);
+
+        if (!hasFirst && !hasLast && !hasEmail)
+        {
+            return Results.BadRequest(new { message = "Provide first_name, last_name, and/or email to update." });
+        }
+
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseServiceRoleConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        if (hasEmail && !requestBody.Email!.Contains('@'))
+        {
+            return Results.BadRequest(new { message = "Email must be a valid address." });
+        }
+
+        if (hasEmail)
+        {
+            var (authOk, authErr) = await UpdateAuthUserEmailAsync(
+                client,
+                settings.Url!,
+                settings.Key!,
+                userId,
+                requestBody.Email!.Trim());
+            if (!authOk)
+            {
+                return Results.Problem(
+                    detail: authErr ?? "Unable to update sign-in email in Supabase Auth.",
+                    statusCode: StatusCodes.Status502BadGateway);
+            }
+        }
+
+        var updates = new Dictionary<string, object?>();
+        if (hasFirst)
+        {
+            updates["first_name"] = string.IsNullOrWhiteSpace(requestBody.FirstName)
+                ? null
+                : requestBody.FirstName.Trim();
+        }
+
+        if (hasLast)
+        {
+            updates["last_name"] = string.IsNullOrWhiteSpace(requestBody.LastName)
+                ? null
+                : requestBody.LastName.Trim();
+        }
+
+        if (hasEmail)
+        {
+            updates["email"] = requestBody.Email!.Trim();
+        }
+
+        var updated = await UpdateProfileFieldsAsync(client, settings.Url!, settings.Key!, userId, updates);
+        return updated is null
+            ? Results.NotFound(new { message = $"Profile {userId} was not found." })
+            : Results.Ok(updated);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+}
+
+/// <summary>
+/// Admin deletes a Supabase Auth user (shared by DELETE and POST …/delete). POST is for hosts that block DELETE.
+/// </summary>
+static async Task<IResult> HandleAdminProfileDeleteAsync(
+    string userId,
+    HttpRequest request,
+    IHttpClientFactory httpClientFactory,
+    IConfiguration configuration,
+    IWebHostEnvironment environment)
+{
+    try
+    {
+        var repoRoot = GetRepoRoot(environment);
+        var settings = ResolveSupabaseSettings(configuration, repoRoot);
+        EnsureSupabaseServiceRoleConfigured(settings);
+        var client = httpClientFactory.CreateClient();
+        var guard = await EnsureAdminRequestAsync(request, client, settings, ResolveKnownAdminEmails(configuration));
+        if (guard is not null)
+        {
+            return guard;
+        }
+
+        var token = ExtractBearerToken(request);
+        var callerId = await GetBearerAuthUserIdAsync(client, settings.Url!, settings.Key!, token);
+        if (!string.IsNullOrWhiteSpace(callerId)
+            && string.Equals(callerId.Trim(), userId.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Json(
+                new { message = "You cannot delete your own account from this screen." },
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        // Remove public.profiles first; Postgres blocks deleting auth.users while profiles_id_fkey still points at it.
+        var (profileRemoved, profileErr) = await DeleteProfileByUserIdAsync(
+            client,
+            settings.Url!,
+            settings.Key!,
+            userId);
+        if (!profileRemoved)
+        {
+            return Results.Problem(
+                detail: profileErr ?? "Unable to delete the user's profile row.",
+                statusCode: StatusCodes.Status502BadGateway);
+        }
+
+        var (deleted, err) = await DeleteAuthUserAsync(client, settings.Url!, settings.Key!, userId);
+        if (!deleted)
+        {
+            return Results.Problem(
+                detail: err ?? "Unable to delete that user in Supabase Auth.",
+                statusCode: StatusCodes.Status502BadGateway);
+        }
+
+        return Results.Ok(new { ok = true });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(ex.Message);
+    }
+}
+
 static async Task<bool> VerifyRecaptchaAsync(HttpClient client, string secret, string responseToken)
 {
     using var content = new FormUrlEncodedContent(
@@ -3411,6 +3572,29 @@ static async Task<(bool ok, string? error)> UpdateAuthUserEmailAsync(
         JsonSerializer.Serialize(new Dictionary<string, string> { ["email"] = email }),
         Encoding.UTF8,
         "application/json");
+
+    using var response = await client.SendAsync(request);
+    if (response.IsSuccessStatusCode)
+    {
+        return (true, null);
+    }
+
+    var errBody = await response.Content.ReadAsStringAsync();
+    return (false, string.IsNullOrWhiteSpace(errBody) ? response.ReasonPhrase : errBody);
+}
+
+static async Task<(bool ok, string? error)> DeleteProfileByUserIdAsync(
+    HttpClient client,
+    string supabaseUrl,
+    string serviceRoleKey,
+    string userId)
+{
+    var baseUrl = supabaseUrl.TrimEnd('/');
+    using var request = new HttpRequestMessage(
+        HttpMethod.Delete,
+        $"{baseUrl}/rest/v1/profiles?id=eq.{Uri.EscapeDataString(userId)}");
+    request.Headers.TryAddWithoutValidation("apikey", serviceRoleKey);
+    request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {serviceRoleKey}");
 
     using var response = await client.SendAsync(request);
     if (response.IsSuccessStatusCode)
