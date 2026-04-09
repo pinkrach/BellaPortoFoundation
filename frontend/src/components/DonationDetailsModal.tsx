@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabaseClient";
-import type { DonationRow } from "@/lib/donorQueries";
+import { normalizedSubmissionStatus, type DonationRow } from "@/lib/donorQueries";
 import { Loader2, MapPin } from "lucide-react";
 
 type AllocationRow = {
@@ -48,10 +48,11 @@ function safehouseDisplay(safehouse: Record<string, unknown> | null | undefined)
 }
 
 async function fetchDonationAllocationSummary(donationId: number): Promise<{
-  safehouseLabel: string;
-  programArea: string;
+  safehouses: string[];
+  programAreas: string[];
+  hasAllocations: boolean;
 }> {
-  if (!supabase) return { safehouseLabel: "—", programArea: "—" };
+  if (!supabase) return { safehouses: [], programAreas: [], hasAllocations: false };
 
   const { data, error } = await supabase
     .from("donation_allocations")
@@ -59,12 +60,23 @@ async function fetchDonationAllocationSummary(donationId: number): Promise<{
     .eq("donation_id", donationId)
     .order("amount_allocated", { ascending: false });
 
-  if (error || !data?.length) return { safehouseLabel: "—", programArea: "—" };
+  if (error || !data?.length) return { safehouses: [], programAreas: [], hasAllocations: false };
 
-  const top = (data[0] as unknown) as AllocationRow;
-  const safehouseLabel = safehouseDisplay((top as any).safehouses ?? null);
-  const programArea = ((top as any).program_area?.trim() || "Unspecified") ?? "Unspecified";
-  return { safehouseLabel, programArea };
+  const safehouseSet = new Set<string>();
+  const programAreaSet = new Set<string>();
+
+  for (const row of data as unknown as AllocationRow[]) {
+    const safehouseLabel = safehouseDisplay((row as any).safehouses ?? null);
+    if (safehouseLabel && safehouseLabel !== "—") safehouseSet.add(safehouseLabel);
+    const area = (row.program_area ?? "").toString().trim();
+    if (area) programAreaSet.add(area);
+  }
+
+  return {
+    safehouses: Array.from(safehouseSet),
+    programAreas: Array.from(programAreaSet),
+    hasAllocations: true,
+  };
 }
 
 export function DonationDetailsModal({
@@ -85,6 +97,24 @@ export function DonationDetailsModal({
   });
 
   const amount = useMemo(() => (donation ? donation.amount ?? donation.estimated_value : null), [donation]);
+
+  const submission = donation ? normalizedSubmissionStatus(donation) : null;
+  const statusLine = (() => {
+    if (!donation || !submission) return null;
+    if (submission === "pending") return "Pending staff review";
+    if (submission === "denied") return donation.denial_reason?.trim() ? `Not accepted: ${donation.denial_reason}` : "Not accepted";
+    if (donation.goods_receipt_status === "not_received") return "Confirmed · Gift not yet marked as received";
+    if (donation.goods_receipt_status === "received") return "Confirmed · Gift received";
+    return "Confirmed";
+  })();
+
+  const fulfillmentLine = donation?.fulfillment_method
+    ? donation.fulfillment_method === "ship"
+      ? "Shipping"
+      : donation.fulfillment_method === "deliver_in_person"
+        ? "Deliver in person"
+        : donation.fulfillment_method
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -112,6 +142,35 @@ export function DonationDetailsModal({
                 </div>
               </div>
 
+              <div className="rounded-2xl border border-border/60 bg-background p-5 shadow-warm space-y-2">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Type</p>
+                <p className="text-sm font-semibold text-foreground">{(donation.donation_type ?? "—").trim() || "—"}</p>
+                {donation.impact_unit?.trim() ? (
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Units: </span>
+                    {donation.impact_unit}
+                  </p>
+                ) : null}
+                {statusLine ? (
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Status: </span>
+                    {statusLine}
+                  </p>
+                ) : null}
+                {fulfillmentLine ? (
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Delivery: </span>
+                    {fulfillmentLine}
+                  </p>
+                ) : null}
+                {donation.notes?.trim() ? (
+                  <div className="pt-2 border-t border-border/60">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Notes</p>
+                    <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{donation.notes.trim()}</p>
+                  </div>
+                ) : null}
+              </div>
+
               <div className="rounded-2xl border border-border/60 bg-muted/15 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-2">
@@ -134,19 +193,39 @@ export function DonationDetailsModal({
                   <div className="mt-4 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
                     We couldn’t load allocation details for this donation.
                   </div>
+                ) : allocationQuery.data && !allocationQuery.data.hasAllocations ? (
+                  <div className="mt-4 rounded-xl border border-border/70 bg-background p-4 text-sm text-muted-foreground">
+                    Donation being processed.
+                  </div>
                 ) : (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div className="rounded-xl border border-border/70 bg-background p-4">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Safehouse</p>
-                      <p className="mt-1 text-sm font-semibold text-foreground">
-                        {allocationQuery.data?.safehouseLabel ?? "—"}
-                      </p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Safe houses impacted</p>
+                      <div className="mt-1 space-y-1">
+                        {(allocationQuery.data?.safehouses ?? []).length > 0 ? (
+                          allocationQuery.data?.safehouses.map((label) => (
+                            <p key={label} className="text-sm font-semibold text-foreground">
+                              {label}
+                            </p>
+                          ))
+                        ) : (
+                          <p className="text-sm font-semibold text-foreground">Unspecified</p>
+                        )}
+                      </div>
                     </div>
                     <div className="rounded-xl border border-border/70 bg-background p-4">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Program area</p>
-                      <p className="mt-1 text-sm font-semibold text-foreground">
-                        {allocationQuery.data?.programArea ?? "—"}
-                      </p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Programs impacted</p>
+                      <div className="mt-1 space-y-1">
+                        {(allocationQuery.data?.programAreas ?? []).length > 0 ? (
+                          allocationQuery.data?.programAreas.map((area) => (
+                            <p key={area} className="text-sm font-semibold text-foreground">
+                              {area}
+                            </p>
+                          ))
+                        ) : (
+                          <p className="text-sm font-semibold text-foreground">Unspecified</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

@@ -119,8 +119,6 @@ const SignUpPage = () => {
       // Step 2: Create profile row
       const { error: profileError } = await supabase.from("profiles").insert({
         id: userId,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
         email: trimmedEmail,
         role: "donor",
       });
@@ -135,6 +133,7 @@ const SignUpPage = () => {
       }
 
       const supporterResult = await insertSupporterForNewUser({
+        profile_id: userId,
         email: trimmedEmail,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
@@ -145,14 +144,34 @@ const SignUpPage = () => {
         return;
       }
 
+      await supabase
+        .from("profiles")
+        .update({
+          supporter_onboarding_completed: false,
+          supporter_onboarding_existing: supporterResult.wasExisting,
+        })
+        .eq("id", userId);
+
       // Manual set: prevent race/blank screen before role is fetched by AuthContext.
       setAuthFromProfile({
         userId,
         email: trimmedEmail,
         role: "donor",
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
+        firstName: supporterResult.supporter?.firstName ?? firstName.trim(),
+        lastName: supporterResult.supporter?.lastName ?? lastName.trim(),
+        displayName: supporterResult.supporter?.displayName ?? null,
+        organizationName: supporterResult.supporter?.organizationName ?? null,
       });
+
+      window.localStorage.setItem(`donor-onboarding-pending:${userId}`, "true");
+      window.localStorage.setItem(
+        `donor-onboarding-seed:${userId}`,
+        JSON.stringify({
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          email: trimmedEmail,
+        }),
+      );
 
       // Redirect: email confirmation is off, so we should land instantly.
       navigate("/dashboard");

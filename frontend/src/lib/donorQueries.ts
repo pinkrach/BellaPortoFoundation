@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 
-export const donorDonationDataQueryKey = (email: string | null) => ["donor-donation-data", email] as const;
+export const donorDonationDataQueryKey = (userId: string | null, email: string | null) =>
+  ["donor-donation-data", userId, email] as const;
 
 export type DonationRow = {
   donation_id: number;
@@ -13,7 +14,42 @@ export type DonationRow = {
   amount: number | string | null;
   currency_code: string | null;
   campaign_name: string | null;
+  impact_unit: string | null;
+  notes: string | null;
+  submission_status: string | null;
+  goods_receipt_status: string | null;
+  fulfillment_method: string | null;
+  denial_reason: string | null;
 };
+
+export type SubmissionStatusNormalized = "pending" | "confirmed" | "denied";
+
+export function normalizedSubmissionStatus(row: Pick<DonationRow, "submission_status">): SubmissionStatusNormalized {
+  const raw = row.submission_status;
+  if (raw == null || String(raw).trim() === "") return "confirmed";
+  const s = String(raw).toLowerCase();
+  if (s === "pending" || s === "denied" || s === "confirmed") return s;
+  return "confirmed";
+}
+
+/** Confirmed donations count toward published impact; pending and denied do not. */
+export function countsTowardVerifiedImpact(row: DonationRow): boolean {
+  return normalizedSubmissionStatus(row) === "confirmed";
+}
+
+const DONATION_SELECT_WITH_WORKFLOW =
+  "donation_id, supporter_id, donation_type, donation_date, channel_source, is_recurring, estimated_value, amount, currency_code, campaign_name, impact_unit, notes, submission_status, goods_receipt_status, fulfillment_method, denial_reason";
+
+const DONATION_SELECT_LEGACY =
+  "donation_id, supporter_id, donation_type, donation_date, channel_source, is_recurring, estimated_value, amount, currency_code, campaign_name, impact_unit, notes";
+
+function isDonationsWorkflowColumnError(err: { message?: string } | null | undefined): boolean {
+  const m = (err?.message ?? "").toLowerCase();
+  if (!m) return false;
+  const names = ["submission_status", "goods_receipt_status", "fulfillment_method", "denial_reason"];
+  if (!names.some((n) => m.includes(n))) return false;
+  return m.includes("does not exist") || m.includes("schema cache") || m.includes("could not find");
+}
 
 const CHART_PALETTE = ["#1f7a8c", "#d96d4a", "#6eb8b8", "#5c4d7d", "#2d6a4f", "#e9c46a", "#264653", "#9b6b9e"];
 
@@ -55,9 +91,10 @@ function emptyPayload(): {
 }
 
 /**
- * Loads donations for the signed-in user: supporters.email → supporter_id → donations.
+ * Loads donations for the signed-in user:
+ * profiles.supporter_id first; if missing, fallback supporters.email match and link profile.
  */
-export async function fetchDonorDonationData(userEmail: string | null): Promise<{
+export async function fetchDonorDonationData(userId: string | null, userEmail: string | null): Promise<{
   donations: DonationRow[];
   totalImpact: number;
   donationCount: number;
@@ -65,31 +102,72 @@ export async function fetchDonorDonationData(userEmail: string | null): Promise<
   hasSupporterRecord: boolean;
 }> {
   try {
-    if (!supabase || !userEmail?.trim()) {
+    if (!supabase) {
       return emptyPayload();
     }
 
-    const email = userEmail.trim();
+    let supporterId: number | null = null;
+    let emailFromProfile: string | null = null;
 
-    const { data: supporter, error: supErr } = await supabase
-      .from("supporters")
-      .select("supporter_id")
-      .eq("email", email)
-      .maybeSingle();
-
-    if (supErr || !supporter?.supporter_id) {
-      return emptyPayload();
+    if (userId) {
+      const { data: profile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("supporter_id,email")
+        .eq("id", userId)
+        .maybeSingle();
+      if (!profileErr) {
+        const parsed = Number(profile?.supporter_id);
+        supporterId = Number.isFinite(parsed) ? parsed : null;
+        emailFromProfile = typeof profile?.email === "string" ? profile.email : null;
+      }
     }
 
-    const supporterId = supporter.supporter_id;
+    if (supporterId == null) {
+      const email = (userEmail?.trim() || emailFromProfile?.trim() || "").trim();
+      if (!email) return emptyPayload();
 
-    const { data: donationRows, error: donErr } = await supabase
-      .from("donations")
-      .select(
-        "donation_id, supporter_id, donation_type, donation_date, channel_source, is_recurring, estimated_value, amount, currency_code, campaign_name",
-      )
-      .eq("supporter_id", supporterId)
-      .order("donation_date", { ascending: false });
+      const { data: supporter, error: supErr } = await supabase
+        .from("supporters")
+        .select("supporter_id")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (supErr || !supporter?.supporter_id) {
+        return emptyPayload();
+      }
+
+      supporterId = Number(supporter.supporter_id);
+      if (userId && Number.isFinite(supporterId)) {
+        await supabase
+          .from("profiles")
+          .update({ supporter_id: supporterId })
+          .eq("id", userId)
+          .is("supporter_id", null);
+      }
+    }
+
+    let donationRows = null as unknown[] | null;
+    let donErr = null as { message?: string } | null;
+
+    {
+      const r = await supabase
+        .from("donations")
+        .select(DONATION_SELECT_WITH_WORKFLOW)
+        .eq("supporter_id", supporterId as number)
+        .order("donation_date", { ascending: false });
+      donationRows = r.data as unknown[] | null;
+      donErr = r.error;
+    }
+
+    if (donErr && isDonationsWorkflowColumnError(donErr)) {
+      const r = await supabase
+        .from("donations")
+        .select(DONATION_SELECT_LEGACY)
+        .eq("supporter_id", supporterId as number)
+        .order("donation_date", { ascending: false });
+      donationRows = r.data as unknown[] | null;
+      donErr = r.error;
+    }
 
     if (donErr) {
       return { ...emptyPayload(), hasSupporterRecord: true };
@@ -101,13 +179,15 @@ export async function fetchDonorDonationData(userEmail: string | null): Promise<
 
     const donations = donationRows as DonationRow[];
 
+    const verified = donations.filter(countsTowardVerifiedImpact);
+
     let totalImpact = 0;
-    for (const d of donations) {
+    for (const d of verified) {
       totalImpact += donationImpactValue(d);
     }
 
     const byType = new Map<string, number>();
-    for (const d of donations) {
+    for (const d of verified) {
       const label = (d.donation_type?.trim() || "Other") || "Other";
       const v = donationImpactValue(d);
       byType.set(label, (byType.get(label) ?? 0) + v);
@@ -122,7 +202,7 @@ export async function fetchDonorDonationData(userEmail: string | null): Promise<
     return {
       donations,
       totalImpact,
-      donationCount: donations.length,
+      donationCount: verified.length,
       typeSplitChart,
       hasSupporterRecord: true,
     };

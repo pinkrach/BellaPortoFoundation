@@ -2,26 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabaseClient";
 import { findOrCreateSupporter } from "@/lib/supporterRecord";
+import { getNextDonationId } from "@/lib/donationIds";
+import { isMissingDonationWorkflowColumnMessage, stripDonationWorkflowFields } from "@/lib/donationInsertCompat";
 import { useAuth } from "@/contexts/AuthContext";
-import { Building2, CreditCard, Landmark, Smartphone } from "lucide-react";
+import { CreditCard, Landmark, Smartphone } from "lucide-react";
 
 type PaymentMethod = "card" | "apple_pay" | "bank_transfer";
 
 const QUICK_AMOUNTS = [10, 25, 50, 100] as const;
-
-const PROGRAM_AREAS = [
-  "Safehouse Operations",
-  "Education",
-  "Health & Wellbeing",
-  "Case Management",
-  "Reintegration",
-  "Emergency Response",
-  "Other",
-] as const;
-
-/** 1-based lookup id → program_area text (schema stores text, not program_area_id). */
-const DEFAULT_SAFEHOUSE_ID = 1;
-const DEFAULT_PROGRAM_AREA_ID = 2;
 
 function formatUsd(value: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value);
@@ -36,63 +24,6 @@ function parseAmountString(raw: string): number {
   return Number.isFinite(n) ? n : NaN;
 }
 
-async function getNextDonationId(): Promise<number> {
-  const { data, error } = await supabase!
-    .from("donations")
-    .select("donation_id")
-    .order("donation_id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.warn("Could not read max donation_id; using random 5-digit id:", error.message);
-    return 10000 + Math.floor(Math.random() * 90000);
-  }
-
-  const max = data?.donation_id != null ? Number(data.donation_id) : 0;
-  return (Number.isFinite(max) ? max : 0) + 1;
-}
-
-async function getNextAllocationId(): Promise<number> {
-  const { data, error } = await supabase!
-    .from("donation_allocations")
-    .select("allocation_id")
-    .order("allocation_id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.warn("Could not read max allocation_id; using random 5-digit id:", error.message);
-    return 10000 + Math.floor(Math.random() * 90000);
-  }
-
-  const max = data?.allocation_id != null ? Number(data.allocation_id) : 0;
-  return (Number.isFinite(max) ? max : 0) + 1;
-}
-
-async function insertDefaultAllocation(donationId: number, amount: number) {
-  if (!supabase) return;
-
-  const allocation_date = new Date().toISOString().slice(0, 10);
-  const program_area =
-    PROGRAM_AREAS[Math.max(0, Math.min(PROGRAM_AREAS.length - 1, DEFAULT_PROGRAM_AREA_ID - 1))] ?? PROGRAM_AREAS[0];
-
-  const allocation_id = await getNextAllocationId();
-
-  const { error: allocErr } = await supabase.from("donation_allocations").insert({
-    allocation_id,
-    donation_id: donationId,
-    safehouse_id: DEFAULT_SAFEHOUSE_ID,
-    program_area,
-    amount_allocated: Number(amount),
-    allocation_date,
-  });
-
-  if (allocErr) {
-    console.warn("Could not add allocation for donation (impact details may be incomplete):", allocErr.message);
-  }
-}
-
 export function DonationModal({
   open,
   onOpenChange,
@@ -102,7 +33,7 @@ export function DonationModal({
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void | Promise<void>;
 }) {
-  const { userEmail, firstName, lastName } = useAuth();
+  const { userId, userEmail, firstName, lastName } = useAuth();
 
   const [amount, setAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
@@ -149,8 +80,8 @@ export function DonationModal({
       setErrorMessage("Donations are unavailable right now. Please refresh and try again.");
       return;
     }
-    if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
-      setErrorMessage("Please enter a valid amount greater than 0.");
+    if (!Number.isFinite(amountNumber) || amountNumber < 5) {
+      setErrorMessage("Donation minimum is $5");
       return;
     }
 
@@ -160,6 +91,7 @@ export function DonationModal({
 
     try {
       const supporter_id = await findOrCreateSupporter({
+        userId,
         email: userEmail,
         firstName,
         lastName,
@@ -178,15 +110,23 @@ export function DonationModal({
         currency_code: "USD",
         amount: amountValue,
         estimated_value: amountValue,
+        submission_status: "confirmed",
       };
 
-      const { error: insertError } = await supabase.from("donations").insert(payload);
-
-      if (insertError) {
-        throw new Error(insertError.message || "Unable to submit donation.");
+      let insertResult = await supabase.from("donations").insert(payload);
+      if (insertResult.error && isMissingDonationWorkflowColumnMessage(insertResult.error.message)) {
+        insertResult = await supabase.from("donations").insert(stripDonationWorkflowFields(payload));
       }
 
-      await insertDefaultAllocation(donation_id, amountValue);
+      if (insertResult.error) {
+        throw new Error(insertResult.error.message || "Unable to submit donation.");
+      }
+
+      await supabase
+        .from("supporters")
+        .update({ first_donation_date: donation_date })
+        .eq("supporter_id", supporter_id)
+        .is("first_donation_date", null);
 
       await onSuccess();
       setDidSucceed(true);
@@ -252,8 +192,8 @@ export function DonationModal({
                 <input
                   type="number"
                   inputMode="decimal"
-                  step="1"
-                  min={0}
+                  step="0.01"
+                  min={5}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   onBlur={() => {
@@ -279,19 +219,16 @@ export function DonationModal({
                       key: "card" as const,
                       label: "Credit/Debit Card",
                       icon: CreditCard,
-                      hint: "Visa, Mastercard",
                     },
                     {
                       key: "apple_pay" as const,
                       label: "Apple Pay",
                       icon: Smartphone,
-                      hint: "Demo placeholder",
                     },
                     {
                       key: "bank_transfer" as const,
                       label: "Bank Transfer",
                       icon: Landmark,
-                      hint: "Demo placeholder",
                     },
                   ].map((method) => {
                     const active = paymentMethod === method.key;
@@ -320,16 +257,11 @@ export function DonationModal({
                           </div>
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-foreground leading-tight">{method.label}</div>
-                            <div className="mt-1 text-xs text-muted-foreground">{method.hint}</div>
                           </div>
                         </div>
                       </label>
                     );
                   })}
-                </div>
-                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Building2 className="h-3.5 w-3.5" />
-                  Demo note: payment methods are visual placeholders only.
                 </div>
               </div>
 

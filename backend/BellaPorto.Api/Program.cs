@@ -1859,6 +1859,10 @@ static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, st
         return settings;
     }
 
+    string? fileUrl = null;
+    string? fileServiceRole = null;
+    string? fileAnon = null;
+
     foreach (var rawLine in File.ReadAllLines(envPath))
     {
         var line = rawLine.Trim();
@@ -1871,15 +1875,34 @@ static SupabaseSettings ResolveSupabaseSettings(IConfiguration configuration, st
         var key = line[..splitIndex].Trim();
         var value = line[(splitIndex + 1)..].Trim();
 
-        if (string.IsNullOrWhiteSpace(settings.Url) && key == "VITE_SUPABASE_URL")
+        switch (key)
         {
-            settings.Url = value;
+            case "VITE_SUPABASE_URL":
+                fileUrl = value;
+                break;
+            case "SUPABASE_SERVICE_ROLE_KEY":
+                fileServiceRole = value;
+                break;
+            case "VITE_SUPABASE_ANON_KEY":
+                fileAnon = value;
+                break;
         }
-        else if (string.IsNullOrWhiteSpace(settings.Key) && key == "VITE_SUPABASE_ANON_KEY")
-        {
-            settings.Key = value;
-            settings.UsingServiceRoleKey = false;
-        }
+    }
+
+    if (string.IsNullOrWhiteSpace(settings.Url) && !string.IsNullOrWhiteSpace(fileUrl))
+    {
+        settings.Url = fileUrl;
+    }
+
+    if (!string.IsNullOrWhiteSpace(fileServiceRole))
+    {
+        settings.Key = fileServiceRole;
+        settings.UsingServiceRoleKey = true;
+    }
+    else if (string.IsNullOrWhiteSpace(settings.Key) && !string.IsNullOrWhiteSpace(fileAnon))
+    {
+        settings.Key = fileAnon;
+        settings.UsingServiceRoleKey = false;
     }
 
     return settings;
@@ -2417,7 +2440,8 @@ static async Task<List<Dictionary<string, object?>>> FetchAllDonationsAsync(
         var end = start + pageSize - 1;
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
-            $"{baseUrl}/rest/v1/donations?select=donation_id,supporter_id,donation_type,donation_date,is_recurring,campaign_name,channel_source,currency_code,amount,estimated_value,impact_unit,notes,referral_post_id,supporters(display_name,organization_name,first_name,last_name){supporterFilter}&order=donation_date.desc"
+            // select=* avoids hard-coding columns that may not exist until optional migrations are applied.
+            $"{baseUrl}/rest/v1/donations?select=*,supporters(display_name,organization_name,first_name,last_name){supporterFilter}&order=donation_date.desc"
         );
         request.Headers.TryAddWithoutValidation("apikey", apiKey);
         request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
@@ -2493,7 +2517,7 @@ static async Task<Dictionary<string, object?>?> UpdateDonationAsync(
     var baseUrl = supabaseUrl.TrimEnd('/');
     using var request = new HttpRequestMessage(
         HttpMethod.Patch,
-        $"{baseUrl}/rest/v1/donations?donation_id=eq.{donationId}&select=donation_id,supporter_id,donation_type,donation_date,is_recurring,campaign_name,channel_source,currency_code,amount,estimated_value,impact_unit,notes,referral_post_id,supporters(display_name,organization_name,first_name,last_name)"
+        $"{baseUrl}/rest/v1/donations?donation_id=eq.{donationId}&select=*,supporters(display_name,organization_name,first_name,last_name)"
     );
     request.Headers.TryAddWithoutValidation("apikey", apiKey);
     request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");
@@ -2925,7 +2949,7 @@ static async Task<Dictionary<string, object?>?> CreateDonationAsync(
     var baseUrl = supabaseUrl.TrimEnd('/');
     using var request = new HttpRequestMessage(
         HttpMethod.Post,
-        $"{baseUrl}/rest/v1/donations?select=donation_id,supporter_id,donation_type,donation_date,is_recurring,campaign_name,channel_source,currency_code,amount,estimated_value,impact_unit,notes,referral_post_id,supporters(display_name,organization_name,first_name,last_name)"
+        $"{baseUrl}/rest/v1/donations?select=*,supporters(display_name,organization_name,first_name,last_name)"
     );
     request.Headers.TryAddWithoutValidation("apikey", apiKey);
     request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {apiKey}");

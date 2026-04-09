@@ -29,6 +29,12 @@ Optional local fallback:
 - `SUPABASE_ANON_KEY`
   Only enough for limited local development. Do not rely on it for admin profile management.
 
+For **local `dotnet run`**, if you already use `frontend/.env` for `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, add a **server-only** line (do **not** use a `VITE_` prefix, or the key could be exposed to the browser):
+
+`SUPABASE_SERVICE_ROLE_KEY=<your service role key from Supabase Dashboard → Project Settings → API>`
+
+The API reads that value from `frontend/.env` when process environment variables are not set, so user management and role changes work the same as on the deployed backend.
+
 Optional emergency override:
 
 - `KNOWN_ADMIN_EMAILS`

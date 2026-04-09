@@ -100,7 +100,7 @@ import {
 
 type MainTab = "dashboard" | "residents" | "donations" | "safe-houses" | "reports" | "outreach" | "settings";
 type ResidentsSubTab = "all-residents" | "process-records" | "visitations" | "education" | "health" | "interventions" | "incidents";
-type DonationsSubTab = "supporters" | "donations" | "in-kind" | "allocations";
+type DonationsSubTab = "supporters" | "donations" | "pending-review" | "in-kind" | "allocations";
 type SafeHousesSubTab = "safe-houses" | "allocation-history" | "monthly-metrics";
 type OutreachSubTab = "social-media" | "public-impact";
 
@@ -159,6 +159,10 @@ type Donation = {
   impact_unit: string | null;
   notes: string | null;
   referral_post_id: number | string | null;
+  submission_status?: string | null;
+  goods_receipt_status?: string | null;
+  fulfillment_method?: string | null;
+  denial_reason?: string | null;
   supporter_name?: string | null;
   supporters?: {
     display_name?: string | null;
@@ -167,6 +171,15 @@ type Donation = {
     last_name?: string | null;
   } | null;
 };
+
+function donationWorkflowLabel(donation: Donation): string {
+  const s = (donation.submission_status ?? "confirmed").toLowerCase();
+  if (s === "pending") return "Pending";
+  if (s === "denied") return "Denied";
+  if (donation.goods_receipt_status === "not_received") return "Awaiting receipt";
+  if (donation.goods_receipt_status === "received") return "Received";
+  return "Confirmed";
+}
 
 type DonationAllocation = {
   allocation_id: number;
@@ -327,6 +340,10 @@ type DonationFormState = {
   impact_unit: string;
   notes: string;
   referral_post_id: string;
+  submission_status: string;
+  goods_receipt_status: string;
+  fulfillment_method: string;
+  denial_reason: string;
 };
 
 type InKindFormState = {
@@ -482,6 +499,7 @@ const RESIDENT_SUBTABS: Array<{ value: ResidentsSubTab; label: string }> = [
 const DONATION_SUBTABS: Array<{ value: DonationsSubTab; label: string }> = [
   { value: "supporters", label: "Supporters" },
   { value: "donations", label: "Donations" },
+  { value: "pending-review", label: "Pending review" },
   { value: "in-kind", label: "In-Kind" },
   { value: "allocations", label: "Allocations" },
 ];
@@ -690,6 +708,20 @@ function supporterLabel(supporter: Supporter) {
   if (organization) return organization;
   const fullName = [supporter.first_name, supporter.last_name].filter(Boolean).join(" ").trim();
   return fullName || `Supporter ${supporter.supporter_id}`;
+}
+
+function formatRecordDetailValue(key: string, value: unknown) {
+  if (value == null) return "Not recorded";
+  if (typeof value === "string" && value.trim() === "") return "Not recorded";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  const lowered = key.toLowerCase();
+  if (lowered.includes("date") || lowered.endsWith("_at")) {
+    return asDisplayDate(value, "Not recorded");
+  }
+  const text = String(value).trim();
+  if (text === "true") return "Yes";
+  if (text === "false") return "No";
+  return text;
 }
 
 function compareDatesDescending(a: unknown, b: unknown) {
@@ -1635,6 +1667,15 @@ function isRequiredFieldValueMissing(value: string, field: FormField): boolean {
   return false;
 }
 
+function detailFieldDisplayValue(field: FormField, value: unknown) {
+  const normalized = value == null ? "" : String(value);
+  if (field.type === "select" && field.options?.length) {
+    const option = field.options.find((entry) => entry.value === normalized);
+    if (option) return option.label;
+  }
+  return formatRecordDetailValue(field.key, value);
+}
+
 function EntityModal<T extends Record<string, string>>({
   open,
   onOpenChange,
@@ -1857,6 +1898,7 @@ export function AdminWorkspace() {
   const donationsSubTab: DonationsSubTab =
     donationsSubTabRaw === "supporters" ||
     donationsSubTabRaw === "donations" ||
+    donationsSubTabRaw === "pending-review" ||
     donationsSubTabRaw === "in-kind" ||
     donationsSubTabRaw === "allocations"
       ? donationsSubTabRaw
@@ -1929,6 +1971,10 @@ export function AdminWorkspace() {
 
   const [residentDetailId, setResidentDetailId] = useState<number | null>(null);
   const [residentModalOpen, setResidentModalOpen] = useState(false);
+  const [supporterDetailId, setSupporterDetailId] = useState<number | null>(null);
+  const [supporterDetailModalOpen, setSupporterDetailModalOpen] = useState(false);
+  const [donationDetailId, setDonationDetailId] = useState<number | null>(null);
+  const [donationDetailModalOpen, setDonationDetailModalOpen] = useState(false);
   const [residentFormOpen, setResidentFormOpen] = useState(false);
   const [editingResidentId, setEditingResidentId] = useState<number | null>(null);
   const [residentForm, setResidentForm] = useState<ResidentFormState>({
@@ -1980,7 +2026,14 @@ export function AdminWorkspace() {
     impact_unit: "",
     notes: "",
     referral_post_id: "",
+    submission_status: "confirmed",
+    goods_receipt_status: "",
+    fulfillment_method: "",
+    denial_reason: "",
   });
+
+  const [pendingDenyDonation, setPendingDenyDonation] = useState<Donation | null>(null);
+  const [pendingDenyReason, setPendingDenyReason] = useState("");
 
   const [inKindFormOpen, setInKindFormOpen] = useState(false);
   const [editingInKindId, setEditingInKindId] = useState<number | null>(null);
@@ -2441,6 +2494,19 @@ export function AdminWorkspace() {
   };
 
   const selectedResidentDetail = residentDetailId ? residentMap.get(residentDetailId) ?? null : null;
+  const selectedSupporterDetail = supporterDetailId ? supporterMap.get(supporterDetailId) ?? null : null;
+  const selectedDonationDetail = donationDetailId ? donationMap.get(donationDetailId) ?? null : null;
+
+  const openSupporterDetail = (supporterId: number) => {
+    setParams({ supporterId: String(supporterId) });
+    setSupporterDetailId(supporterId);
+    setSupporterDetailModalOpen(true);
+  };
+
+  const openDonationDetail = (donationId: number) => {
+    setDonationDetailId(donationId);
+    setDonationDetailModalOpen(true);
+  };
 
   const invalidateWorkspace = async (message: string) => {
     await queryClient.invalidateQueries({ queryKey: ["admin-workspace"] });
@@ -2789,6 +2855,45 @@ export function AdminWorkspace() {
     supporterMap,
     workspace.donations,
   ]);
+
+  const filteredPendingDonations = useMemo(() => {
+    const query = deferredDonationSearch.trim().toLowerCase();
+    return [...workspace.donations]
+      .filter((donation) => (donation.submission_status ?? "").toLowerCase() === "pending")
+      .filter((donation) => {
+        const supporter = donation.supporter_id ? supporterMap.get(donation.supporter_id) ?? null : null;
+        const matchesSearch =
+          !query ||
+          [
+            supporter ? supporterLabel(supporter) : donation.supporter_name,
+            donation.donation_type,
+            donation.notes,
+            String(donation.donation_id ?? ""),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query);
+        const matchesSupporter = !selectedSupporterId || donation.supporter_id === selectedSupporterId;
+        return matchesSearch && matchesSupporter;
+      })
+      .sort((left, right) => compareDatesDescending(left.donation_date, right.donation_date));
+  }, [deferredDonationSearch, selectedSupporterId, supporterMap, workspace.donations]);
+
+  const pendingDonationsRowsSorted = useMemo(() => {
+    const base = [...filteredPendingDonations];
+    if (donationSort === "amount") {
+      return base.sort((left, right) => toNumber(right.amount ?? right.estimated_value) - toNumber(left.amount ?? left.estimated_value));
+    }
+    if (donationSort === "name") {
+      return base.sort((left, right) => {
+        const leftS = left.supporter_id ? supporterMap.get(left.supporter_id) : null;
+        const rightS = right.supporter_id ? supporterMap.get(right.supporter_id) : null;
+        return supporterLabel(leftS ?? ({} as Supporter)).localeCompare(supporterLabel(rightS ?? ({} as Supporter)));
+      });
+    }
+    return base.sort((left, right) => compareDatesDescending(left.donation_date, right.donation_date));
+  }, [donationSort, filteredPendingDonations, supporterMap]);
 
   const filteredInKind = useMemo(() => {
     const query = deferredDonationSearch.trim().toLowerCase();
@@ -3602,6 +3707,8 @@ export function AdminWorkspace() {
           }
           case "donation_type":
             return String(row.donation_type ?? "");
+          case "workflow":
+            return donationWorkflowLabel(row);
           case "campaign":
             return String(row.campaign_name ?? "");
           case "channel":
@@ -3771,6 +3878,11 @@ export function AdminWorkspace() {
   const incidentsTablePage = PaginatedRows({ rows: incidentsRowsSorted, page: getPage("incidents"), perPage: getPageSize("incidents") });
   const supportersTablePage = PaginatedRows({ rows: supportersRowsSorted, page: getPage("supporters"), perPage: getPageSize("supporters") });
   const donationsTablePage = PaginatedRows({ rows: donationsRowsSorted, page: getPage("donations"), perPage: getPageSize("donations") });
+  const pendingDonationsTablePage = PaginatedRows({
+    rows: pendingDonationsRowsSorted,
+    page: getPage("pending-donations"),
+    perPage: getPageSize("pending-donations"),
+  });
   const inKindTablePage = PaginatedRows({ rows: inKindRowsSorted, page: getPage("in-kind"), perPage: getPageSize("in-kind") });
   const allocationsTablePage = PaginatedRows({ rows: allocationsRowsSorted, page: getPage("allocations"), perPage: getPageSize("allocations") });
   const safehousesTablePage = PaginatedRows({ rows: safehousesRowsSorted, page: getPage("safe-houses"), perPage: getPageSize("safe-houses") });
@@ -3899,7 +4011,7 @@ export function AdminWorkspace() {
         label: "Donation Type",
         type: "select" as const,
         required: true,
-        options: ["Monetary", "InKind"].map((entry) => ({ value: entry, label: entry })),
+        options: ["Monetary", "InKind", "Time"].map((entry) => ({ value: entry, label: entry })),
       },
       { key: "donation_date", label: "Donation Date", type: "date" as const, required: true },
       {
@@ -3925,11 +4037,34 @@ export function AdminWorkspace() {
         key: "estimated_value",
         label: "Estimated Value",
         type: "number" as const,
-        required: donationForm.donation_type === "InKind",
+        required: donationForm.donation_type === "InKind" || donationForm.donation_type === "Time",
       },
       { key: "impact_unit", label: "Impact Unit" },
       { key: "notes", label: "Notes", type: "textarea" as const },
       { key: "referral_post_id", label: "Referral Post ID" },
+      {
+        key: "submission_status",
+        label: "Submission status",
+        type: "select" as const,
+        required: true,
+        options: [
+          { value: "confirmed", label: "Confirmed" },
+          { value: "pending", label: "Pending" },
+          { value: "denied", label: "Denied" },
+        ],
+      },
+      {
+        key: "goods_receipt_status",
+        label: "Goods receipt (in-kind)",
+        type: "select" as const,
+        options: [
+          { value: "", label: "—" },
+          { value: "not_received", label: "Not received" },
+          { value: "received", label: "Received" },
+        ],
+      },
+      { key: "fulfillment_method", label: "Fulfillment method" },
+      { key: "denial_reason", label: "Denial reason", type: "textarea" as const },
     ],
     [donationForm.donation_type, workspace.supporters],
   );
@@ -4233,6 +4368,11 @@ export function AdminWorkspace() {
       if (!raw || !Number.isFinite(Number(raw))) {
         return "Enter a valid estimated value for in-kind donations.";
       }
+    } else if (s.donation_type === "Time") {
+      const raw = s.estimated_value.trim();
+      if (!raw || !Number.isFinite(Number(raw))) {
+        return "Enter a valid estimated value (USD equivalent) for volunteer time.";
+      }
     }
     const ref = s.referral_post_id.trim();
     if (ref && !Number.isFinite(Number(ref))) {
@@ -4301,6 +4441,10 @@ export function AdminWorkspace() {
       impact_unit: donation?.impact_unit ?? "",
       notes: donation?.notes ?? "",
       referral_post_id: donation?.referral_post_id != null ? String(donation.referral_post_id) : "",
+      submission_status: donation?.submission_status?.trim() ? String(donation.submission_status) : "confirmed",
+      goods_receipt_status: donation?.goods_receipt_status?.trim() ? String(donation.goods_receipt_status) : "",
+      fulfillment_method: donation?.fulfillment_method?.trim() ? String(donation.fulfillment_method) : "",
+      denial_reason: donation?.denial_reason?.trim() ? String(donation.denial_reason) : "",
     });
     setDonationFormOpen(true);
   };
@@ -4520,6 +4664,10 @@ export function AdminWorkspace() {
       impact_unit: donationForm.impact_unit || null,
       notes: donationForm.notes || null,
       referral_post_id: toNullableNumber(donationForm.referral_post_id),
+      submission_status: donationForm.submission_status.trim() || "confirmed",
+      goods_receipt_status: donationForm.goods_receipt_status.trim() || null,
+      fulfillment_method: donationForm.fulfillment_method.trim() || null,
+      denial_reason: donationForm.denial_reason.trim() || null,
     };
     if (editingDonationId) {
       updateMutation.mutate({ table: "donations", id: editingDonationId, payload });
@@ -4527,6 +4675,33 @@ export function AdminWorkspace() {
       createMutation.mutate({ table: "donations", payload });
     }
     setDonationFormOpen(false);
+  };
+
+  const reviewConfirmPendingDonation = (donation: Donation) => {
+    const payload: Record<string, unknown> = {
+      submission_status: "confirmed",
+      denial_reason: null,
+    };
+    const t = (donation.donation_type ?? "").trim();
+    if (t === "In-Kind" || t === "In-Kind Donation" || t === "InKind") {
+      payload.goods_receipt_status = "received";
+    }
+    updateMutation.mutate({ table: "donations", id: donation.donation_id, payload });
+  };
+
+  const submitPendingDeny = () => {
+    if (!pendingDenyDonation) return;
+    updateMutation.mutate({
+      table: "donations",
+      id: pendingDenyDonation.donation_id,
+      payload: {
+        submission_status: "denied",
+        denial_reason: pendingDenyReason.trim() || null,
+        goods_receipt_status: null,
+      },
+    });
+    setPendingDenyDonation(null);
+    setPendingDenyReason("");
   };
 
   const submitInKindForm = () => {
@@ -4987,8 +5162,10 @@ export function AdminWorkspace() {
     const searchPlaceholder =
       donationsSubTab === "supporters"
         ? "Search supporter name, type, region, status, or channel"
-        : donationsSubTab === "donations"
-          ? "Search supporter, campaign, channel, currency, or donation id"
+        : donationsSubTab === "donations" || donationsSubTab === "pending-review"
+          ? donationsSubTab === "pending-review"
+            ? "Search supporter, donation type, notes, or donation id"
+            : "Search supporter, campaign, channel, currency, or donation id"
           : donationsSubTab === "in-kind"
             ? "Search item name, category, donation id, or intended use"
             : "Search program area, safe house, donation id, or notes";
@@ -4996,7 +5173,7 @@ export function AdminWorkspace() {
     const filtersForTab =
       donationsSubTab === "supporters"
         ? supporterFilters
-        : donationsSubTab === "donations"
+        : donationsSubTab === "donations" || donationsSubTab === "pending-review"
           ? donationRowFilters
           : donationsSubTab === "in-kind"
             ? inKindRowFilters
@@ -5010,7 +5187,7 @@ export function AdminWorkspace() {
         setDonationStatusFilter([]);
         setDonationRegionFilter([]);
         setDonationCountryFilter([]);
-      } else if (donationsSubTab === "donations") {
+      } else if (donationsSubTab === "donations" || donationsSubTab === "pending-review") {
         setDonationGiftTypeFilter([]);
         setDonationGiftRecurringFilter([]);
         setDonationGiftCampaignFilter([]);
@@ -5035,7 +5212,7 @@ export function AdminWorkspace() {
             { value: "recent", label: "Newest supporters first" },
             { value: "name", label: "Name (A–Z)" },
           ]
-        : donationsSubTab === "donations"
+        : donationsSubTab === "donations" || donationsSubTab === "pending-review"
           ? [
               { value: "recent", label: "Most recent gift date" },
               { value: "amount", label: "Highest value first" },
@@ -5108,6 +5285,8 @@ export function AdminWorkspace() {
             onClick: () => {
               if (donationsSubTab === "supporters") exportRows("Supporters", filteredSupporters as unknown as Array<Record<string, unknown>>);
               else if (donationsSubTab === "donations") exportRows("Donations", filteredDonations as unknown as Array<Record<string, unknown>>);
+              else if (donationsSubTab === "pending-review")
+                exportRows("Pending donations", filteredPendingDonations as unknown as Array<Record<string, unknown>>);
               else if (donationsSubTab === "in-kind") exportRows("In Kind", filteredInKind as unknown as Array<Record<string, unknown>>);
               else exportRows("Allocations", filteredAllocations as unknown as Array<Record<string, unknown>>);
             },
@@ -5256,7 +5435,7 @@ export function AdminWorkspace() {
   const donationsInsightKey =
     donationsSubTab === "supporters"
       ? "donations-supporters"
-      : donationsSubTab === "donations"
+      : donationsSubTab === "donations" || donationsSubTab === "pending-review"
         ? "donations-donations"
         : donationsSubTab === "in-kind"
           ? "donations-in-kind"
@@ -6449,7 +6628,7 @@ export function AdminWorkspace() {
                       <TableRow
                         key={supporter.supporter_id}
                         className="cursor-pointer"
-                        onClick={() => setParams({ supporterId: String(supporter.supporter_id) })}
+                        onClick={() => openSupporterDetail(supporter.supporter_id)}
                       >
                         <TableCell className="font-medium text-foreground">{supporterLabel(supporter)}</TableCell>
                         <TableCell>{asText(supporter.supporter_type)}</TableCell>
@@ -6534,6 +6713,14 @@ export function AdminWorkspace() {
                       </SortableTableHead>
                       <SortableTableHead
                         tableId="donations-tab"
+                        columnKey="workflow"
+                        activeSort={tableColumnSort["donations-tab"]}
+                        onToggle={toggleTableColumnSort}
+                      >
+                        Status
+                      </SortableTableHead>
+                      <SortableTableHead
+                        tableId="donations-tab"
                         columnKey="campaign"
                         activeSort={tableColumnSort["donations-tab"]}
                         onToggle={toggleTableColumnSort}
@@ -6562,14 +6749,28 @@ export function AdminWorkspace() {
                   </TableHeader>
                   <TableBody>
                     {donationsTablePage.visibleRows.map((donation) => (
-                      <TableRow key={donation.donation_id}>
+                      <TableRow key={donation.donation_id} className="cursor-pointer" onClick={() => openDonationDetail(donation.donation_id)}>
                         <TableCell>{donation.supporter_id ? supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter)) : donation.supporter_name ?? "Anonymous"}</TableCell>
                         <TableCell>{asDisplayDate(donation.donation_date)}</TableCell>
                         <TableCell>{asText(donation.donation_type)}</TableCell>
+                        <TableCell
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <StatusBadge
+                            value={donationWorkflowLabel(donation)}
+                            tone={
+                              (donation.submission_status ?? "").toLowerCase() === "pending"
+                                ? "outline"
+                                : (donation.submission_status ?? "").toLowerCase() === "denied"
+                                  ? "destructive"
+                                  : "default"
+                            }
+                          />
+                        </TableCell>
                         <TableCell>{asText(donation.campaign_name)}</TableCell>
                         <TableCell>{asText(donation.channel_source)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(donation.amount ?? donation.estimated_value, donation.currency_code ?? "PHP")}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                           <div className="flex justify-end gap-2">
                             <Button
                               variant="ghost"
@@ -6604,6 +6805,90 @@ export function AdminWorkspace() {
                   perPage={getPageSize("donations")}
                   onPerPageChange={(size) => setPageSize("donations", size)}
                   onPageChange={(page) => setPage("donations", page)}
+                />
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="pending-review" className="space-y-6">
+              <SectionCard
+                title="Pending donor submissions"
+                description="Volunteer time and in-kind gifts submitted from the donor portal await confirmation. Confirm when verified, edit details if needed, or deny with a short reason."
+              >
+                {renderDonationsToolbar()}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Supporter</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Receipt</TableHead>
+                      <TableHead>Fulfillment</TableHead>
+                      <TableHead className="text-right">Value</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingDonationsTablePage.visibleRows.map((donation) => (
+                      <TableRow key={donation.donation_id}>
+                        <TableCell>
+                          {donation.supporter_id
+                            ? supporterLabel(supporterMap.get(donation.supporter_id) ?? ({} as Supporter))
+                            : donation.supporter_name ?? "Anonymous"}
+                        </TableCell>
+                        <TableCell>{asDisplayDate(donation.donation_date)}</TableCell>
+                        <TableCell>{asText(donation.donation_type)}</TableCell>
+                        <TableCell>
+                          {donation.goods_receipt_status === "not_received"
+                            ? "Not received"
+                            : donation.goods_receipt_status === "received"
+                              ? "Received"
+                              : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {donation.fulfillment_method === "ship"
+                            ? "Ship"
+                            : donation.fulfillment_method === "deliver_in_person"
+                              ? "In person"
+                              : "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(donation.amount ?? donation.estimated_value, donation.currency_code ?? "PHP")}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2 flex-wrap">
+                            <Button type="button" size="sm" className="rounded-xl" onClick={() => reviewConfirmPendingDonation(donation)}>
+                              Confirm
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={() => openDonationForm(donation)}>
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              className="rounded-xl"
+                              onClick={() => {
+                                setPendingDenyDonation(donation);
+                                setPendingDenyReason("");
+                              }}
+                            >
+                              Deny
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  page={pendingDonationsTablePage.safePage}
+                  totalPages={pendingDonationsTablePage.totalPages}
+                  totalRows={filteredPendingDonations.length}
+                  start={pendingDonationsTablePage.start}
+                  end={pendingDonationsTablePage.end}
+                  perPage={getPageSize("pending-donations")}
+                  onPerPageChange={(size) => setPageSize("pending-donations", size)}
+                  onPageChange={(page) => setPage("pending-donations", page)}
                 />
               </SectionCard>
             </TabsContent>
@@ -7278,6 +7563,150 @@ export function AdminWorkspace() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={supporterDetailModalOpen} onOpenChange={setSupporterDetailModalOpen}>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl text-foreground">
+              {selectedSupporterDetail ? supporterLabel(selectedSupporterDetail) : "Supporter detail"}
+            </DialogTitle>
+            <DialogDescription>Complete supporter record with quick edit and delete actions.</DialogDescription>
+          </DialogHeader>
+          {selectedSupporterDetail ? (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                {supporterFields.map((field) => {
+                  const raw = selectedSupporterDetail[field.key as keyof Supporter];
+                  const value = detailFieldDisplayValue(field, raw);
+                  return (
+                    <label
+                      key={field.key}
+                      className={cn(
+                        "grid text-sm",
+                        field.compact ? "gap-1" : "gap-2",
+                        field.type === "textarea" ? "md:col-span-2" : "",
+                      )}
+                    >
+                      <span className="font-medium text-foreground">{field.label}</span>
+                      {field.type === "textarea" ? (
+                        <Textarea
+                          value={value}
+                          readOnly
+                          disabled
+                          className="min-h-28 rounded-xl border-border/80 bg-muted/40 disabled:opacity-100"
+                        />
+                      ) : (
+                        <Input
+                          value={value}
+                          readOnly
+                          disabled
+                          className="h-11 rounded-xl border-border/80 bg-muted/40 disabled:opacity-100"
+                        />
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() => {
+                    setSupporterDetailModalOpen(false);
+                    openSupporterForm(selectedSupporterDetail);
+                  }}
+                >
+                  <Pencil className="mr-2 h-4 w-4" aria-hidden />
+                  Edit supporter
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="rounded-xl"
+                  onClick={() => {
+                    setSupporterDetailModalOpen(false);
+                    confirmDelete("supporters", selectedSupporterDetail.supporter_id, supporterLabel(selectedSupporterDetail));
+                  }}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+                  Delete supporter
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={donationDetailModalOpen} onOpenChange={setDonationDetailModalOpen}>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl text-foreground">
+              {selectedDonationDetail ? `Donation #${selectedDonationDetail.donation_id}` : "Donation detail"}
+            </DialogTitle>
+            <DialogDescription>Complete donation record with quick edit and delete actions.</DialogDescription>
+          </DialogHeader>
+          {selectedDonationDetail ? (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                {donationFields.map((field) => {
+                  const raw = selectedDonationDetail[field.key as keyof Donation];
+                  const value = detailFieldDisplayValue(field, raw);
+                  return (
+                    <label
+                      key={field.key}
+                      className={cn(
+                        "grid text-sm",
+                        field.compact ? "gap-1" : "gap-2",
+                        field.type === "textarea" ? "md:col-span-2" : "",
+                      )}
+                    >
+                      <span className="font-medium text-foreground">{field.label}</span>
+                      {field.type === "textarea" ? (
+                        <Textarea
+                          value={value}
+                          readOnly
+                          disabled
+                          className="min-h-28 rounded-xl border-border/80 bg-muted/40 disabled:opacity-100"
+                        />
+                      ) : (
+                        <Input
+                          value={value}
+                          readOnly
+                          disabled
+                          className="h-11 rounded-xl border-border/80 bg-muted/40 disabled:opacity-100"
+                        />
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={() => {
+                    setDonationDetailModalOpen(false);
+                    openDonationForm(selectedDonationDetail);
+                  }}
+                >
+                  <Pencil className="mr-2 h-4 w-4" aria-hidden />
+                  Edit donation
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="rounded-xl"
+                  onClick={() => {
+                    setDonationDetailModalOpen(false);
+                    confirmDelete("donations", selectedDonationDetail.donation_id, `donation #${selectedDonationDetail.donation_id}`);
+                  }}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+                  Delete donation
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={residentModalOpen} onOpenChange={setResidentModalOpen}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-2xl border-border/80 bg-background">
           <DialogHeader>
@@ -7418,6 +7847,51 @@ export function AdminWorkspace() {
         pending={createMutation.isPending || updateMutation.isPending}
         extraValidate={validateDonationAmounts}
       />
+
+      <Dialog
+        open={pendingDenyDonation != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDenyDonation(null);
+            setPendingDenyReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg rounded-2xl border-border">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl">Deny this submission?</DialogTitle>
+            <DialogDescription>
+              The donor will see that the entry was not accepted. Optionally add a short, kind explanation (shown in their portal).
+            </DialogDescription>
+          </DialogHeader>
+          <label className="mt-2 block">
+            <span className="mb-1.5 block text-sm font-medium text-foreground">Reason (optional)</span>
+            <textarea
+              value={pendingDenyReason}
+              onChange={(e) => setPendingDenyReason(e.target.value)}
+              rows={4}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+              placeholder="e.g. We have no record of this drop-off yet — please contact the office."
+            />
+          </label>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => {
+                setPendingDenyDonation(null);
+                setPendingDenyReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" className="rounded-xl" onClick={submitPendingDeny}>
+              Mark as denied
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <EntityModal
         open={inKindFormOpen}

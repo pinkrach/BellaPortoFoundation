@@ -1,8 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { donorDonationDataQueryKey, fetchDonorDonationData, type DonationRow } from "@/lib/donorQueries";
-import { Link } from "react-router-dom";
+import {
+  donorDonationDataQueryKey,
+  fetchDonorDonationData,
+  normalizedSubmissionStatus,
+  type DonationRow,
+} from "@/lib/donorQueries";
 import { Gift } from "lucide-react";
 import { DonationDetailsModal } from "@/components/DonationDetailsModal";
 import { useState } from "react";
@@ -36,15 +40,15 @@ const formatDate = (s: string | null) => {
 /**
  * Giving history table (rendered inside the donor portal shell from DonorDashboard).
  */
-const DonorGivingHistory = () => {
-  const { userEmail } = useAuth();
+const DonorGivingHistory = ({ onOpenDonationForm }: { onOpenDonationForm: () => void }) => {
+  const { userId, userEmail } = useAuth();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState<DonationRow | null>(null);
-  const [filter, setFilter] = useState<"all" | "monetary" | "in_kind" | "service">("all");
+  const [filter, setFilter] = useState<"all" | "monetary" | "in_kind" | "service" | "pending">("all");
   const { data, isPending, isError } = useQuery({
-    queryKey: donorDonationDataQueryKey(userEmail),
-    queryFn: () => fetchDonorDonationData(userEmail),
-    enabled: Boolean(userEmail),
+    queryKey: donorDonationDataQueryKey(userId, userEmail),
+    queryFn: () => fetchDonorDonationData(userId, userEmail),
+    enabled: Boolean(userId || userEmail),
   });
 
   if (!userEmail) {
@@ -70,11 +74,21 @@ const DonorGivingHistory = () => {
   const { donations } = data;
   const filtered = donations.filter((d) => {
     const t = (d.donation_type ?? "").trim();
+    if (filter === "pending") return normalizedSubmissionStatus(d) === "pending";
     if (filter === "all") return true;
     if (filter === "monetary") return t === "Monetary";
     if (filter === "in_kind") return t === "In-Kind" || t === "In-Kind Donation";
     return t === "Time";
   });
+
+  const statusLabel = (row: DonationRow) => {
+    const s = normalizedSubmissionStatus(row);
+    if (s === "pending") return "Pending review";
+    if (s === "denied") return "Not accepted";
+    if (row.goods_receipt_status === "not_received") return "Confirmed · Awaiting receipt";
+    if (row.goods_receipt_status === "received") return "Confirmed · Received";
+    return "Confirmed";
+  };
 
   if (donations.length === 0) {
     return (
@@ -88,12 +102,13 @@ const DonorGivingHistory = () => {
         <p className="text-sm text-muted-foreground mt-2">
           Welcome! Start your impact journey by making your first donation.
         </p>
-        <Link
-          to="/impact"
+        <button
+          type="button"
+          onClick={onOpenDonationForm}
           className="inline-flex mt-6 rounded-full bg-primary text-primary-foreground font-semibold text-sm px-6 py-3 shadow-warm hover:scale-[1.02] transition-transform"
         >
           Make a Donation
-        </Link>
+        </button>
       </motion.div>
     );
   }
@@ -111,6 +126,7 @@ const DonorGivingHistory = () => {
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {[
             { key: "all" as const, label: "All" },
+            { key: "pending" as const, label: "Pending review" },
             { key: "monetary" as const, label: "Monetary" },
             { key: "in_kind" as const, label: "In-Kind" },
             { key: "service" as const, label: "Service" },
@@ -138,6 +154,8 @@ const DonorGivingHistory = () => {
             <thead>
               <tr className="text-left text-muted-foreground border-b border-border">
                 <th className="pb-2 font-medium">Date</th>
+                <th className="pb-2 font-medium">Type</th>
+                <th className="pb-2 font-medium">Status</th>
                 <th className="pb-2 font-medium">Estimated value</th>
               </tr>
             </thead>
@@ -154,13 +172,15 @@ const DonorGivingHistory = () => {
                   }}
                 >
                   <td className="py-2.5 text-muted-foreground">{formatDate(d.donation_date)}</td>
+                  <td className="py-2.5 text-foreground">{(d.donation_type ?? "—").trim() || "—"}</td>
+                  <td className="py-2.5 text-foreground">{statusLabel(d)}</td>
                   <td className="py-2.5 font-semibold text-foreground">{formatEstimatedValue(d)}</td>
                 </tr>
               ))}
 
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={2} className="py-2.5 text-muted-foreground">
+                  <td colSpan={4} className="py-2.5 text-muted-foreground">
                     No donations found for this filter.
                   </td>
                 </tr>

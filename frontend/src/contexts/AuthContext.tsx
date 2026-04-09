@@ -15,6 +15,8 @@ interface AuthContextType {
   userId: string | null;
   firstName: string | null;
   lastName: string | null;
+  supporterDisplayName: string | null;
+  supporterOrganizationName: string | null;
   displayName: string | null;
   initials: string;
   role: UserRole;
@@ -27,6 +29,8 @@ interface AuthContextType {
     role: Exclude<UserRole, null>;
     firstName?: string | null;
     lastName?: string | null;
+    displayName?: string | null;
+    organizationName?: string | null;
   }) => void;
   signUp: (input: {
     first_name: string;
@@ -46,10 +50,93 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userId, setUserId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [lastName, setLastName] = useState<string | null>(null);
+  const [supporterDisplayName, setSupporterDisplayName] = useState<string | null>(null);
+  const [supporterOrganizationName, setSupporterOrganizationName] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole>(null);
+
+  const loadSupporterIdentity = async (
+    userId: string | null | undefined,
+    fallbackEmail: string | null | undefined,
+  ): Promise<{
+    firstName: string | null;
+    lastName: string | null;
+    displayName: string | null;
+    organizationName: string | null;
+  } | null> => {
+    if (!supabase || !userId) return null;
+    const { data: profileRow, error: profileErr } = await supabase
+      .from("profiles")
+      .select("supporter_id,email")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profileErr) return null;
+
+    const supporterId = Number(profileRow?.supporter_id);
+    const email = String(profileRow?.email ?? fallbackEmail ?? "").trim();
+
+    let supporterRow:
+      | {
+          supporter_id: number;
+          first_name: string | null;
+          last_name: string | null;
+          display_name: string | null;
+          organization_name: string | null;
+        }
+      | null = null;
+
+    if (Number.isFinite(supporterId)) {
+      const { data, error } = await supabase
+        .from("supporters")
+        .select("supporter_id,first_name,last_name,display_name,organization_name")
+        .eq("supporter_id", supporterId)
+        .maybeSingle();
+      if (!error && data) supporterRow = data;
+    }
+
+    if (!supporterRow && email) {
+      const { data, error } = await supabase
+        .from("supporters")
+        .select("supporter_id,first_name,last_name,display_name,organization_name")
+        .eq("email", email)
+        .maybeSingle();
+      if (!error && data) {
+        supporterRow = data;
+      } else {
+        const { data: insensitiveData, error: insensitiveError } = await supabase
+          .from("supporters")
+          .select("supporter_id,first_name,last_name,display_name,organization_name")
+          .ilike("email", email)
+          .maybeSingle();
+        if (!insensitiveError && insensitiveData) supporterRow = insensitiveData;
+      }
+
+      if (supporterRow?.supporter_id != null) {
+        await supabase
+          .from("profiles")
+          .update({ supporter_id: supporterRow.supporter_id })
+          .eq("id", userId)
+          .is("supporter_id", null);
+      }
+    }
+
+    if (!supporterRow) return null;
+    return {
+      firstName: supporterRow.first_name ?? null,
+      lastName: supporterRow.last_name ?? null,
+      displayName: supporterRow.display_name ?? null,
+      organizationName: supporterRow.organization_name ?? null,
+    };
+  };
 
   const loadProfile = async (accessToken: string) => {
     try {
+      let authUserId: string | null = null;
+      let authEmail: string | null = null;
+      if (supabase) {
+        const { data: userData } = await supabase.auth.getUser(accessToken);
+        authUserId = userData.user?.id ?? null;
+        authEmail = userData.user?.email ?? null;
+      }
       const response = await fetch(buildApiUrl("/api/profiles/me"), {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -76,10 +163,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               const normalizedRole: UserRole =
                 row?.role === "admin" || row?.role === "donor" ? (row.role as "admin" | "donor") : null;
 
+              const supporterIdentity = await loadSupporterIdentity(userId, authEmail);
               return {
                 role: normalizedRole,
-                firstName: row?.first_name ?? null,
-                lastName: row?.last_name ?? null,
+                firstName: supporterIdentity?.firstName ?? null,
+                lastName: supporterIdentity?.lastName ?? null,
+                supporterDisplayName: supporterIdentity?.displayName ?? null,
+                supporterOrganizationName: supporterIdentity?.organizationName ?? null,
               };
             }
           } catch {
@@ -97,10 +187,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       };
       const normalizedRole: UserRole = data?.role === "admin" || data?.role === "donor" ? data.role : null;
 
+      const supporterIdentity = await loadSupporterIdentity(authUserId, authEmail);
       return {
         role: normalizedRole,
-        firstName: data?.first_name ?? null,
-        lastName: data?.last_name ?? null,
+        firstName: supporterIdentity?.firstName ?? null,
+        lastName: supporterIdentity?.lastName ?? null,
+        supporterDisplayName: supporterIdentity?.displayName ?? null,
+        supporterOrganizationName: supporterIdentity?.organizationName ?? null,
       };
     } catch {
       return null;
@@ -114,6 +207,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setRole(input.role);
     setFirstName(input.firstName ?? null);
     setLastName(input.lastName ?? null);
+    setSupporterDisplayName(input.displayName ?? null);
+    setSupporterOrganizationName(input.organizationName ?? null);
     setIsLoading(false);
   };
 
@@ -165,10 +260,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setRole(profile?.role ?? null);
           setFirstName(profile?.firstName ?? null);
           setLastName(profile?.lastName ?? null);
+          setSupporterDisplayName(profile?.supporterDisplayName ?? null);
+          setSupporterOrganizationName(profile?.supporterOrganizationName ?? null);
         } else {
           setRole(null);
           setFirstName(null);
           setLastName(null);
+          setSupporterDisplayName(null);
+          setSupporterOrganizationName(null);
         }
         setIsLoading(false);
       } catch {
@@ -178,6 +277,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUserId(null);
         setFirstName(null);
         setLastName(null);
+        setSupporterDisplayName(null);
+        setSupporterOrganizationName(null);
         setRole(null);
         setIsLoading(false);
       }
@@ -203,6 +304,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setRole(null);
         setFirstName(null);
         setLastName(null);
+        setSupporterDisplayName(null);
+        setSupporterOrganizationName(null);
         setIsLoading(false);
         return;
       }
@@ -212,6 +315,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setRole(profile?.role ?? null);
           setFirstName(profile?.firstName ?? null);
           setLastName(profile?.lastName ?? null);
+          setSupporterDisplayName(profile?.supporterDisplayName ?? null);
+          setSupporterOrganizationName(profile?.supporterOrganizationName ?? null);
           setIsLoading(false);
         })
         .catch(() => {
@@ -219,6 +324,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setRole(null);
           setFirstName(null);
           setLastName(null);
+          setSupporterDisplayName(null);
+          setSupporterOrganizationName(null);
           setIsLoading(false);
         });
     });
@@ -241,6 +348,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setRole(profile?.role ?? null);
     setFirstName(profile?.firstName ?? null);
     setLastName(profile?.lastName ?? null);
+    setSupporterDisplayName(profile?.supporterDisplayName ?? null);
+    setSupporterOrganizationName(profile?.supporterOrganizationName ?? null);
     setIsLoading(false);
   };
 
@@ -269,6 +378,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setRole(profile?.role ?? null);
       setFirstName(profile?.firstName ?? null);
       setLastName(profile?.lastName ?? null);
+      setSupporterDisplayName(profile?.supporterDisplayName ?? null);
+      setSupporterOrganizationName(profile?.supporterOrganizationName ?? null);
       setIsLoading(false);
 
       const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -303,8 +414,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { error: profileError } = await supabase.from("profiles").insert({
       id,
-      first_name: input.first_name,
-      last_name: input.last_name,
       email: input.email,
       role: "donor",
     });
@@ -317,6 +426,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const supporterResult = await insertSupporterForNewUser({
+      profile_id: id,
       email: input.email,
       first_name: input.first_name,
       last_name: input.last_name,
@@ -329,9 +439,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       };
     }
 
+    await supabase
+      .from("profiles")
+      .update({
+        supporter_onboarding_completed: false,
+        supporter_onboarding_existing: supporterResult.wasExisting,
+      })
+      .eq("id", id);
+
     setRole("donor");
-    setFirstName(input.first_name);
-    setLastName(input.last_name);
+    setFirstName(supporterResult.supporter?.firstName ?? input.first_name);
+    setLastName(supporterResult.supporter?.lastName ?? input.last_name);
+    setSupporterDisplayName(supporterResult.supporter?.displayName ?? null);
+    setSupporterOrganizationName(supporterResult.supporter?.organizationName ?? null);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(`donor-onboarding-pending:${id}`, "true");
+      window.localStorage.setItem(
+        `donor-onboarding-seed:${id}`,
+        JSON.stringify({
+          first_name: input.first_name.trim(),
+          last_name: input.last_name.trim(),
+          email: input.email.trim(),
+        }),
+      );
+    }
     return { ok: true, role: "donor" };
   };
 
@@ -343,10 +474,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUserEmail(null);
     setFirstName(null);
     setLastName(null);
+    setSupporterDisplayName(null);
+    setSupporterOrganizationName(null);
   };
 
-  const displayName = [firstName, lastName].filter(Boolean).join(" ").trim() || userEmail || null;
-  const initialsSource = [firstName, lastName].filter(Boolean).join(" ").trim() || userEmail || "U";
+  const displayName =
+    [firstName, lastName].filter(Boolean).join(" ").trim() ||
+    supporterDisplayName?.trim() ||
+    supporterOrganizationName?.trim() ||
+    userEmail ||
+    null;
+  const initialsSource =
+    [firstName, lastName].filter(Boolean).join(" ").trim() ||
+    supporterDisplayName?.trim() ||
+    supporterOrganizationName?.trim() ||
+    userEmail ||
+    "U";
   const initials = initialsSource
     .split(/[\s@._-]+/)
     .filter(Boolean)
@@ -362,6 +505,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       userId,
       firstName,
       lastName,
+      supporterDisplayName,
+      supporterOrganizationName,
       displayName,
       initials,
       role,
@@ -371,7 +516,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       signUp,
       logout,
     }),
-    [isAuthenticated, isLoading, userEmail, userId, firstName, lastName, displayName, initials, role],
+    [
+      isAuthenticated,
+      isLoading,
+      userEmail,
+      userId,
+      firstName,
+      lastName,
+      supporterDisplayName,
+      supporterOrganizationName,
+      displayName,
+      initials,
+      role,
+    ],
   );
 
   return (
