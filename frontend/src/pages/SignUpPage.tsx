@@ -9,6 +9,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import { PublicLayout } from "@/components/PublicLayout";
 import { buildApiUrl } from "@/lib/api";
+import {
+  PASSWORD_LENGTH_ERROR_TEXT,
+  PASSWORD_REQUIREMENT_TEXT,
+  passwordMeetsPolicy,
+} from "@/lib/passwordPolicy";
 
 const recaptchaSiteKey =
   import.meta.env.VITE_RECAPTCHA_SITE_KEY ?? "6LdY6a0sAAAAAB77PQRZ8m95Rq4pwiMkAKtPLAH6";
@@ -36,15 +41,14 @@ const SignUpPage = () => {
   const navigate = useNavigate();
 
   const emailIsValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()), [email]);
-  const passwordMeetsRequirements = useMemo(() => password.length >= 14, [password]);
+  const passwordMeetsRequirements = useMemo(() => passwordMeetsPolicy(password), [password]);
   const confirmHasText = useMemo(() => confirmPassword.trim().length > 0, [confirmPassword]);
   const passwordsMatch = useMemo(() => password === confirmPassword, [password, confirmPassword]);
 
   const showPasswordError = (passwordTouched || submitAttempted) && password.length > 0 && !passwordMeetsRequirements;
   const showConfirmMismatch = (confirmTouched || submitAttempted) && confirmHasText && !passwordsMatch;
-  const passwordHelperText =
-    "Security Requirement: Password must be at least 14 characters long (no symbols or caps required).";
-  const passwordErrorText = "Password must be at least 14 characters long.";
+  const passwordHelperText = PASSWORD_REQUIREMENT_TEXT;
+  const passwordErrorText = PASSWORD_LENGTH_ERROR_TEXT;
   const confirmErrorText = "Passwords do not match";
 
   const handleSubmit = async (e: React.FormEvent) => {

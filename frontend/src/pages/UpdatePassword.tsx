@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Leaf } from "lucide-react";
+import { Sailboat } from "lucide-react";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import { motion } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/hooks/use-toast";
+import { PublicLayout } from "@/components/PublicLayout";
+import {
+  PASSWORD_LENGTH_ERROR_TEXT,
+  PASSWORD_REQUIREMENT_TEXT,
+  passwordMeetsPolicy,
+} from "@/lib/passwordPolicy";
 
 const UpdatePassword = () => {
   const [newPassword, setNewPassword] = useState("");
@@ -19,7 +25,7 @@ const UpdatePassword = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const passwordMeetsRequirements = useMemo(() => newPassword.length >= 14, [newPassword]);
+  const passwordMeetsRequirements = useMemo(() => passwordMeetsPolicy(newPassword), [newPassword]);
   const confirmHasText = useMemo(() => confirmPassword.trim().length > 0, [confirmPassword]);
   const passwordsMatch = useMemo(
     () => newPassword.length > 0 && confirmPassword.length > 0 && newPassword === confirmPassword,
@@ -28,7 +34,7 @@ const UpdatePassword = () => {
   const showPasswordError =
     (passwordTouched || submitAttempted) && newPassword.trim().length > 0 && !passwordMeetsRequirements;
   const showConfirmMismatch = (confirmTouched || submitAttempted) && confirmHasText && !passwordsMatch;
-  const passwordErrorText = "Password must be at least 14 characters long.";
+  const passwordErrorText = PASSWORD_LENGTH_ERROR_TEXT;
   const confirmErrorText = "Passwords do not match";
 
   useEffect(() => {
@@ -104,25 +110,37 @@ const UpdatePassword = () => {
   };
 
   return (
-    <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
-      <div className="absolute top-10 right-10 text-accent/20">
-        <Leaf className="h-32 w-32 rotate-45" />
-      </div>
-      <div className="absolute bottom-10 left-10 text-lavender/20">
-        <Leaf className="h-24 w-24 -rotate-12" />
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-card rounded-2xl shadow-warm-lg p-8"
+    <PublicLayout hideFooter hideNavbar>
+      <Link
+        to="/"
+        className="fixed left-4 top-4 z-50 inline-flex items-center gap-2 rounded-sm bg-background/70 px-2.5 py-1.5 text-[#1E2933] backdrop-blur-sm transition-colors hover:bg-background/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(200_20%_40%)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        aria-label="Return to home page"
       >
-        <div className="flex flex-col items-center mt-2 mb-8">
-          <img src={houseLogo} alt="" aria-hidden="true" className="mb-4 h-24 w-24 object-contain" />
-          <h1 className="font-heading text-2xl font-bold text-foreground">Set a new password</h1>
+        <img src={houseLogo} alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
+        <span className="font-heading text-lg font-semibold tracking-tight md:text-xl">
+          Bella Bay Foundation
+        </span>
+      </Link>
+
+      <div className="relative flex min-h-dvh w-full items-center justify-center overflow-hidden bg-background p-4">
+        <div className="pointer-events-none absolute top-10 right-10 hidden text-accent/20 md:block">
+          <Sailboat className="h-32 w-32 rotate-12" />
+        </div>
+        <div className="pointer-events-none absolute bottom-10 left-10 hidden text-lavender/20 md:block">
+          <Sailboat className="h-24 w-24 -rotate-6" />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md rounded-2xl bg-card p-8 shadow-warm-lg"
+        >
+          <div className="mt-2 mb-8 flex flex-col items-center">
+            <img src={houseLogo} alt="" aria-hidden="true" className="mb-4 h-24 w-24 object-contain" />
+            <h1 className="font-heading text-2xl font-bold text-foreground">Set a new password</h1>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg">{error}</div>
           )}
@@ -149,6 +167,7 @@ const UpdatePassword = () => {
                 required
                 autoComplete="new-password"
               />
+              <p className="mt-1 text-xs text-muted-foreground">{PASSWORD_REQUIREMENT_TEXT}</p>
               <div
                 className={[
                   "overflow-hidden transition-[max-height,opacity] duration-200",
@@ -193,14 +212,15 @@ const UpdatePassword = () => {
             {isSubmitting ? "Updating..." : "Update password"}
           </button>
 
-          <div className="pt-1 text-center text-sm text-muted-foreground">
-            <Link to="/forgot-password" className="text-secondary hover:underline">
-              Request a new reset link
-            </Link>
-          </div>
-        </form>
-      </motion.div>
-    </div>
+            <div className="pt-1 text-center text-sm text-muted-foreground">
+              <Link to="/forgot-password" className="text-secondary hover:underline">
+                Request a new reset link
+              </Link>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    </PublicLayout>
   );
 };
 
