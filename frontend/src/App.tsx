@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -19,11 +20,21 @@ import NotFound from "./pages/NotFound";
 
 import DonorDashboard from "./pages/DonorDashboard";
 
-import AdminDashboard from "./pages/AdminDashboard";
-import SettingsPage from "./pages/SettingsPage";
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 const queryClient = new QueryClient();
 const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function AdminShellFallback() {
+  return (
+    <div className="flex min-h-dvh w-full items-center justify-center bg-background px-4">
+      <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
+        Loading admin…
+      </p>
+    </div>
+  );
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -56,7 +67,9 @@ const App = () => (
                 path="/admin"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <AdminDashboard />
+                    <Suspense fallback={<AdminShellFallback />}>
+                      <AdminDashboard />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -160,7 +173,9 @@ const App = () => (
                 path="/admin/settings"
                 element={
                   <ProtectedRoute requiredRole="admin">
-                    <SettingsPage />
+                    <Suspense fallback={<AdminShellFallback />}>
+                      <SettingsPage />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
