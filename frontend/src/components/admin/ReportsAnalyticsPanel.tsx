@@ -50,6 +50,7 @@ import {
 } from "@/components/dashboard/charts/AnalyticsDetailDialog";
 import { fetchWithAuth } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/sonner";
 
 type FilterState = {
   dateFrom: string;
