@@ -696,8 +696,8 @@ function DetailDialog({
               <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-warm">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h4 className="font-heading text-lg font-semibold text-foreground">{detail.chartTitle}</h4>
-                    <p className="text-sm text-muted-foreground">This drill-down expands the planning signal behind the selected KPI or chart.</p>
+                    <h3 className="font-heading text-lg font-semibold text-foreground">{detail.chartTitle}</h3>
+                    <p className="text-sm text-foreground/75">This drill-down expands the planning signal behind the selected KPI or chart.</p>
                   </div>
                   {badgeLabel ? (
                     <Badge variant="outline" className="rounded-full border-primary/25 bg-primary/5 text-primary">
@@ -814,9 +814,9 @@ function DonationPlannerDialog({
 
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="donation-planner-platform" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Platform</span>
-              <select aria-label="Donation planner platform" value={draftForm.platform} onChange={(event) => setDraftForm((current) => ({ ...current, platform: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="donation-planner-platform" value={draftForm.platform} onChange={(event) => setDraftForm((current) => ({ ...current, platform: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {platformOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -825,9 +825,9 @@ function DonationPlannerDialog({
               </select>
             </label>
 
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="donation-planner-day-of-week" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Day of week</span>
-              <select aria-label="Donation planner day of week" value={draftForm.day_of_week} onChange={(event) => setDraftForm((current) => ({ ...current, day_of_week: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="donation-planner-day-of-week" value={draftForm.day_of_week} onChange={(event) => setDraftForm((current) => ({ ...current, day_of_week: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -841,9 +841,9 @@ function DonationPlannerDialog({
               <Input type="number" min={0} max={23} value={draftForm.post_hour} onChange={(event) => setDraftForm((current) => ({ ...current, post_hour: event.target.value }))} className="h-11 rounded-xl border-border/80" />
             </label>
 
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="donation-planner-post-type" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Post type</span>
-              <select aria-label="Donation planner post type" value={draftForm.post_type} onChange={(event) => setDraftForm((current) => ({ ...current, post_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="donation-planner-post-type" value={draftForm.post_type} onChange={(event) => setDraftForm((current) => ({ ...current, post_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_POST_TYPES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -852,9 +852,9 @@ function DonationPlannerDialog({
               </select>
             </label>
 
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="donation-planner-media-type" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Media type</span>
-              <select aria-label="Donation planner media type" value={draftForm.media_type} onChange={(event) => setDraftForm((current) => ({ ...current, media_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="donation-planner-media-type" value={draftForm.media_type} onChange={(event) => setDraftForm((current) => ({ ...current, media_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_MEDIA_TYPES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -868,18 +868,18 @@ function DonationPlannerDialog({
               <Input type="number" min={0} value={draftForm.num_hashtags} onChange={(event) => setDraftForm((current) => ({ ...current, num_hashtags: event.target.value }))} className="h-11 rounded-xl border-border/80" />
             </label>
 
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="donation-planner-cta" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">CTA</span>
-              <select aria-label="Donation planner call to action" value={draftForm.has_call_to_action} onChange={(event) => setDraftForm((current) => ({ ...current, has_call_to_action: event.target.value, call_to_action_type: event.target.value === "true" ? current.call_to_action_type || "Donate" : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="donation-planner-cta" value={draftForm.has_call_to_action} onChange={(event) => setDraftForm((current) => ({ ...current, has_call_to_action: event.target.value, call_to_action_type: event.target.value === "true" ? current.call_to_action_type || "Donate" : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </select>
             </label>
 
             {draftForm.has_call_to_action === "true" ? (
-              <label className="grid gap-2 text-sm">
+              <label htmlFor="donation-planner-cta-type" className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">CTA type</span>
-                <select aria-label="Donation planner call to action type" value={draftForm.call_to_action_type} onChange={(event) => setDraftForm((current) => ({ ...current, call_to_action_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                <select id="donation-planner-cta-type" value={draftForm.call_to_action_type} onChange={(event) => setDraftForm((current) => ({ ...current, call_to_action_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {FALLBACK_CTA_TYPES.map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -889,9 +889,9 @@ function DonationPlannerDialog({
               </label>
             ) : null}
 
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="donation-planner-content-topic" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Content topic</span>
-              <select aria-label="Donation planner content topic" value={draftForm.content_topic} onChange={(event) => setDraftForm((current) => ({ ...current, content_topic: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="donation-planner-content-topic" value={draftForm.content_topic} onChange={(event) => setDraftForm((current) => ({ ...current, content_topic: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_TOPICS.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -900,9 +900,9 @@ function DonationPlannerDialog({
               </select>
             </label>
 
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="donation-planner-tone" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Tone</span>
-              <select aria-label="Donation planner tone" value={draftForm.sentiment_tone} onChange={(event) => setDraftForm((current) => ({ ...current, sentiment_tone: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="donation-planner-tone" value={draftForm.sentiment_tone} onChange={(event) => setDraftForm((current) => ({ ...current, sentiment_tone: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_TONES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -911,17 +911,17 @@ function DonationPlannerDialog({
               </select>
             </label>
 
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="donation-planner-resident-story" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Resident story</span>
-              <select aria-label="Donation planner resident story" value={draftForm.features_resident_story} onChange={(event) => setDraftForm((current) => ({ ...current, features_resident_story: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="donation-planner-resident-story" value={draftForm.features_resident_story} onChange={(event) => setDraftForm((current) => ({ ...current, features_resident_story: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="true">Included</option>
                 <option value="false">Not included</option>
               </select>
             </label>
 
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="donation-planner-boosted" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Boosted</span>
-              <select aria-label="Donation planner boosted status" value={draftForm.is_boosted} onChange={(event) => setDraftForm((current) => ({ ...current, is_boosted: event.target.value, boost_budget_php: event.target.value === "true" ? current.boost_budget_php : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="donation-planner-boosted" value={draftForm.is_boosted} onChange={(event) => setDraftForm((current) => ({ ...current, is_boosted: event.target.value, boost_budget_php: event.target.value === "true" ? current.boost_budget_php : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="false">Organic</option>
                 <option value="true">Boosted</option>
               </select>
@@ -1101,9 +1101,9 @@ function CommunityPlannerDialog({
 
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="community-planner-platform" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Platform</span>
-              <select aria-label="Community planner platform" value={draftForm.platform} onChange={(event) => setDraftForm((current) => ({ ...current, platform: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="community-planner-platform" value={draftForm.platform} onChange={(event) => setDraftForm((current) => ({ ...current, platform: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {platformOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1111,9 +1111,9 @@ function CommunityPlannerDialog({
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="community-planner-day-of-week" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Day of week</span>
-              <select aria-label="Community planner day of week" value={draftForm.day_of_week} onChange={(event) => setDraftForm((current) => ({ ...current, day_of_week: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="community-planner-day-of-week" value={draftForm.day_of_week} onChange={(event) => setDraftForm((current) => ({ ...current, day_of_week: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1125,9 +1125,9 @@ function CommunityPlannerDialog({
               <span className="font-medium text-foreground">Post hour</span>
               <Input type="number" min={0} max={23} value={draftForm.post_hour} onChange={(event) => setDraftForm((current) => ({ ...current, post_hour: event.target.value }))} className="h-11 rounded-xl border-border/80" />
             </label>
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="community-planner-post-type" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Post type</span>
-              <select aria-label="Community planner post type" value={draftForm.post_type} onChange={(event) => setDraftForm((current) => ({ ...current, post_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="community-planner-post-type" value={draftForm.post_type} onChange={(event) => setDraftForm((current) => ({ ...current, post_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_POST_TYPES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1135,9 +1135,9 @@ function CommunityPlannerDialog({
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="community-planner-media-type" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Media type</span>
-              <select aria-label="Community planner media type" value={draftForm.media_type} onChange={(event) => setDraftForm((current) => ({ ...current, media_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="community-planner-media-type" value={draftForm.media_type} onChange={(event) => setDraftForm((current) => ({ ...current, media_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_MEDIA_TYPES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1149,17 +1149,17 @@ function CommunityPlannerDialog({
               <span className="font-medium text-foreground">Hashtags</span>
               <Input type="number" min={0} value={draftForm.num_hashtags} onChange={(event) => setDraftForm((current) => ({ ...current, num_hashtags: event.target.value }))} className="h-11 rounded-xl border-border/80" />
             </label>
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="community-planner-cta" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">CTA</span>
-              <select aria-label="Community planner call to action" value={draftForm.has_call_to_action} onChange={(event) => setDraftForm((current) => ({ ...current, has_call_to_action: event.target.value, call_to_action_type: event.target.value === "true" ? current.call_to_action_type || "LearnMore" : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="community-planner-cta" value={draftForm.has_call_to_action} onChange={(event) => setDraftForm((current) => ({ ...current, has_call_to_action: event.target.value, call_to_action_type: event.target.value === "true" ? current.call_to_action_type || "LearnMore" : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </select>
             </label>
             {draftForm.has_call_to_action === "true" ? (
-              <label className="grid gap-2 text-sm">
+              <label htmlFor="community-planner-cta-type" className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">CTA type</span>
-                <select aria-label="Community planner call to action type" value={draftForm.call_to_action_type} onChange={(event) => setDraftForm((current) => ({ ...current, call_to_action_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                <select id="community-planner-cta-type" value={draftForm.call_to_action_type} onChange={(event) => setDraftForm((current) => ({ ...current, call_to_action_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {FALLBACK_CTA_TYPES.map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -1168,9 +1168,9 @@ function CommunityPlannerDialog({
                 </select>
               </label>
             ) : null}
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="community-planner-content-topic" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Content topic</span>
-              <select aria-label="Community planner content topic" value={draftForm.content_topic} onChange={(event) => setDraftForm((current) => ({ ...current, content_topic: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="community-planner-content-topic" value={draftForm.content_topic} onChange={(event) => setDraftForm((current) => ({ ...current, content_topic: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_TOPICS.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1178,9 +1178,9 @@ function CommunityPlannerDialog({
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="community-planner-tone" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Tone</span>
-              <select aria-label="Community planner tone" value={draftForm.sentiment_tone} onChange={(event) => setDraftForm((current) => ({ ...current, sentiment_tone: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="community-planner-tone" value={draftForm.sentiment_tone} onChange={(event) => setDraftForm((current) => ({ ...current, sentiment_tone: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_TONES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1188,16 +1188,16 @@ function CommunityPlannerDialog({
                 ))}
               </select>
             </label>
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="community-planner-resident-story" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Resident story</span>
-              <select aria-label="Community planner resident story" value={draftForm.features_resident_story} onChange={(event) => setDraftForm((current) => ({ ...current, features_resident_story: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="community-planner-resident-story" value={draftForm.features_resident_story} onChange={(event) => setDraftForm((current) => ({ ...current, features_resident_story: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="true">Included</option>
                 <option value="false">Not included</option>
               </select>
             </label>
-            <label className="grid gap-2 text-sm">
+            <label htmlFor="community-planner-boosted" className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Boosted</span>
-              <select aria-label="Community planner boosted status" value={draftForm.is_boosted} onChange={(event) => setDraftForm((current) => ({ ...current, is_boosted: event.target.value, boost_budget_php: event.target.value === "true" ? current.boost_budget_php : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select id="community-planner-boosted" value={draftForm.is_boosted} onChange={(event) => setDraftForm((current) => ({ ...current, is_boosted: event.target.value, boost_budget_php: event.target.value === "true" ? current.boost_budget_php : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="false">Organic</option>
                 <option value="true">Boosted</option>
               </select>
@@ -1666,9 +1666,9 @@ function DonationAnalyticsView({
             onClick={() => setActiveKpiLabel(kpi.label)}
             className="rounded-2xl border border-border/70 bg-card p-5 text-left shadow-warm transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg"
           >
-            <p className="text-sm text-muted-foreground">{kpi.label}</p>
+            <p className="text-sm text-foreground/75">{kpi.label}</p>
             <p className="mt-2 text-3xl font-bold text-foreground">{kpi.value}</p>
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">{kpi.detail}</p>
+            <p className="mt-3 text-xs leading-5 text-foreground/70">{kpi.detail}</p>
           </button>
         ))}
       </div>
@@ -1681,10 +1681,10 @@ function DonationAnalyticsView({
         >
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h4 className="font-heading text-lg font-semibold text-foreground">Best post types for referral rate</h4>
-              <p className="text-sm text-muted-foreground">Which post formats are most likely to produce at least one referral.</p>
+              <h3 className="font-heading text-lg font-semibold text-foreground">Best post types for referral rate</h3>
+              <p className="text-sm text-foreground/75">Which post formats are most likely to produce at least one referral.</p>
             </div>
-            <Target className="h-5 w-5 text-muted-foreground" />
+            <Target aria-hidden="true" className="h-5 w-5 text-foreground/65" />
           </div>
           <div className="mt-5 h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -1706,10 +1706,10 @@ function DonationAnalyticsView({
         >
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h4 className="font-heading text-lg font-semibold text-foreground">Best platforms for donation value</h4>
-              <p className="text-sm text-muted-foreground">Which channel currently delivers the strongest donation value per post.</p>
+              <h3 className="font-heading text-lg font-semibold text-foreground">Best platforms for donation value</h3>
+              <p className="text-sm text-foreground/75">Which channel currently delivers the strongest donation value per post.</p>
             </div>
-            <BarChart3 className="h-5 w-5 text-muted-foreground" />
+            <BarChart3 aria-hidden="true" className="h-5 w-5 text-foreground/65" />
           </div>
           <div className="mt-5 h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -1746,7 +1746,7 @@ function DonationAnalyticsView({
                 <Icon className="h-4 w-4 text-primary" />
               </div>
               <p className="mt-3 text-3xl font-bold text-foreground">{card.value}</p>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">{card.detail}</p>
+              <p className="mt-2 text-xs leading-5 text-foreground/70">{card.detail}</p>
               <MiniPreviewChart data={card.miniChartData} chartType={card.chartType} />
             </button>
           );
@@ -1761,8 +1761,8 @@ function DonationAnalyticsView({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-primary">What To Post Next</p>
-            <h4 className="mt-2 font-heading text-2xl font-bold text-foreground">{data.summary.headline}</h4>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+            <h3 className="mt-2 font-heading text-2xl font-bold text-foreground">{data.summary.headline}</h3>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-foreground/75">
               Use referral probability to choose which content is most likely to convert, then use expected donation value to prioritize the strongest upside among those top candidates. Click this section to open the deeper strategy view with platform, media, CTA, and story toggles.
             </p>
           </div>
@@ -1833,11 +1833,12 @@ function DonationAnalyticsView({
                   type="button"
                   onClick={() => setSelectedPlatform(platform)}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2",
                     selectedPlatform === platform
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border/70 bg-background text-muted-foreground hover:border-primary/35 hover:text-foreground",
+                      : "border-border/70 bg-background text-foreground/75 hover:border-primary/35 hover:text-foreground",
                   )}
+                  aria-pressed={selectedPlatform === platform}
                 >
                   {platform}
                 </button>
@@ -1856,11 +1857,12 @@ function DonationAnalyticsView({
                   type="button"
                   onClick={() => toggle.setActive(!toggle.active)}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2",
                     toggle.active
                       ? "border-primary bg-primary/10 text-primary"
-                      : "border-border/70 bg-background text-muted-foreground hover:border-primary/35 hover:text-foreground",
+                      : "border-border/70 bg-background text-foreground/75 hover:border-primary/35 hover:text-foreground",
                   )}
+                  aria-pressed={toggle.active}
                 >
                   {toggle.label}
                 </button>
@@ -1871,14 +1873,14 @@ function DonationAnalyticsView({
               <div className="rounded-2xl bg-muted/25 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-primary">Best media now</p>
                 <p className="mt-3 text-3xl font-bold text-foreground">{strategyBestMedia?.mediaType ?? "N/A"}</p>
-                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                <p className="mt-2 text-xs leading-5 text-foreground/70">
                   {strategyBestMedia ? `${formatPercent(strategyBestMedia.referralRate)} referral rate across ${strategyBestMedia.posts.toLocaleString()} posts.` : "No posts match the current filter set."}
                 </p>
               </div>
               <div className="rounded-2xl bg-muted/25 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-primary">Avg donation value</p>
                 <p className="mt-3 text-3xl font-bold text-foreground">{formatPeso(strategyBestMedia?.avgDonationValuePhp)}</p>
-                <p className="mt-2 text-xs leading-5 text-muted-foreground">Average donation value for the current best media choice.</p>
+                <p className="mt-2 text-xs leading-5 text-foreground/70">Average donation value for the current best media choice.</p>
               </div>
               <div className="rounded-2xl bg-muted/25 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-primary">Recommendation read</p>
@@ -1891,8 +1893,8 @@ function DonationAnalyticsView({
             </div>
 
             <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-warm">
-              <h4 className="font-heading text-lg font-semibold text-foreground">Referral rate by media type on {selectedPlatform}</h4>
-              <p className="mt-1 text-sm text-muted-foreground">The chart updates as you change platform and feature toggles above.</p>
+              <h3 className="font-heading text-lg font-semibold text-foreground">Referral rate by media type on {selectedPlatform}</h3>
+              <p className="mt-1 text-sm text-foreground/75">The chart updates as you change platform and feature toggles above.</p>
               <div className="mt-5 h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={strategyChartData} layout="vertical" margin={{ left: 18, right: 18 }}>
@@ -2307,9 +2309,9 @@ function CommunityAnalyticsView({
             onClick={() => setActiveKpiLabel(kpi.label)}
             className="rounded-2xl border border-border/70 bg-card p-5 text-left shadow-warm transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg"
           >
-            <p className="text-sm text-muted-foreground">{kpi.label}</p>
+            <p className="text-sm text-foreground/75">{kpi.label}</p>
             <p className="mt-2 text-3xl font-bold text-foreground">{kpi.value}</p>
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">{kpi.detail}</p>
+            <p className="mt-3 text-xs leading-5 text-foreground/70">{kpi.detail}</p>
           </button>
         ))}
       </div>
@@ -2322,10 +2324,10 @@ function CommunityAnalyticsView({
         >
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h4 className="font-heading text-lg font-semibold text-foreground">Best post types for community reach</h4>
-              <p className="text-sm text-muted-foreground">Which formats travel furthest across the community-awareness score.</p>
+              <h3 className="font-heading text-lg font-semibold text-foreground">Best post types for community reach</h3>
+              <p className="text-sm text-foreground/75">Which formats travel furthest across the community-awareness score.</p>
             </div>
-            <Users className="h-5 w-5 text-muted-foreground" />
+            <Users aria-hidden="true" className="h-5 w-5 text-foreground/65" />
           </div>
           <div className="mt-5 h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -2347,10 +2349,10 @@ function CommunityAnalyticsView({
         >
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h4 className="font-heading text-lg font-semibold text-foreground">Best platforms for community outreach</h4>
-              <p className="text-sm text-muted-foreground">Which platform currently delivers the strongest awareness and sharing profile.</p>
+              <h3 className="font-heading text-lg font-semibold text-foreground">Best platforms for community outreach</h3>
+              <p className="text-sm text-foreground/75">Which platform currently delivers the strongest awareness and sharing profile.</p>
             </div>
-            <BarChart3 className="h-5 w-5 text-muted-foreground" />
+            <BarChart3 aria-hidden="true" className="h-5 w-5 text-foreground/65" />
           </div>
           <div className="mt-5 h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -2387,7 +2389,7 @@ function CommunityAnalyticsView({
                 <Icon className="h-4 w-4 text-primary" />
               </div>
               <p className="mt-3 text-3xl font-bold text-foreground">{card.value}</p>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">{card.detail}</p>
+              <p className="mt-2 text-xs leading-5 text-foreground/70">{card.detail}</p>
               <MiniPreviewChart data={card.miniChartData} chartType={card.chartType} />
             </button>
           );
@@ -2402,8 +2404,8 @@ function CommunityAnalyticsView({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-primary">What To Post Next</p>
-            <h4 className="mt-2 font-heading text-2xl font-bold text-foreground">{data.summary.headline}</h4>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
+            <h3 className="mt-2 font-heading text-2xl font-bold text-foreground">{data.summary.headline}</h3>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-foreground/75">
               Use the community reach score to choose formats that spread awareness, then use platform and timing signals to put those posts where local networks are most likely to see and share them. Click this section to open the deeper strategy view with platform, media, story, CTA, and boost toggles.
             </p>
           </div>
@@ -2431,11 +2433,11 @@ function CommunityAnalyticsView({
               <span className="text-xs font-semibold uppercase tracking-[0.18em]">Model readiness</span>
             </div>
             <div className="mt-3">
-              <Badge variant="secondary" className={cn("rounded-full", data.model.isTrained ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>
+              <Badge variant="secondary" className={cn("rounded-full", data.model.isTrained ? "bg-primary/15 text-primary" : "bg-muted text-foreground/75")}>
                 {data.model.isTrained ? "Model ready" : "Snapshot only"}
               </Badge>
             </div>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            <p className="mt-3 text-sm leading-6 text-foreground/75">
               The community planner is optimized for awareness and sharing, not donation conversion, so it helps the outreach team choose what to publish to reach more people.
             </p>
           </div>
@@ -2459,11 +2461,12 @@ function CommunityAnalyticsView({
                   type="button"
                   onClick={() => setSelectedPlatform(platform)}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2",
                     selectedPlatform === platform
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border/70 bg-background text-muted-foreground hover:border-primary/35 hover:text-foreground",
+                      : "border-border/70 bg-background text-foreground/75 hover:border-primary/35 hover:text-foreground",
                   )}
+                  aria-pressed={selectedPlatform === platform}
                 >
                   {platform}
                 </button>
@@ -2482,11 +2485,12 @@ function CommunityAnalyticsView({
                   type="button"
                   onClick={() => toggle.setActive(!toggle.active)}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2",
                     toggle.active
                       ? "border-primary bg-primary/10 text-primary"
-                      : "border-border/70 bg-background text-muted-foreground hover:border-primary/35 hover:text-foreground",
+                      : "border-border/70 bg-background text-foreground/75 hover:border-primary/35 hover:text-foreground",
                   )}
+                  aria-pressed={toggle.active}
                 >
                   {toggle.label}
                 </button>
@@ -2497,14 +2501,14 @@ function CommunityAnalyticsView({
               <div className="rounded-2xl bg-muted/25 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-primary">Best media now</p>
                 <p className="mt-3 text-3xl font-bold text-foreground">{strategyBestMedia?.mediaType ?? "N/A"}</p>
-                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                <p className="mt-2 text-xs leading-5 text-foreground/70">
                   {strategyBestMedia ? `${formatDisplayPercent((strategyBestMedia.avgCommunityReachScore ?? 0) * 100)} reach score across ${strategyBestMedia.posts.toLocaleString()} posts.` : "No posts match the current filter set."}
                 </p>
               </div>
               <div className="rounded-2xl bg-muted/25 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-primary">Share rate</p>
                 <p className="mt-3 text-3xl font-bold text-foreground">{formatPercent(strategyBestMedia?.avgShareRate)}</p>
-                <p className="mt-2 text-xs leading-5 text-muted-foreground">Average share rate for the current best media choice.</p>
+                <p className="mt-2 text-xs leading-5 text-foreground/70">Average share rate for the current best media choice.</p>
               </div>
               <div className="rounded-2xl bg-muted/25 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-primary">Recommendation read</p>
@@ -2515,8 +2519,8 @@ function CommunityAnalyticsView({
             </div>
 
             <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-warm">
-              <h4 className="font-heading text-lg font-semibold text-foreground">Community reach score by media type on {selectedPlatform}</h4>
-              <p className="mt-1 text-sm text-muted-foreground">The chart updates as you change platform and feature toggles above.</p>
+              <h3 className="font-heading text-lg font-semibold text-foreground">Community reach score by media type on {selectedPlatform}</h3>
+              <p className="mt-1 text-sm text-foreground/75">The chart updates as you change platform and feature toggles above.</p>
               <div className="mt-5 h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={strategyChartData} layout="vertical" margin={{ left: 18, right: 18 }}>
@@ -2787,10 +2791,10 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
 
           <div className="grid gap-6">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <label className="grid gap-2 text-sm">
+              <label htmlFor="historical-post-platform" className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Platform *</span>
                 <select
-                  aria-label="Historical post platform"
+                  id="historical-post-platform"
                   value={form.platform}
                   onChange={(event) => setForm((current) => ({ ...current, platform: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2819,10 +2823,10 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
                 <Input type="number" min={0} max={23} value={form.post_hour} onChange={(event) => setForm((current) => ({ ...current, post_hour: event.target.value }))} className="h-11 rounded-xl border-border/80" />
               </label>
 
-              <label className="grid gap-2 text-sm">
+              <label htmlFor="historical-post-type" className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Post type *</span>
                 <select
-                  aria-label="Historical post type"
+                  id="historical-post-type"
                   value={form.post_type}
                   onChange={(event) => setForm((current) => ({ ...current, post_type: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2836,10 +2840,10 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
                 </select>
               </label>
 
-              <label className="grid gap-2 text-sm">
+              <label htmlFor="historical-post-media-type" className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Media type *</span>
                 <select
-                  aria-label="Historical post media type"
+                  id="historical-post-media-type"
                   value={form.media_type}
                   onChange={(event) => setForm((current) => ({ ...current, media_type: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2863,10 +2867,10 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
                 <Input type="number" min={0} value={form.num_hashtags} onChange={(event) => setForm((current) => ({ ...current, num_hashtags: event.target.value }))} className="h-11 rounded-xl border-border/80" />
               </label>
 
-              <label className="grid gap-2 text-sm">
+              <label htmlFor="historical-post-cta-enabled" className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">CTA enabled</span>
                 <select
-                  aria-label="Historical post call to action enabled"
+                  id="historical-post-cta-enabled"
                   value={form.has_call_to_action}
                   onChange={(event) => setForm((current) => ({ ...current, has_call_to_action: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2877,10 +2881,10 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               </label>
 
               {form.has_call_to_action === "true" ? (
-                <label className="grid gap-2 text-sm">
+                <label htmlFor="historical-post-cta-type" className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">CTA type *</span>
                   <select
-                    aria-label="Historical post call to action type"
+                    id="historical-post-cta-type"
                     value={form.call_to_action_type}
                     onChange={(event) => setForm((current) => ({ ...current, call_to_action_type: event.target.value }))}
                     className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2895,10 +2899,10 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
                 </label>
               ) : null}
 
-              <label className="grid gap-2 text-sm">
+              <label htmlFor="historical-post-content-topic" className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Content topic *</span>
                 <select
-                  aria-label="Historical post content topic"
+                  id="historical-post-content-topic"
                   value={form.content_topic}
                   onChange={(event) => setForm((current) => ({ ...current, content_topic: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2912,10 +2916,10 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
                 </select>
               </label>
 
-              <label className="grid gap-2 text-sm">
+              <label htmlFor="historical-post-sentiment-tone" className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Sentiment tone *</span>
                 <select
-                  aria-label="Historical post sentiment tone"
+                  id="historical-post-sentiment-tone"
                   value={form.sentiment_tone}
                   onChange={(event) => setForm((current) => ({ ...current, sentiment_tone: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2943,10 +2947,10 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
                 />
               </label>
 
-              <label className="grid gap-2 text-sm">
+              <label htmlFor="historical-post-resident-story" className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Resident story</span>
                 <select
-                  aria-label="Historical post resident story"
+                  id="historical-post-resident-story"
                   value={form.features_resident_story}
                   onChange={(event) => setForm((current) => ({ ...current, features_resident_story: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2956,10 +2960,10 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
                 </select>
               </label>
 
-              <label className="grid gap-2 text-sm">
+              <label htmlFor="historical-post-campaign-name" className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Campaign name</span>
                 <select
-                  aria-label="Historical post campaign name"
+                  id="historical-post-campaign-name"
                   value={form.campaign_name}
                   onChange={(event) => setForm((current) => ({ ...current, campaign_name: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2973,10 +2977,10 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
                 </select>
               </label>
 
-              <label className="grid gap-2 text-sm">
+              <label htmlFor="historical-post-boosted" className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Boosted</span>
                 <select
-                  aria-label="Historical post boosted status"
+                  id="historical-post-boosted"
                   value={form.is_boosted}
                   onChange={(event) => setForm((current) => ({ ...current, is_boosted: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
