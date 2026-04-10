@@ -87,6 +87,20 @@ export function safehouseDisplay(safehouse: Record<string, unknown> | null | und
   return left ? `${left} - ${right}` : right;
 }
 
+/** PostgREST may return an embedded FK as one object or an array depending on typings; normalize for display. */
+function embeddedSafehouseRecord(value: unknown): Record<string, unknown> | null {
+  if (value == null) return null;
+  if (Array.isArray(value)) {
+    const first = value[0];
+    if (first && typeof first === "object" && !Array.isArray(first)) {
+      return first as Record<string, unknown>;
+    }
+    return null;
+  }
+  if (typeof value === "object") return value as Record<string, unknown>;
+  return null;
+}
+
 async function fetchAllocationRollupForDonationIds(donationIds: number[]): Promise<DonorAllocationRollup> {
   if (!supabase || donationIds.length === 0) {
     return { safehouses: [], programAreas: [], hasAllocations: false };
@@ -100,10 +114,11 @@ async function fetchAllocationRollupForDonationIds(donationIds: number[]): Promi
   }
   const safehouseSet = new Set<string>();
   const programAreaSet = new Set<string>();
-  for (const row of data as { program_area?: string | null; safehouses?: Record<string, unknown> | null }[]) {
-    const label = safehouseDisplay(row.safehouses ?? null);
+  for (const row of data) {
+    const r = row as { program_area?: string | null; safehouses?: unknown };
+    const label = safehouseDisplay(embeddedSafehouseRecord(r.safehouses));
     if (label && label !== "—") safehouseSet.add(label);
-    const area = (row.program_area ?? "").toString().trim();
+    const area = (r.program_area ?? "").toString().trim();
     if (area) programAreaSet.add(area);
   }
   const hasAllocations = safehouseSet.size > 0 || programAreaSet.size > 0;
