@@ -9,11 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import houseLogo from "@/assets/icons/houseIcon.svg";
 import { PublicLayout } from "@/components/PublicLayout";
 import { buildApiUrl } from "@/lib/api";
-import {
-  PASSWORD_LENGTH_ERROR_TEXT,
-  PASSWORD_REQUIREMENT_TEXT,
-  passwordMeetsPolicy,
-} from "@/lib/passwordPolicy";
+import { PASSWORD_LENGTH_ERROR_TEXT, passwordMeetsPolicy } from "@/lib/passwordPolicy";
 
 /** Set `VITE_RECAPTCHA_SITE_KEY` in `frontend/.env` (see `.env.example`); never commit real keys. */
 const recaptchaSiteKey = (import.meta.env.VITE_RECAPTCHA_SITE_KEY ?? "").trim();
@@ -48,7 +44,6 @@ const SignUpPage = () => {
 
   const showPasswordError = (passwordTouched || submitAttempted) && password.length > 0 && !passwordMeetsRequirements;
   const showConfirmMismatch = (confirmTouched || submitAttempted) && confirmHasText && !passwordsMatch;
-  const passwordHelperText = PASSWORD_REQUIREMENT_TEXT;
   const passwordErrorText = PASSWORD_LENGTH_ERROR_TEXT;
   const confirmErrorText = "Passwords do not match";
 
@@ -63,7 +58,7 @@ const SignUpPage = () => {
     if (!emailIsValid) return setError("Please enter a valid email address.");
     if (!password) return setError("Password is required.");
     if (!passwordMeetsRequirements) {
-      return setError(passwordHelperText);
+      return setError(passwordErrorText);
     }
     if (confirmHasText && password !== confirmPassword) return setError(confirmErrorText);
     if (!recaptchaConfigured) {
@@ -298,9 +293,10 @@ const SignUpPage = () => {
                 required
                 autoComplete="new-password"
               />
-              <p className="mt-1 text-xs text-muted-foreground">{passwordHelperText}</p>
               {showPasswordError ? (
-                <div className="mt-1 text-xs text-destructive">{passwordErrorText}</div>
+                <p className="mt-1 text-xs text-destructive" role="alert">
+                  {passwordErrorText}
+                </p>
               ) : null}
             </div>
 
