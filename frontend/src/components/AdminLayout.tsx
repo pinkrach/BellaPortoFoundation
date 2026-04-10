@@ -245,7 +245,7 @@ export const AdminLayout = ({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-[hsl(266_34%_42%)] text-sm font-bold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   title={displayName ?? "Signed-in user"}
                   aria-label={displayName ? `Signed in as ${displayName}` : "Signed-in user"}
                 >
@@ -280,7 +280,7 @@ export const AdminLayout = ({
         <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>
         <div className="border-t border-border/70 bg-muted/30 px-4 py-4 lg:px-6">
           <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-foreground/80">
               Stay connected with Lighthouse Sanctuary. © {new Date().getFullYear()} Bella Bay Foundation.
             </p>
             <SocialPlatformLinks className="gap-2" iconClassName="h-4 w-4" />

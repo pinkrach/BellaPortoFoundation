@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/dialog";
 import { HarborLoadingState } from "@/components/HarborLoadingState";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { fetchWithAuth, apiBaseUrl } from "@/lib/api";
@@ -2690,20 +2689,41 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               <span className="text-xs font-semibold uppercase tracking-[0.22em]">Outreach Planning</span>
             </div>
 
-            <Tabs value={plannerMode} onValueChange={(value) => setPlannerMode(value as PlannerMode)} className="w-fit">
-              <TabsList className="h-auto gap-2 rounded-2xl border border-border/70 bg-muted/30 p-1">
-                <TabsTrigger value="donation" className="rounded-xl px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  Donation posts
-                </TabsTrigger>
-                <TabsTrigger value="community" className="rounded-xl px-4 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  Community outreach
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div
+              aria-label="Outreach planning modes"
+              className="flex w-fit flex-wrap gap-2 rounded-2xl border border-border/70 bg-muted/20 p-1"
+            >
+              <button
+                type="button"
+                onClick={() => setPlannerMode("donation")}
+                aria-pressed={plannerMode === "donation"}
+                className={cn(
+                  "rounded-xl px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2",
+                  plannerMode === "donation"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-foreground/85 hover:bg-background hover:text-foreground",
+                )}
+              >
+                Donation posts
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlannerMode("community")}
+                aria-pressed={plannerMode === "community"}
+                className={cn(
+                  "rounded-xl px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2",
+                  plannerMode === "community"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-foreground/85 hover:bg-background hover:text-foreground",
+                )}
+              >
+                Community outreach
+              </button>
+            </div>
 
             <div>
-              <h3 className="font-heading text-2xl font-bold text-foreground">{plannerCopy.title}</h3>
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-foreground/75">{plannerCopy.description}</p>
+              <h2 className="font-heading text-2xl font-bold text-foreground">{plannerCopy.title}</h2>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-foreground/85">{plannerCopy.description}</p>
               {plannerMode === "donation" ? (
                 <Button type="button" variant="outline" className="mt-4 rounded-full" onClick={() => setPlannerDialogOpen(true)}>
                   <Brain className="mr-2 h-4 w-4" />
@@ -2717,7 +2737,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               ) : null}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs text-foreground/70">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-foreground/80">
               <span>Last refreshed: {generatedAt ? formatDateTime(generatedAt) : "No refresh yet"}</span>
             </div>
           </div>

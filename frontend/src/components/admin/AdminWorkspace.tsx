@@ -8509,30 +8509,41 @@ export function AdminWorkspace() {
         </TabsContent>
 
         <TabsContent value="outreach" className="space-y-6">
-          <Tabs value={outreachSubTab} onValueChange={(value) => setParams({ outreachSubTab: value })} className="space-y-6">
-            <TabsList
+          <div className="space-y-6">
+            <div
               aria-label="Outreach workspace sections"
-              className="h-auto w-full justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
+              className="flex w-full flex-wrap justify-start gap-2 overflow-x-auto rounded-2xl border border-border/70 bg-card p-2 shadow-warm"
             >
               {OUTREACH_SUBTABS.map((tab) => (
-                <TabsTrigger
+                <button
                   key={tab.value}
-                  value={tab.value}
-                  className="rounded-xl px-4 py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  type="button"
+                  onClick={() => setParams({ outreachSubTab: tab.value })}
+                  aria-pressed={outreachSubTab === tab.value}
+                  className={cn(
+                    "rounded-xl px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2",
+                    outreachSubTab === tab.value
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-foreground/85 hover:bg-background hover:text-foreground",
+                  )}
                 >
                   {tab.label}
-                </TabsTrigger>
+                </button>
               ))}
-            </TabsList>
+            </div>
 
-            <TabsContent value="social-media" className="space-y-6">
-              <OutreachSocialMediaPanel socialPosts={workspace.socialPosts} />
-            </TabsContent>
+            {outreachSubTab === "social-media" ? (
+              <div className="space-y-6">
+                <OutreachSocialMediaPanel socialPosts={workspace.socialPosts} />
+              </div>
+            ) : null}
 
-            <TabsContent value="public-impact" className="space-y-6">
-              <PublicImpactMlPanel />
-            </TabsContent>
-          </Tabs>
+            {outreachSubTab === "public-impact" ? (
+              <div className="space-y-6">
+                <PublicImpactMlPanel />
+              </div>
+            ) : null}
+          </div>
         </TabsContent>
 
         <TabsContent value="settings">
