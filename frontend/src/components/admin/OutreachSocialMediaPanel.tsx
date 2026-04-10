@@ -816,7 +816,7 @@ function DonationPlannerDialog({
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Platform</span>
-              <select value={draftForm.platform} onChange={(event) => setDraftForm((current) => ({ ...current, platform: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Donation planner platform" value={draftForm.platform} onChange={(event) => setDraftForm((current) => ({ ...current, platform: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {platformOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -827,7 +827,7 @@ function DonationPlannerDialog({
 
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Day of week</span>
-              <select value={draftForm.day_of_week} onChange={(event) => setDraftForm((current) => ({ ...current, day_of_week: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Donation planner day of week" value={draftForm.day_of_week} onChange={(event) => setDraftForm((current) => ({ ...current, day_of_week: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -843,7 +843,7 @@ function DonationPlannerDialog({
 
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Post type</span>
-              <select value={draftForm.post_type} onChange={(event) => setDraftForm((current) => ({ ...current, post_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Donation planner post type" value={draftForm.post_type} onChange={(event) => setDraftForm((current) => ({ ...current, post_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_POST_TYPES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -854,7 +854,7 @@ function DonationPlannerDialog({
 
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Media type</span>
-              <select value={draftForm.media_type} onChange={(event) => setDraftForm((current) => ({ ...current, media_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Donation planner media type" value={draftForm.media_type} onChange={(event) => setDraftForm((current) => ({ ...current, media_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_MEDIA_TYPES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -870,7 +870,7 @@ function DonationPlannerDialog({
 
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">CTA</span>
-              <select value={draftForm.has_call_to_action} onChange={(event) => setDraftForm((current) => ({ ...current, has_call_to_action: event.target.value, call_to_action_type: event.target.value === "true" ? current.call_to_action_type || "Donate" : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Donation planner call to action" value={draftForm.has_call_to_action} onChange={(event) => setDraftForm((current) => ({ ...current, has_call_to_action: event.target.value, call_to_action_type: event.target.value === "true" ? current.call_to_action_type || "Donate" : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </select>
@@ -879,7 +879,7 @@ function DonationPlannerDialog({
             {draftForm.has_call_to_action === "true" ? (
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">CTA type</span>
-                <select value={draftForm.call_to_action_type} onChange={(event) => setDraftForm((current) => ({ ...current, call_to_action_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                <select aria-label="Donation planner call to action type" value={draftForm.call_to_action_type} onChange={(event) => setDraftForm((current) => ({ ...current, call_to_action_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {FALLBACK_CTA_TYPES.map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -891,7 +891,7 @@ function DonationPlannerDialog({
 
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Content topic</span>
-              <select value={draftForm.content_topic} onChange={(event) => setDraftForm((current) => ({ ...current, content_topic: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Donation planner content topic" value={draftForm.content_topic} onChange={(event) => setDraftForm((current) => ({ ...current, content_topic: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_TOPICS.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -902,7 +902,7 @@ function DonationPlannerDialog({
 
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Tone</span>
-              <select value={draftForm.sentiment_tone} onChange={(event) => setDraftForm((current) => ({ ...current, sentiment_tone: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Donation planner tone" value={draftForm.sentiment_tone} onChange={(event) => setDraftForm((current) => ({ ...current, sentiment_tone: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_TONES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -913,7 +913,7 @@ function DonationPlannerDialog({
 
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Resident story</span>
-              <select value={draftForm.features_resident_story} onChange={(event) => setDraftForm((current) => ({ ...current, features_resident_story: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Donation planner resident story" value={draftForm.features_resident_story} onChange={(event) => setDraftForm((current) => ({ ...current, features_resident_story: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="true">Included</option>
                 <option value="false">Not included</option>
               </select>
@@ -921,7 +921,7 @@ function DonationPlannerDialog({
 
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Boosted</span>
-              <select value={draftForm.is_boosted} onChange={(event) => setDraftForm((current) => ({ ...current, is_boosted: event.target.value, boost_budget_php: event.target.value === "true" ? current.boost_budget_php : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Donation planner boosted status" value={draftForm.is_boosted} onChange={(event) => setDraftForm((current) => ({ ...current, is_boosted: event.target.value, boost_budget_php: event.target.value === "true" ? current.boost_budget_php : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="false">Organic</option>
                 <option value="true">Boosted</option>
               </select>
@@ -977,17 +977,17 @@ function DonationPlannerDialog({
                   <div className="rounded-2xl bg-muted/25 p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-primary">Referral probability</p>
                     <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? formatPercent(scoreMutation.data.prediction.predictedReferralProbability) : "..."}</p>
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Likelihood that the post produces at least one donation referral.</p>
+                    <p className="mt-2 text-xs leading-5 text-foreground/70">Likelihood that the post produces at least one donation referral.</p>
                   </div>
                   <div className="rounded-2xl bg-muted/25 p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-primary">Likely referrals</p>
                     <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? formatDecimal(scoreMutation.data.prediction.predictedReferralCount) : "..."}</p>
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Predicted donation referrals for a post with this setup.</p>
+                    <p className="mt-2 text-xs leading-5 text-foreground/70">Predicted donation referrals for a post with this setup.</p>
                   </div>
                   <div className="rounded-2xl bg-muted/25 p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-primary">Expected donation value</p>
                     <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? formatPeso(scoreMutation.data.prediction.predictedDonationValuePhp) : "..."}</p>
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Expected donation value tied to the same draft configuration.</p>
+                    <p className="mt-2 text-xs leading-5 text-foreground/70">Expected donation value tied to the same draft configuration.</p>
                   </div>
                 </div>
 
@@ -1103,7 +1103,7 @@ function CommunityPlannerDialog({
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Platform</span>
-              <select value={draftForm.platform} onChange={(event) => setDraftForm((current) => ({ ...current, platform: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Community planner platform" value={draftForm.platform} onChange={(event) => setDraftForm((current) => ({ ...current, platform: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {platformOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1113,7 +1113,7 @@ function CommunityPlannerDialog({
             </label>
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Day of week</span>
-              <select value={draftForm.day_of_week} onChange={(event) => setDraftForm((current) => ({ ...current, day_of_week: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Community planner day of week" value={draftForm.day_of_week} onChange={(event) => setDraftForm((current) => ({ ...current, day_of_week: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1127,7 +1127,7 @@ function CommunityPlannerDialog({
             </label>
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Post type</span>
-              <select value={draftForm.post_type} onChange={(event) => setDraftForm((current) => ({ ...current, post_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Community planner post type" value={draftForm.post_type} onChange={(event) => setDraftForm((current) => ({ ...current, post_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_POST_TYPES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1137,7 +1137,7 @@ function CommunityPlannerDialog({
             </label>
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Media type</span>
-              <select value={draftForm.media_type} onChange={(event) => setDraftForm((current) => ({ ...current, media_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Community planner media type" value={draftForm.media_type} onChange={(event) => setDraftForm((current) => ({ ...current, media_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_MEDIA_TYPES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1151,7 +1151,7 @@ function CommunityPlannerDialog({
             </label>
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">CTA</span>
-              <select value={draftForm.has_call_to_action} onChange={(event) => setDraftForm((current) => ({ ...current, has_call_to_action: event.target.value, call_to_action_type: event.target.value === "true" ? current.call_to_action_type || "LearnMore" : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Community planner call to action" value={draftForm.has_call_to_action} onChange={(event) => setDraftForm((current) => ({ ...current, has_call_to_action: event.target.value, call_to_action_type: event.target.value === "true" ? current.call_to_action_type || "LearnMore" : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </select>
@@ -1159,7 +1159,7 @@ function CommunityPlannerDialog({
             {draftForm.has_call_to_action === "true" ? (
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">CTA type</span>
-                <select value={draftForm.call_to_action_type} onChange={(event) => setDraftForm((current) => ({ ...current, call_to_action_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+                <select aria-label="Community planner call to action type" value={draftForm.call_to_action_type} onChange={(event) => setDraftForm((current) => ({ ...current, call_to_action_type: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                   {FALLBACK_CTA_TYPES.map((option) => (
                     <option key={option} value={option}>
                       {option}
@@ -1170,7 +1170,7 @@ function CommunityPlannerDialog({
             ) : null}
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Content topic</span>
-              <select value={draftForm.content_topic} onChange={(event) => setDraftForm((current) => ({ ...current, content_topic: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Community planner content topic" value={draftForm.content_topic} onChange={(event) => setDraftForm((current) => ({ ...current, content_topic: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_TOPICS.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1180,7 +1180,7 @@ function CommunityPlannerDialog({
             </label>
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Tone</span>
-              <select value={draftForm.sentiment_tone} onChange={(event) => setDraftForm((current) => ({ ...current, sentiment_tone: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Community planner tone" value={draftForm.sentiment_tone} onChange={(event) => setDraftForm((current) => ({ ...current, sentiment_tone: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 {FALLBACK_TONES.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -1190,14 +1190,14 @@ function CommunityPlannerDialog({
             </label>
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Resident story</span>
-              <select value={draftForm.features_resident_story} onChange={(event) => setDraftForm((current) => ({ ...current, features_resident_story: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Community planner resident story" value={draftForm.features_resident_story} onChange={(event) => setDraftForm((current) => ({ ...current, features_resident_story: event.target.value }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="true">Included</option>
                 <option value="false">Not included</option>
               </select>
             </label>
             <label className="grid gap-2 text-sm">
               <span className="font-medium text-foreground">Boosted</span>
-              <select value={draftForm.is_boosted} onChange={(event) => setDraftForm((current) => ({ ...current, is_boosted: event.target.value, boost_budget_php: event.target.value === "true" ? current.boost_budget_php : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+              <select aria-label="Community planner boosted status" value={draftForm.is_boosted} onChange={(event) => setDraftForm((current) => ({ ...current, is_boosted: event.target.value, boost_budget_php: event.target.value === "true" ? current.boost_budget_php : "" }))} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
                 <option value="false">Organic</option>
                 <option value="true">Boosted</option>
               </select>
@@ -1235,17 +1235,17 @@ function CommunityPlannerDialog({
                   <div className="rounded-2xl bg-muted/25 p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-primary">Community reach score</p>
                     <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? formatDisplayPercent((scoreMutation.data.prediction.predictedCommunityReachScore ?? 0) * 100) : "..."}</p>
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Predicted blended awareness score for this outreach draft.</p>
+                    <p className="mt-2 text-xs leading-5 text-foreground/70">Predicted blended awareness score for this outreach draft.</p>
                   </div>
                   <div className="rounded-2xl bg-muted/25 p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-primary">Referral potential</p>
                     <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? formatPercent(scoreMutation.data.prediction.predictedCommunityReferralProbability) : "..."}</p>
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Likelihood the post crosses the community-referral proxy threshold.</p>
+                    <p className="mt-2 text-xs leading-5 text-foreground/70">Likelihood the post crosses the community-referral proxy threshold.</p>
                   </div>
                   <div className="rounded-2xl bg-muted/25 p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-primary">Share-friendly strength</p>
                     <p className="mt-3 text-3xl font-bold text-foreground">{scoreMutation.data ? `${Math.round((scoreMutation.data.prediction.predictedShareRate ?? 0) * 1000)} per 1k` : "..."}</p>
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">Expected shares per 1,000 reaches, which reads better than a tiny raw share rate.</p>
+                    <p className="mt-2 text-xs leading-5 text-foreground/70">Expected shares per 1,000 reaches, which reads better than a tiny raw share rate.</p>
                   </div>
                 </div>
                 <div className="rounded-2xl bg-primary/6 p-4">
@@ -2699,7 +2699,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
 
             <div>
               <h3 className="font-heading text-2xl font-bold text-foreground">{plannerCopy.title}</h3>
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">{plannerCopy.description}</p>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-foreground/75">{plannerCopy.description}</p>
               {plannerMode === "donation" ? (
                 <Button type="button" variant="outline" className="mt-4 rounded-full" onClick={() => setPlannerDialogOpen(true)}>
                   <Brain className="mr-2 h-4 w-4" />
@@ -2713,7 +2713,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               ) : null}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-foreground/70">
               <span>Last refreshed: {generatedAt ? formatDateTime(generatedAt) : "No refresh yet"}</span>
             </div>
           </div>
@@ -2751,7 +2751,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
             <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
             <div>
               <p className="font-semibold text-foreground">{plannerMode === "community" ? "Community outreach analytics could not be loaded." : "Donation social analytics could not be loaded."}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{activeError instanceof Error ? activeError.message : "Unknown error."}</p>
+              <p className="mt-1 text-sm text-foreground/75">{activeError instanceof Error ? activeError.message : "Unknown error."}</p>
             </div>
           </div>
         </div>
@@ -2762,14 +2762,14 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
           <DonationAnalyticsView data={donationQuery.data} socialPosts={socialPosts} />
         ) : donationQuery.isLoading ? (
           <div className="rounded-2xl bg-card p-6 shadow-warm">
-            <p className="text-sm text-muted-foreground">Loading the latest donation social analytics snapshot...</p>
+            <p className="text-sm text-foreground/75">Loading the latest donation social analytics snapshot...</p>
           </div>
         ) : null
       ) : communityQuery.data ? (
         <CommunityAnalyticsView data={communityQuery.data} socialPosts={socialPosts} />
       ) : communityQuery.isLoading ? (
         <div className="rounded-2xl bg-card p-6 shadow-warm">
-          <p className="text-sm text-muted-foreground">Loading the latest community outreach analytics snapshot...</p>
+          <p className="text-sm text-foreground/75">Loading the latest community outreach analytics snapshot...</p>
         </div>
       ) : null}
 
@@ -2790,6 +2790,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Platform *</span>
                 <select
+                  aria-label="Historical post platform"
                   value={form.platform}
                   onChange={(event) => setForm((current) => ({ ...current, platform: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2821,6 +2822,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Post type *</span>
                 <select
+                  aria-label="Historical post type"
                   value={form.post_type}
                   onChange={(event) => setForm((current) => ({ ...current, post_type: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2837,6 +2839,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Media type *</span>
                 <select
+                  aria-label="Historical post media type"
                   value={form.media_type}
                   onChange={(event) => setForm((current) => ({ ...current, media_type: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2863,6 +2866,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">CTA enabled</span>
                 <select
+                  aria-label="Historical post call to action enabled"
                   value={form.has_call_to_action}
                   onChange={(event) => setForm((current) => ({ ...current, has_call_to_action: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2876,6 +2880,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
                 <label className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">CTA type *</span>
                   <select
+                    aria-label="Historical post call to action type"
                     value={form.call_to_action_type}
                     onChange={(event) => setForm((current) => ({ ...current, call_to_action_type: event.target.value }))}
                     className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2893,6 +2898,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Content topic *</span>
                 <select
+                  aria-label="Historical post content topic"
                   value={form.content_topic}
                   onChange={(event) => setForm((current) => ({ ...current, content_topic: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2909,6 +2915,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Sentiment tone *</span>
                 <select
+                  aria-label="Historical post sentiment tone"
                   value={form.sentiment_tone}
                   onChange={(event) => setForm((current) => ({ ...current, sentiment_tone: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2939,6 +2946,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Resident story</span>
                 <select
+                  aria-label="Historical post resident story"
                   value={form.features_resident_story}
                   onChange={(event) => setForm((current) => ({ ...current, features_resident_story: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2951,6 +2959,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Campaign name</span>
                 <select
+                  aria-label="Historical post campaign name"
                   value={form.campaign_name}
                   onChange={(event) => setForm((current) => ({ ...current, campaign_name: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
@@ -2967,6 +2976,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
               <label className="grid gap-2 text-sm">
                 <span className="font-medium text-foreground">Boosted</span>
                 <select
+                  aria-label="Historical post boosted status"
                   value={form.is_boosted}
                   onChange={(event) => setForm((current) => ({ ...current, is_boosted: event.target.value }))}
                   className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
