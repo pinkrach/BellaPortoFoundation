@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PublicLayout } from "@/components/PublicLayout";
 import { HarborLoadingState } from "@/components/HarborLoadingState";
@@ -23,9 +24,41 @@ function formatKpiValue(value: number, format: "count" | "percent" | "score") {
   return Math.round(value).toLocaleString();
 }
 
+function ImpactDonateCard({ donateLink, compact = false }: { donateLink: string; compact?: boolean }) {
+  return (
+    <div className="rounded-[1.5rem] border border-[hsl(37_24%_82%)] bg-[rgba(255,252,248,0.94)] px-4 py-3 shadow-[0_24px_70px_-45px_rgba(28,43,53,0.8)] backdrop-blur-md md:px-5">
+      <div className="flex flex-col items-center justify-between gap-3 text-center lg:flex-row lg:text-left">
+        <div className="flex max-w-2xl items-start gap-3">
+          <div className="rounded-xl bg-[hsl(266_34%_63%_/_0.14)] p-2.5 text-[hsl(266_34%_58%)]">
+            <HeartHandshake className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="font-heading text-[clamp(1rem,2vw,1.5rem)] text-[hsl(200_24%_18%)] md:whitespace-nowrap">
+              Every gift helps provide safe housing, education, and healing support.
+            </p>
+            <p className="mt-1 text-sm leading-6 text-[hsl(200_12%_40%)]">
+              Give today to keep doors open, classrooms active, and recovery care within reach.
+            </p>
+          </div>
+        </div>
+        <Link
+          to={donateLink}
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-[hsl(266_34%_63%)] px-7 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_-20px_rgba(155,127,192,0.95)] transition hover:bg-[hsl(266_34%_58%)]"
+        >
+          {compact ? "Donate" : "Donate Now"}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 const Impact = () => {
   const { isAuthenticated, role } = useAuth();
   const donateLink = isAuthenticated && role === "donor" ? "/dashboard?donate=1" : "/signup";
+  const heroRef = useRef<HTMLElement | null>(null);
+  const ctaRestRef = useRef<HTMLDivElement | null>(null);
+  const [showFloatingCta, setShowFloatingCta] = useState(false);
   const impactQuery = useQuery({
     queryKey: ["public-impact-page"],
     queryFn: getPublicImpactPageData,
@@ -33,10 +66,44 @@ const Impact = () => {
     retry: 1,
   });
 
+  useEffect(() => {
+    const onScroll = () => {
+      const heroBottom = heroRef.current?.getBoundingClientRect().bottom ?? 0;
+      const restingTop = ctaRestRef.current?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY;
+      const shouldFloat = heroBottom <= 120 && restingTop > window.innerHeight - 24;
+      setShowFloatingCta(shouldFloat);
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
+  const canShowFloatingCta = useMemo(
+    () => !impactQuery.isLoading && !impactQuery.isError && Boolean(impactQuery.data),
+    [impactQuery.data, impactQuery.isError, impactQuery.isLoading],
+  );
+
   return (
     <PublicLayout>
       <div className="w-full max-w-none overflow-x-hidden bg-background">
-        <PublicImpactHero donateLink={donateLink} imageSrc={heroImage} />
+        <section ref={heroRef}>
+          <PublicImpactHero donateLink={donateLink} imageSrc={heroImage} />
+        </section>
+
+        {canShowFloatingCta && showFloatingCta ? (
+          <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30 hidden lg:block">
+            <div className="container mx-auto px-4">
+              <div className="pointer-events-auto">
+                <ImpactDonateCard donateLink={donateLink} compact />
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <section className="bg-muted py-10 md:py-14">
           <div className="container mx-auto space-y-10 px-4 md:space-y-12">
@@ -151,30 +218,9 @@ const Impact = () => {
 
             <section className="bg-background -mt-1 pt-4 pb-10 md:pt-5 md:pb-12">
               <div className="container mx-auto px-4">
-                <section className="sticky bottom-4 z-20">
-                  <div className="rounded-[1.5rem] border border-[hsl(37_24%_82%)] bg-[rgba(255,252,248,0.94)] px-4 py-3 shadow-[0_24px_70px_-45px_rgba(28,43,53,0.8)] backdrop-blur-md md:px-5">
-                    <div className="flex flex-col items-center justify-between gap-3 text-center lg:flex-row lg:text-left">
-                      <div className="flex max-w-2xl items-start gap-3">
-                        <div className="rounded-xl bg-[hsl(266_34%_63%_/_0.14)] p-2.5 text-[hsl(266_34%_58%)]">
-                          <HeartHandshake className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="font-heading text-xl text-[hsl(200_24%_18%)] md:text-2xl">Every gift helps provide safe housing, education, and healing support.</p>
-                          <p className="mt-1 text-sm leading-6 text-[hsl(200_12%_40%)]">
-                            Give today to keep doors open, classrooms active, and recovery care within reach.
-                          </p>
-                        </div>
-                      </div>
-                      <Link
-                        to={donateLink}
-                        className="inline-flex items-center justify-center gap-2 rounded-full bg-[hsl(266_34%_63%)] px-7 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_-20px_rgba(155,127,192,0.95)] transition hover:bg-[hsl(266_34%_58%)]"
-                      >
-                        Donate Now
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </div>
-                  </div>
-                </section>
+                <div ref={ctaRestRef}>
+                  <ImpactDonateCard donateLink={donateLink} />
+                </div>
               </div>
             </section>
           </>
