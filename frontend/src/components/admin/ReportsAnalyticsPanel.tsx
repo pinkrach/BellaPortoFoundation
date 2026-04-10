@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Activity,
@@ -11,7 +11,6 @@ import {
   Home,
   LineChart as LineChartIcon,
   Megaphone,
-  RefreshCw,
   RotateCcw,
   ShieldAlert,
   Sparkles,
@@ -51,7 +50,6 @@ import {
 } from "@/components/dashboard/charts/AnalyticsDetailDialog";
 import { fetchWithAuth } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { toast } from "@/components/ui/sonner";
 
 type FilterState = {
   dateFrom: string;
@@ -247,31 +245,6 @@ async function fetchReportsSummary(filters: FilterState): Promise<ReportsSummary
   }
 }
 
-async function refreshReportsSummary(filters: FilterState): Promise<ReportsSummary> {
-  const response = await fetchWithAuth("/api/reports/refresh", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      dateFrom: filters.dateFrom || null,
-      dateTo: filters.dateTo || null,
-      safehouseId: filters.safehouseId || null,
-      campaignName: filters.campaignName || null,
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Unable to refresh reports summary.");
-  }
-
-  const text = await response.text();
-  return JSON.parse(
-    text.replace(/\bNaN\b/g, "null").replace(/\b-Infinity\b/g, "null").replace(/\bInfinity\b/g, "null"),
-  ) as ReportsSummary;
-}
-
 async function downloadAnnual() {
   window.print();
 }
@@ -361,7 +334,6 @@ function MetricCard({
 
 export function ReportsAnalyticsPanel() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<FilterState>({
     dateFrom: "",
     dateTo: "",
@@ -374,21 +346,6 @@ export function ReportsAnalyticsPanel() {
     queryKey: ["reports-summary", filters],
     queryFn: () => fetchReportsSummary(filters),
     retry: false,
-  });
-
-  const refreshMutation = useMutation({
-    mutationFn: () => refreshReportsSummary(filters),
-    onSuccess: (freshData) => {
-      queryClient.setQueryData(["reports-summary", filters], freshData);
-      if (freshData.refreshMode === "cached_fallback") {
-        toast.warning(freshData.refreshWarning ?? "Live refresh is unavailable right now. Showing the latest saved dashboard snapshot.");
-        return;
-      }
-      toast.success("Reports dashboard refreshed.");
-    },
-    onError: (err) => {
-      toast.error(err instanceof Error ? err.message : "Unable to refresh reports summary.");
-    },
   });
 
   const data = summaryQuery.data;
@@ -582,10 +539,6 @@ export function ReportsAnalyticsPanel() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="rounded-xl" onClick={() => refreshMutation.mutate()} disabled={refreshMutation.isPending}>
-              <RefreshCw className={cn("mr-2 h-4 w-4", (summaryQuery.isFetching || refreshMutation.isPending) && "animate-spin")} />
-              Refresh
-            </Button>
             <Button className="rounded-xl" onClick={exportAnnual}>
               <Download className="mr-2 h-4 w-4" />
               Annual report

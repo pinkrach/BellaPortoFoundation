@@ -7,7 +7,6 @@ import {
   Clock3,
   Megaphone,
   Plus,
-  RefreshCw,
   Sparkles,
   Target,
   Users,
@@ -454,32 +453,6 @@ async function fetchLatestCommunityAnalytics(): Promise<CommunityAnalyticsRespon
   if (!hasLiveApi) return fetchBundledCommunityAnalytics();
   const response = await fetchWithAuth("/api/ml/social/community/latest");
   if (response.status === 404 || !response.ok) return fetchBundledCommunityAnalytics();
-  return response.json();
-}
-
-async function refreshDonationAnalytics(): Promise<SocialAnalyticsResponse> {
-  const response = await fetchWithAuth("/api/ml/social/refresh", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Unable to refresh donation social analytics.");
-  }
-  return response.json();
-}
-
-async function refreshCommunityAnalytics(): Promise<CommunityAnalyticsResponse> {
-  const response = await fetchWithAuth("/api/ml/social/community/refresh", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Unable to refresh community outreach analytics.");
-  }
   return response.json();
 }
 
@@ -2564,21 +2537,6 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
     retry: false,
   });
 
-  const refreshMutation = useMutation({
-    mutationFn: async (mode: PlannerMode) => {
-      if (mode === "community") return { mode, data: await refreshCommunityAnalytics() };
-      return { mode, data: await refreshDonationAnalytics() };
-    },
-    onSuccess: async ({ mode, data }) => {
-      queryClient.setQueryData(["social-analytics", mode], data);
-      await queryClient.invalidateQueries({ queryKey: ["admin-workspace"] });
-      toast.success(mode === "community" ? "Community outreach analytics refreshed." : "Donation social analytics refreshed.");
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Unable to refresh social analytics.");
-    },
-  });
-
   const createMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => insertRecord("social_media_posts", payload),
     onSuccess: async () => {
@@ -2586,7 +2544,7 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
       setForm(EMPTY_FORM);
       setCaptionLengthEdited(false);
       await queryClient.invalidateQueries({ queryKey: ["admin-workspace"] });
-      toast.success("Historical post added. Refresh analytics to rerun the planner.");
+      toast.success("Historical post added.");
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Unable to create that social post.");
@@ -2755,15 +2713,6 @@ export function OutreachSocialMediaPanel({ socialPosts }: { socialPosts: SocialP
             >
               <Plus className="mr-2 h-4 w-4" />
               Add historical post
-            </Button>
-            <Button
-              type="button"
-              className="rounded-full"
-              disabled={refreshMutation.isPending || !hasLiveApi}
-              onClick={() => refreshMutation.mutate(plannerMode)}
-            >
-              <RefreshCw className={cn("mr-2 h-4 w-4", refreshMutation.isPending && "animate-spin")} />
-              {hasLiveApi ? "Refresh analytics" : "Live API unavailable"}
             </Button>
           </div>
         </div>
