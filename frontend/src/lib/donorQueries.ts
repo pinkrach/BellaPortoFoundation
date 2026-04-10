@@ -66,6 +66,54 @@ function donationImpactValue(row: DonationRow): number {
   return parseMoney(row.amount);
 }
 
+export type DonorAllocationRollup = {
+  safehouses: string[];
+  programAreas: string[];
+  hasAllocations: boolean;
+};
+
+export function safehouseDisplay(safehouse: Record<string, unknown> | null | undefined): string {
+  if (!safehouse) return "—";
+  const name = typeof safehouse.name === "string" ? safehouse.name.trim() : "";
+  const city = typeof safehouse.city === "string" ? safehouse.city.trim() : "";
+  const region =
+    typeof safehouse.region === "string"
+      ? safehouse.region.trim()
+      : typeof safehouse.province === "string"
+        ? safehouse.province.trim()
+        : "";
+  const left = [region, city].filter(Boolean).join(", ");
+  const right = name || "Safehouse";
+  return left ? `${left} - ${right}` : right;
+}
+
+async function fetchAllocationRollupForDonationIds(donationIds: number[]): Promise<DonorAllocationRollup> {
+  if (!supabase || donationIds.length === 0) {
+    return { safehouses: [], programAreas: [], hasAllocations: false };
+  }
+  const { data, error } = await supabase
+    .from("donation_allocations")
+    .select("program_area, donation_id, safehouses(*)")
+    .in("donation_id", donationIds);
+  if (error || !data?.length) {
+    return { safehouses: [], programAreas: [], hasAllocations: false };
+  }
+  const safehouseSet = new Set<string>();
+  const programAreaSet = new Set<string>();
+  for (const row of data as { program_area?: string | null; safehouses?: Record<string, unknown> | null }[]) {
+    const label = safehouseDisplay(row.safehouses ?? null);
+    if (label && label !== "—") safehouseSet.add(label);
+    const area = (row.program_area ?? "").toString().trim();
+    if (area) programAreaSet.add(area);
+  }
+  const hasAllocations = safehouseSet.size > 0 || programAreaSet.size > 0;
+  return {
+    safehouses: Array.from(safehouseSet).sort((a, b) => a.localeCompare(b)),
+    programAreas: Array.from(programAreaSet).sort((a, b) => a.localeCompare(b)),
+    hasAllocations,
+  };
+}
+
 function colorForDonationType(typeKey: string, index: number): string {
   const k = typeKey.toLowerCase();
   if (k.includes("monetary") || k.includes("cash")) return "#1f7a8c";
@@ -74,12 +122,17 @@ function colorForDonationType(typeKey: string, index: number): string {
   return CHART_PALETTE[index % CHART_PALETTE.length];
 }
 
+function emptyAllocationRollup(): DonorAllocationRollup {
+  return { safehouses: [], programAreas: [], hasAllocations: false };
+}
+
 function emptyPayload(): {
   donations: DonationRow[];
   totalImpact: number;
   donationCount: number;
   typeSplitChart: { name: string; value: number; color: string }[];
   hasSupporterRecord: boolean;
+  allocationRollup: DonorAllocationRollup;
 } {
   return {
     donations: [],
@@ -87,6 +140,7 @@ function emptyPayload(): {
     donationCount: 0,
     typeSplitChart: [],
     hasSupporterRecord: false,
+    allocationRollup: emptyAllocationRollup(),
   };
 }
 
@@ -100,6 +154,7 @@ export async function fetchDonorDonationData(userId: string | null, userEmail: s
   donationCount: number;
   typeSplitChart: { name: string; value: number; color: string }[];
   hasSupporterRecord: boolean;
+  allocationRollup: DonorAllocationRollup;
 }> {
   try {
     if (!supabase) {
@@ -199,12 +254,16 @@ export async function fetchDonorDonationData(userId: string | null, userEmail: s
       color: colorForDonationType(name, index),
     }));
 
+    const verifiedDonationIds = verified.map((d) => d.donation_id).filter((id) => Number.isFinite(id));
+    const allocationRollup = await fetchAllocationRollupForDonationIds(verifiedDonationIds);
+
     return {
       donations,
       totalImpact,
       donationCount: verified.length,
       typeSplitChart,
       hasSupporterRecord: true,
+      allocationRollup,
     };
   } catch {
     return emptyPayload();

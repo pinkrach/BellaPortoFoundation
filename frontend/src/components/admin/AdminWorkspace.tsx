@@ -1115,12 +1115,15 @@ function EmptyState({
 
 function SectionCard({
   title,
+  titleAddon,
   description,
   action,
   children,
   contentClassName,
 }: {
   title: string;
+  /** Renders inline after the title (e.g. compact actions). */
+  titleAddon?: ReactNode;
   description?: string;
   action?: ReactNode;
   children: ReactNode;
@@ -1130,7 +1133,10 @@ function SectionCard({
     <Card className="rounded-2xl border-border/70 bg-card shadow-warm">
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div className="min-w-0 flex-1">
-          <h2 className="font-heading text-xl font-semibold leading-none tracking-tight text-foreground">{title}</h2>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <h2 className="font-heading text-xl font-semibold leading-none tracking-tight text-foreground">{title}</h2>
+            {titleAddon ? <div className="flex flex-wrap items-center gap-2">{titleAddon}</div> : null}
+          </div>
           {description ? <CardDescription className="mt-1">{description}</CardDescription> : null}
         </div>
         {action ? <div className="flex shrink-0 flex-col items-end">{action}</div> : null}
@@ -8061,32 +8067,30 @@ export function AdminWorkspace() {
             <TabsContent value="allocations" className="space-y-6">
               <SectionCard
                 title="Allocations"
-                description="How donation funds are assigned to safe houses and program areas, with amounts and dates. Rows respect the supporter filter so you see allocations for that donor’s gifts only."
-                action={
-                  <div className="flex flex-col items-end gap-2">
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-xl px-3 text-xs font-medium"
-                        onClick={() => setParams({ tab: "donations", donationsSubTab: "pending-review" })}
-                      >
-                        Review pending donations
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-xl px-3 text-xs font-medium"
-                        onClick={() => openAllocationForm()}
-                      >
-                        Allocate resources
-                      </Button>
-                    </div>
-                    <TableAddButton label="Add allocation" onClick={() => openAllocationForm()} />
-                  </div>
+                titleAddon={
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-xl px-3 text-xs font-medium"
+                      onClick={() => setParams({ tab: "donations", donationsSubTab: "pending-review" })}
+                    >
+                      Review pending donations
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-xl px-3 text-xs font-medium"
+                      onClick={() => openAllocationForm()}
+                    >
+                      Allocate resources
+                    </Button>
+                  </>
                 }
+                description="How donation funds are assigned to safe houses and program areas, with amounts and dates. Rows respect the supporter filter so you see allocations for that donor’s gifts only."
+                action={<TableAddButton label="Add allocation" onClick={() => openAllocationForm()} />}
               >
                 {renderDonationsToolbar()}
                 <Table>

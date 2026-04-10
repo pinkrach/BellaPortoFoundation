@@ -30,11 +30,11 @@ function TrendCard({
   children: React.ReactNode;
 }) {
   return (
-    <article className="rounded-[1.75rem] border border-[hsl(37_24%_86%)] bg-white/88 p-5 shadow-[0_22px_55px_-35px_rgba(28,43,53,0.5)]">
+    <article className="rounded-[1.75rem] bg-white/88 p-5">
       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[hsl(200_20%_42%)]">{eyebrow}</p>
       <h3 className="mt-3 font-heading text-2xl text-[hsl(200_24%_18%)]">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-[hsl(200_12%_40%)]">{description}</p>
-      <div className="mt-5 h-72">{children}</div>
+      <div className="mt-5 h-72 rounded-2xl bg-[hsl(40_42%_98%)] p-3">{children}</div>
     </article>
   );
 }

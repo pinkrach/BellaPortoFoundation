@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
+  Clock,
   Heart,
   History,
   LogOut,
@@ -200,8 +201,6 @@ const DonorDashboard = () => {
     return total;
   }, [monetaryDonations]);
 
-  const nightsOfSafety = useMemo(() => Math.max(0, Math.floor(totalEstimatedImpact / 50)), [totalEstimatedImpact]);
-
   const totalServiceValue = useMemo(() => {
     let total = 0;
     for (const d of timeDonations) total += donationEstimatedValue(d);
@@ -216,35 +215,6 @@ const DonorDashboard = () => {
     for (const d of inKindDonations) total += donationEstimatedValue(d);
     return total;
   }, [inKindDonations]);
-
-  const latestDonationId = monetaryDonations[0]?.donation_id ?? null;
-  const latestSafehouseQuery = useQuery({
-    queryKey: ["donor-latest-safehouse", latestDonationId],
-    enabled: latestDonationId != null && Boolean(supabase),
-    queryFn: async () => {
-      if (!supabase || latestDonationId == null) return null;
-      const { data: rows, error } = await supabase
-        .from("donation_allocations")
-        .select("amount_allocated, safehouses(*)")
-        .eq("donation_id", latestDonationId)
-        .order("amount_allocated", { ascending: false });
-      if (error || !rows?.length) return null;
-      const sh = (rows[0] as any)?.safehouses as any;
-      const name = typeof sh?.name === "string" ? sh.name.trim() : "";
-      const city = typeof sh?.city === "string" ? sh.city.trim() : "";
-      const region =
-        typeof sh?.region === "string"
-          ? sh.region.trim()
-          : typeof sh?.province === "string"
-            ? sh.province.trim()
-            : "";
-
-      const left = [region, city].filter(Boolean).join(", ");
-      const base = left || name || "Safehouse";
-      return `${base} Safehouse`;
-    },
-  });
-  const safehouseLabel = latestSafehouseQuery.data ?? "Safehouse";
 
   const supporterGreetingQuery = useQuery({
     queryKey: ["donor-dashboard-supporter-greeting", userId, userEmail],
@@ -360,15 +330,6 @@ const DonorDashboard = () => {
     if (fallbackDisplay && !fallbackDisplay.includes("@")) return fallbackDisplay;
     return "";
   }, [displayName, supporterDisplayName, supporterFullName, supporterOrganizationName, supporterGreetingQuery.data]);
-
-  const firstNameForCaption = useMemo(() => {
-    const fn = firstName?.trim();
-    if (fn) return fn;
-    const fromDisplay = (supporterDisplayName || supporterFullName || displayName || "").trim().split(/\s+/)[0] || "";
-    if (fromDisplay) return fromDisplay;
-    const fromEmail = (userEmail || "").split("@")[0] || "";
-    return fromEmail ? fromEmail : "Friend";
-  }, [displayName, firstName, supporterDisplayName, supporterFullName, userEmail]);
 
   const onSelectTab = (next: "impact" | "history" | "settings") => {
     const nextParams = new URLSearchParams(params);
@@ -640,53 +601,20 @@ const DonorDashboard = () => {
                 initial="hidden"
                 animate="visible"
                 variants={fadeUp}
-                className="mb-8 rounded-2xl border border-border/70 bg-card p-6 shadow-warm"
+                className="mb-8 rounded-2xl bg-gradient-to-br from-card via-card to-muted/25 p-6"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <h3 className="font-heading text-lg font-semibold text-foreground">Donation Summary</h3>
                     <p className="mt-1 text-sm text-muted-foreground">A quick snapshot of your giving impact.</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setDonationModalOpen(true)}
-                    className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                  >
-                    Donate now
-                  </button>
-                </div>
-
-                <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 items-stretch">
-                  {[
-                    { label: "Total Impact", value: userEmail && data ? formatUsd(totalEstimatedImpact) : "—", icon: Heart },
-                    { label: "Giving Frequency", value: userEmail && data ? `${donationCount}` : "—", icon: History },
-                    { label: "Current Foundation Needs", value: userEmail && data ? `${safehouseLabel} needs 20 new blankets` : "—", icon: Gift },
-                  ].map((kpi) => (
-                    <div key={kpi.label} className="rounded-2xl border border-border/60 bg-background p-5 h-full">
-                      <div className="mb-2">
-                        <kpi.icon className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <p className="text-2xl font-bold text-foreground">{kpi.value}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">{kpi.label}</p>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-
-              {/* Beyond the Dollar */}
-              <div className="mb-8 rounded-2xl border border-border/70 bg-card p-6 shadow-warm">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-heading text-lg font-semibold text-foreground">Service &amp; In-Kind Impact</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">Non-monetary contributions that extend your impact.</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2 justify-end">
+                  <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
                     <button
                       type="button"
                       onClick={() => setVolunteerModalOpen(true)}
                       className="rounded-full border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted/40"
                     >
-                      Log service or gift
+                      Log service
                     </button>
                     <button
                       type="button"
@@ -705,8 +633,69 @@ const DonorDashboard = () => {
                   </div>
                 </div>
 
+                <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4 items-stretch">
+                  {[
+                    {
+                      label: "Total Impact",
+                      value: userEmail && data ? formatUsd(totalEstimatedImpact) : "—",
+                      icon: Heart,
+                      tone: "bg-[#9B7FC0]",
+                      iconTone: "bg-white/20 text-white",
+                    },
+                    {
+                      label: "Giving Frequency",
+                      value: userEmail && data ? `${donationCount}` : "—",
+                      icon: History,
+                      tone: "bg-[#5A8FA0]",
+                      iconTone: "bg-white/20 text-white",
+                    },
+                  ].map((kpi) => (
+                    <div key={kpi.label} className={`rounded-2xl ${kpi.tone} py-3 px-4 shadow-sm`}>
+                      <div className={`mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-lg ${kpi.iconTone}`}>
+                        <kpi.icon className="h-4 w-4" />
+                      </div>
+                      <p className="text-xl font-bold leading-tight text-white">{kpi.value}</p>
+                      <p className="mt-0.5 text-xs text-white/85">{kpi.label}</p>
+                    </div>
+                  ))}
+                  <div className="rounded-2xl bg-[#4A7A52] py-3 px-4 shadow-sm">
+                    <div className="mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white">
+                      <Clock className="h-4 w-4" />
+                    </div>
+                    <p className="text-xl font-bold leading-tight text-white">
+                      {serviceHours} {serviceHours === 1 ? "Hour" : "Hours"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-white/85">Volunteer service</p>
+                  </div>
+                  <div className="rounded-2xl bg-[#C17A3A] py-3 px-4 shadow-sm">
+                    <div className="mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white">
+                      <Gift className="h-4 w-4" />
+                    </div>
+                    <p className="text-lg font-bold leading-tight text-white sm:text-xl">
+                      {inKindDonations.length} Batches · {formatUsd(inKindTotalValue)}
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-xs text-white/85">
+                      <span>In-kind contributions</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex shrink-0 items-center justify-center rounded-full text-white/85 hover:text-white transition-colors"
+                            aria-label="How in-kind contributions are counted"
+                          >
+                            <Info className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" align="start" className="max-w-xs">
+                          Reflects the total count of donation batches and their estimated fair market value. (e.g., One bulk food drop-off is counted as 1 donation batch).
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
+                </div>
+
                 {pendingNonCash.length > 0 ? (
-                  <div className="mt-4 rounded-2xl border border-amber-500/35 bg-amber-500/5 p-4">
+                  <div className="mt-6 rounded-2xl bg-amber-500/10 p-4">
                     <p className="text-sm font-semibold text-foreground">Pending staff review</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       These service or in-kind submissions are recorded but not yet confirmed. They do not count toward impact totals until
@@ -736,39 +725,7 @@ const DonorDashboard = () => {
                     </ul>
                   </div>
                 ) : null}
-
-                <div className="mt-4 grid gap-4 sm:grid-cols-2 items-stretch">
-                  <div className="rounded-2xl border border-border/60 bg-background p-5 h-full flex flex-col justify-center text-center">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Volunteer service</p>
-                    <p className="mt-2 text-2xl font-bold text-foreground">
-                      <span className="text-primary">{serviceHours}</span> {serviceHours === 1 ? "Hour" : "Hours"} Donated
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-border/60 bg-background p-5 h-full flex flex-col justify-center text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">In-kind contributions</p>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-colors"
-                            aria-label="How in-kind contributions are counted"
-                          >
-                            <Info className="h-4 w-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" align="start" className="max-w-xs">
-                          Reflects the total count of donation batches and their estimated fair market value. (e.g., One bulk food drop-off is counted as 1 donation batch).
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <p className="mt-2 text-2xl font-bold text-foreground">
-                      <span className="text-primary">{inKindDonations.length}</span> Batches · {formatUsd(inKindTotalValue)}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              </motion.div>
 
               {/* Main content (match AdminDashboard structure) */}
               {!userEmail || isPending ? (
@@ -780,8 +737,8 @@ const DonorDashboard = () => {
               ) : (
                 <div className="grid lg:grid-cols-2 gap-6 items-stretch">
                   {/* Impact visual */}
-                  <div className="h-full flex flex-col rounded-2xl border border-border/70 bg-card p-6 shadow-warm">
-                    <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-muted/20 flex-1 min-h-[320px]">
+                  <div className="h-full flex flex-col rounded-2xl bg-white p-6 shadow-warm">
+                    <div className="relative overflow-hidden rounded-2xl bg-muted/15 flex-1 min-h-[320px]">
                       <img
                         src={safehouseImage}
                         alt="Safehouse placeholder"
@@ -790,17 +747,41 @@ const DonorDashboard = () => {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/15 to-transparent" />
                       <div className="absolute left-4 right-4 bottom-4 sm:left-5 sm:right-5 sm:bottom-5">
-                        <div className="rounded-2xl border border-border/60 bg-background/55 backdrop-blur-md p-5 shadow-warm">
-                          <p className="text-sm text-muted-foreground">Your impact</p>
-                          <p className="mt-1 text-xl font-semibold text-foreground">
-                            {firstNameForCaption}, your contributions have helped provide{" "}
-                            <span className="text-primary font-bold">{nightsOfSafety}</span> nights of safety.
-                          </p>
-                          <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                            <span className="rounded-full border border-border/60 bg-background/60 px-2.5 py-1 text-xs">
-                              + <span className="font-semibold text-foreground">{serviceHours}</span> hours of direct service
-                            </span>
-                          </div>
+                        <div className="rounded-2xl bg-white/95 p-5 shadow-sm backdrop-blur-sm">
+                          <p className="text-sm text-stone-600">Your impact</p>
+                          {data.allocationRollup.hasAllocations ? (
+                            <>
+                              <p className="mt-1 text-lg font-semibold leading-snug text-[#1C2B35]">
+                                Here is how your confirmed gifts have been allocated so far.
+                              </p>
+                              {data.allocationRollup.safehouses.length > 0 ? (
+                                <div className="mt-3">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Safehouses</p>
+                                  <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-stone-700">
+                                    {data.allocationRollup.safehouses.map((label) => (
+                                      <li key={label}>{label}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                              {data.allocationRollup.programAreas.length > 0 ? (
+                                <div className="mt-3">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Program categories</p>
+                                  <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-stone-700">
+                                    {data.allocationRollup.programAreas.map((area) => (
+                                      <li key={area}>{area}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <p className="mt-1 text-lg font-semibold leading-snug text-[#1C2B35]">
+                              Thank you for your generosity. Your support helps keep safe housing, education, and healing care
+                              available for girls on the path to recovery. When your gifts are allocated to specific homes and
+                              categories, those details will appear here.
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -809,7 +790,7 @@ const DonorDashboard = () => {
                   {/* Right column */}
                   <div className="h-full flex flex-col">
                     {/* Recent Donations (match AdminDashboard table formatting) */}
-                    <div className="h-full flex flex-col rounded-2xl border border-border/70 bg-card p-6 shadow-warm">
+                    <div className="h-full flex flex-col rounded-2xl bg-white p-6 shadow-warm">
                       <h3 className="font-heading text-base font-semibold text-foreground mb-4">Recent Donations</h3>
                       <div className="overflow-x-auto flex-1">
                         <table className="w-full text-sm">
@@ -1062,9 +1043,7 @@ const DonorDashboard = () => {
         onOpenChange={setDonationModalOpen}
         onSuccess={async () => {
           await queryClient.invalidateQueries({ queryKey: donorDonationDataQueryKey(userId, userEmail) });
-          await queryClient.invalidateQueries({ queryKey: ["donor-latest-safehouse"] });
           await queryClient.refetchQueries({ queryKey: donorDonationDataQueryKey(userId, userEmail) });
-          await queryClient.refetchQueries({ queryKey: ["donor-latest-safehouse"] });
         }}
       />
 

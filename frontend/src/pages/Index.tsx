@@ -1,10 +1,12 @@
+import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "framer-motion";
 import { useState } from "react";
 import { Heart, Star, Quote, Shield, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { WaveDivider } from "@/components/WaveDivider";
 import { PublicLayout } from "@/components/PublicLayout";
 import { Link } from "react-router-dom";
-import { donationsOverTime, testimonials } from "@/data/mockData";
+import { testimonials } from "@/data/mockData";
+import { getPublicFundraisingSnapshot } from "@/services/publicImpactPageData";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import heroImage from "@/assets/hero/portofino-watercolor-hero.png";
@@ -24,14 +26,22 @@ const steps = [
   { icon: Star, title: "New Beginnings", description: "When she is ready, we walk alongside her into a hopeful future — with mentorship, life skills, and a community cheering her on." },
 ];
 
-const YEARLY_FUNDRAISING_GOAL = 10_000;
+function formatPhp(value: number) {
+  return `PHP ${Math.round(value).toLocaleString()}`;
+}
 
 const Index = () => {
   const { isAuthenticated, role } = useAuth();
   const reduceMotion = useReducedMotion();
-  const yearlyRaised = donationsOverTime.reduce((sum, entry) => sum + Number(entry.amount ?? 0), 0);
-  const progress = Math.min(yearlyRaised / YEARLY_FUNDRAISING_GOAL, 1);
-  const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  const fundraisingQuery = useQuery({
+    queryKey: ["public-fundraising-snapshot"],
+    queryFn: getPublicFundraisingSnapshot,
+    staleTime: 60_000,
+    retry: 1,
+  });
+  const raised = fundraisingQuery.data?.raised ?? 0;
+  const goal = fundraisingQuery.data?.goal ?? 25_000;
+  const progressPercent = fundraisingQuery.data?.progressPercent ?? 0;
   const [carouselIndex, setCarouselIndex] = useState(0);
 
   const carouselImages = [
@@ -319,18 +329,22 @@ const Index = () => {
                   <div className="flex flex-col gap-2 text-center md:flex-row md:items-end md:justify-between md:text-left">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(200_12%_42%)]">
-                        2026 fundraising goal
+                        {new Date().getFullYear()} fundraising goal
                       </p>
-                      <p className="mt-2 font-heading text-2xl font-medium tracking-tight text-[hsl(200_24%_18%)] md:text-3xl">
-                        {money.format(YEARLY_FUNDRAISING_GOAL)}
+                      <p
+                        className={`mt-2 font-heading text-2xl font-medium tracking-tight text-[hsl(200_24%_18%)] md:text-3xl tabular-nums ${fundraisingQuery.isLoading ? "animate-pulse" : ""}`}
+                      >
+                        {formatPhp(goal)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[hsl(200_12%_42%)]">
                         Raised this year
                       </p>
-                      <p className="mt-2 font-heading text-2xl font-medium tracking-tight text-[#4A7A52] md:text-3xl tabular-nums">
-                        {money.format(yearlyRaised)}
+                      <p
+                        className={`mt-2 font-heading text-2xl font-medium tracking-tight text-[#4A7A52] md:text-3xl tabular-nums ${fundraisingQuery.isLoading ? "animate-pulse" : ""}`}
+                      >
+                        {formatPhp(raised)}
                       </p>
                     </div>
                   </div>
@@ -340,21 +354,19 @@ const Index = () => {
                       role="progressbar"
                       aria-label="Yearly fundraising progress"
                       aria-valuemin={0}
-                      aria-valuemax={YEARLY_FUNDRAISING_GOAL}
-                      aria-valuenow={yearlyRaised}
+                      aria-valuemax={goal}
+                      aria-valuenow={raised}
                       className="h-3 w-full overflow-hidden rounded-full bg-muted/40"
                     >
                       <div
                         className="h-full rounded-full bg-[#4A7A52] transition-[width] duration-1000 ease-in-out"
-                        style={{ width: `${Math.round(progress * 100)}%` }}
+                        style={{ width: `${Math.round(progressPercent)}%` }}
                       />
                     </div>
 
                     <div className="mt-3 flex items-center justify-between text-xs font-normal text-[hsl(200_12%_40%)]">
-                      <span className="tabular-nums">{Math.round(progress * 100)}%</span>
-                      <span className="tabular-nums">
-                        {money.format(Math.max(YEARLY_FUNDRAISING_GOAL - yearlyRaised, 0))} to go
-                      </span>
+                      <span className="tabular-nums">{Math.round(progressPercent)}%</span>
+                      <span className="tabular-nums">{formatPhp(Math.max(goal - raised, 0))} to go</span>
                     </div>
                   </div>
                 </div>

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabaseClient";
-import { normalizedSubmissionStatus, type DonationRow } from "@/lib/donorQueries";
+import { normalizedSubmissionStatus, safehouseDisplay, type DonationRow } from "@/lib/donorQueries";
 import { Loader2, MapPin } from "lucide-react";
 
 type AllocationRow = {
@@ -31,22 +31,6 @@ function formatDate(value: unknown) {
   return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString();
 }
 
-function safehouseDisplay(safehouse: Record<string, unknown> | null | undefined) {
-  if (!safehouse) return "—";
-  const name = typeof safehouse.name === "string" ? safehouse.name.trim() : "";
-  const city = typeof (safehouse as any).city === "string" ? String((safehouse as any).city).trim() : "";
-  const region =
-    typeof (safehouse as any).region === "string"
-      ? String((safehouse as any).region).trim()
-      : typeof (safehouse as any).province === "string"
-        ? String((safehouse as any).province).trim()
-        : "";
-
-  const left = [region, city].filter(Boolean).join(", ");
-  const right = name || "Safehouse";
-  return left ? `${left} - ${right}` : right;
-}
-
 async function fetchDonationAllocationSummary(donationId: number): Promise<{
   safehouses: string[];
   programAreas: string[];
@@ -66,7 +50,11 @@ async function fetchDonationAllocationSummary(donationId: number): Promise<{
   const programAreaSet = new Set<string>();
 
   for (const row of data as unknown as AllocationRow[]) {
-    const safehouseLabel = safehouseDisplay((row as any).safehouses ?? null);
+    const safehouseLabel = safehouseDisplay(
+      row.safehouses && typeof row.safehouses === "object" && !Array.isArray(row.safehouses)
+        ? (row.safehouses as Record<string, unknown>)
+        : null,
+    );
     if (safehouseLabel && safehouseLabel !== "—") safehouseSet.add(safehouseLabel);
     const area = (row.program_area ?? "").toString().trim();
     if (area) programAreaSet.add(area);

@@ -155,6 +155,13 @@ function buildFundraising(raised: number) {
   };
 }
 
+/** Same raised / goal / progress as the Impact page (reports-summary donations YTD + inferred goal). */
+export async function getPublicFundraisingSnapshot() {
+  const reportsSummary = await fetchBundledJson<ReportsSummary>("/reports-summary.json");
+  const raised = toPositiveNumber(getKpiValue(reportsSummary, "donationsYtd"));
+  return buildFundraising(raised);
+}
+
 function buildGroupedAllocation(summary: ReportsSummary): DonationAllocationGroup[] {
   const grouped = new Map<string, number>();
   const areaMap: Record<string, string> = {
@@ -257,6 +264,36 @@ function getLatestRow<T extends { label?: string }>(rows: T[]) {
   return rows.at(-1) ?? null;
 }
 
+function startOfCalendarMonth(from: Date) {
+  return new Date(from.getFullYear(), from.getMonth(), 1);
+}
+
+function formatShortMonthYear(from: Date) {
+  return from.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
+/** Parses chart labels like "Jan 2025" or ISO timestamps; returns month resolution or null. */
+function parseLabelToMonthStart(label: string): Date | null {
+  const trimmed = label.trim();
+  const short = trimmed.match(/^([A-Za-z]{3})\s+(\d{4})$/);
+  if (short) {
+    const attempt = new Date(`${short[1]} 1, ${short[2]}`);
+    if (!Number.isNaN(attempt.getTime())) return startOfCalendarMonth(attempt);
+  }
+  const ms = Date.parse(trimmed);
+  if (!Number.isNaN(ms)) return startOfCalendarMonth(new Date(ms));
+  return null;
+}
+
+/** Impact copy should never claim a "latest" period after the viewer's current calendar month. */
+function clampImpactPeriodLabel(label: string, now: Date = new Date()) {
+  const dataMonth = parseLabelToMonthStart(label);
+  if (!dataMonth) return label;
+  const cap = startOfCalendarMonth(now);
+  if (dataMonth.getTime() <= cap.getTime()) return label;
+  return formatShortMonthYear(cap);
+}
+
 export async function getPublicImpactPageData(): Promise<PublicImpactPageData> {
   const [reportsSummary, publicImpactSummary] = await Promise.all([
     fetchBundledJson<ReportsSummary>("/reports-summary.json"),
@@ -308,7 +345,9 @@ export async function getPublicImpactPageData(): Promise<PublicImpactPageData> {
       estimatesForAmount: buildImpactEstimator(reportsSummary),
     },
     trustSummary: {
-      periodLabel: latestHomeVisit?.label ?? latestProgress?.label ?? reportsSummary.asOf,
+      periodLabel: clampImpactPeriodLabel(
+        latestHomeVisit?.label ?? latestProgress?.label ?? reportsSummary.asOf,
+      ),
       cards: [
         {
           label: "Caring supports",
