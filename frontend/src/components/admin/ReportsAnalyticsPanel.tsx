@@ -535,40 +535,56 @@ export function ReportsAnalyticsPanel() {
             <span className="text-xs font-semibold uppercase tracking-[0.18em]">Dashboard filters</span>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <Input
-              type="date"
-              value={filters.dateFrom}
-              onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))}
-            />
-            <Input
-              type="date"
-              value={filters.dateTo}
-              onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))}
-            />
-            <select
-              className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={filters.safehouseId}
-              onChange={(event) => setFilters((current) => ({ ...current, safehouseId: event.target.value }))}
-            >
-              <option value="">All safehouses</option>
-              {data?.availableFilters.safehouses.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <select
-              className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={filters.campaignName}
-              onChange={(event) => setFilters((current) => ({ ...current, campaignName: event.target.value }))}
-            >
-              <option value="">All campaigns</option>
-              {data?.availableFilters.campaigns.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <label className="grid gap-2 text-sm">
+              <span className="sr-only">Reports date from</span>
+              <Input
+                aria-label="Reports date from"
+                type="date"
+                value={filters.dateFrom}
+                onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))}
+              />
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="sr-only">Reports date to</span>
+              <Input
+                aria-label="Reports date to"
+                type="date"
+                value={filters.dateTo}
+                onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))}
+              />
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="sr-only">Filter by safehouse</span>
+              <select
+                aria-label="Filter by safehouse"
+                className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={filters.safehouseId}
+                onChange={(event) => setFilters((current) => ({ ...current, safehouseId: event.target.value }))}
+              >
+                <option value="">All safehouses</option>
+                {data?.availableFilters.safehouses.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm">
+              <span className="sr-only">Filter by campaign</span>
+              <select
+                aria-label="Filter by campaign"
+                className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={filters.campaignName}
+                onChange={(event) => setFilters((current) => ({ ...current, campaignName: event.target.value }))}
+              >
+                <option value="">All campaigns</option>
+                {data?.availableFilters.campaigns.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <Button
               variant="outline"
               className="rounded-xl"
@@ -589,7 +605,7 @@ export function ReportsAnalyticsPanel() {
 
         {summaryQuery.isLoading ? (
           <div className="rounded-2xl bg-card p-8 shadow-warm">
-            <p className="text-sm text-muted-foreground">Loading the latest reports and analytics summary...</p>
+            <p className="text-sm text-foreground/75">Loading the latest reports and analytics summary...</p>
           </div>
         ) : null}
 
@@ -599,7 +615,7 @@ export function ReportsAnalyticsPanel() {
               <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
               <div>
                 <p className="font-semibold text-foreground">The reports dashboard needs a live backend response.</p>
-                <p className="mt-1 text-sm text-muted-foreground">{error.message}</p>
+                <p className="mt-1 text-sm text-foreground/75">{error.message}</p>
               </div>
             </div>
           </div>
@@ -619,9 +635,9 @@ export function ReportsAnalyticsPanel() {
                   onClick={() => setDetail(kpiDetails[kpi.key] ?? null)}
                   className="rounded-2xl border border-border/70 bg-card p-5 text-left shadow-warm transition-transform hover:-translate-y-0.5"
                 >
-                  <p className="text-sm text-muted-foreground">{kpi.label}</p>
+                  <p className="text-sm text-foreground/75">{kpi.label}</p>
                   <p className="mt-2 text-3xl font-bold text-foreground">{formatNumber(kpi.value, kpi.unit)}</p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">{kpi.detail}</p>
+                  <p className="mt-2 text-xs leading-5 text-foreground/70">{kpi.detail}</p>
                 </motion.button>
               ))}
             </section>
@@ -630,7 +646,7 @@ export function ReportsAnalyticsPanel() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-heading text-xl font-semibold text-foreground">Donation analytics</h3>
-                  <p className="text-sm text-muted-foreground">Donation trends, donor retention, allocation mix, and campaign opportunity signals.</p>
+                  <p className="text-sm text-foreground/75">Donation trends, donor retention, allocation mix, and campaign opportunity signals.</p>
                 </div>
               </div>
               <div className="grid gap-6 xl:grid-cols-2">
@@ -859,11 +875,11 @@ export function ReportsAnalyticsPanel() {
                 <MetricCard title="Best platforms and posting time" description="Reused from outreach analytics and social intelligence artifacts." icon={Megaphone} onClick={() => setDetail({ title: "Conversion by post type", description: "This compares donation-conversion performance across post types in the outreach analytics layer.", chartType: "bar", data: data.outreachImpact.conversionByPostType.map((row) => ({ label: row.postType, value: row.referralRate })), rows: data.outreachImpact.conversionByPostType, labelKey: "label", valueKey: "value" })}>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="rounded-2xl bg-muted/25 p-4">
-                      <p className="text-sm text-muted-foreground">Best platform</p>
+                      <p className="text-sm text-foreground/75">Best platform</p>
                       <p className="mt-2 text-2xl font-bold text-foreground">{data.outreachImpact.bestPlatform ?? "N/A"}</p>
                     </div>
                     <div className="rounded-2xl bg-muted/25 p-4">
-                      <p className="text-sm text-muted-foreground">Best posting time</p>
+                      <p className="text-sm text-foreground/75">Best posting time</p>
                       <p className="mt-2 text-2xl font-bold text-foreground">{data.outreachImpact.bestPostingTime ?? "N/A"}</p>
                     </div>
                   </div>
@@ -887,7 +903,7 @@ export function ReportsAnalyticsPanel() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-heading text-xl font-semibold text-foreground">Annual accomplishment report</h3>
-                  <p className="text-sm text-muted-foreground">Caring, Healing, Teaching, beneficiary counts, and service totals.</p>
+                  <p className="text-sm text-foreground/75">Caring, Healing, Teaching, beneficiary counts, and service totals.</p>
                 </div>
                 <Button className="rounded-xl" onClick={exportAnnual}>
                   <Download className="mr-2 h-4 w-4" />
