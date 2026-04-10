@@ -2,9 +2,9 @@ import { AdminLayout } from '@/components/AdminLayout'
 import { mlInsights } from '@/data/mockData'
 import { useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { FileText, RefreshCw, ShieldAlert } from 'lucide-react'
+import { FileText, ShieldAlert } from 'lucide-react'
 import { useAdminDashboardData } from '@/hooks/useAdminDashboardData'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { apiBaseUrl, buildApiUrl, fetchWithAuth } from '@/lib/api'
 
 function clampIndex(value: string | null, max: number) {
@@ -20,7 +20,6 @@ export default function Reports() {
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const { data } = useAdminDashboardData()
-  const queryClient = useQueryClient()
 
   const reportItems = useMemo(() => {
     return mlInsights
@@ -95,21 +94,6 @@ export default function Reports() {
     return response.json()
   }
 
-  async function refreshRisk(): Promise<ResidentRiskResponse> {
-    const response = await fetchWithAuth('/api/ml/risk/refresh', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-
-    if (!response.ok) {
-      const text = await response.text()
-      throw new Error(text || 'Unable to refresh resident risk report.')
-    }
-
-    return response.json()
-  }
-
   const riskQuery = useQuery({
     queryKey: ['resident-risk'],
     queryFn: fetchLatestRisk,
@@ -117,16 +101,8 @@ export default function Reports() {
     enabled: reportMeta.isHighRisk,
   })
 
-  const refreshMutation = useMutation({
-    mutationFn: refreshRisk,
-    onSuccess: (fresh) => {
-      queryClient.setQueryData(['resident-risk'], fresh)
-    },
-  })
-
   const riskData = riskQuery.data
-  const riskError = (refreshMutation.error ?? riskQuery.error) as Error | null
-  const isBusy = riskQuery.isLoading || refreshMutation.isPending
+  const riskError = riskQuery.error as Error | null
   const showAll = params.get('showAll') === '1'
   const apiStatusLabel = apiBaseUrl || 'this site'
 
@@ -143,16 +119,6 @@ export default function Reports() {
             </div>
             </div>
 
-            {reportMeta.isHighRisk ? (
-              <button
-                onClick={() => refreshMutation.mutate()}
-                disabled={isBusy}
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${isBusy ? 'animate-spin' : ''}`} />
-                Refresh report
-              </button>
-            ) : null}
           </div>
 
           <div className="p-3 space-y-2">

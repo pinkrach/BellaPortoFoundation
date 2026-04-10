@@ -1,5 +1,5 @@
 import { AdminLayout } from "@/components/AdminLayout";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   AlertCircle,
@@ -7,7 +7,6 @@ import {
   Brain,
   Clock3,
   Megaphone,
-  RefreshCw,
   Sparkles,
   Target,
   TrendingUp,
@@ -145,27 +144,6 @@ async function fetchLatestSocialAnalytics(): Promise<SocialAnalyticsResponse> {
   return response.json();
 }
 
-async function refreshSocialAnalytics(): Promise<SocialAnalyticsResponse> {
-  if (!hasLiveApi) {
-    throw new Error("Live refresh is only available when the backend API is configured.");
-  }
-
-  const response = await fetchWithAuth("/api/ml/social/refresh", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({}),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Unable to refresh social analytics.");
-  }
-
-  return response.json();
-}
-
 const fadeUp = {
   hidden: { opacity: 0, y: 18 },
   visible: (index: number) => ({
@@ -207,24 +185,15 @@ function formatDate(value: string | null) {
 }
 
 const SocialMediaDashboard = () => {
-  const queryClient = useQueryClient();
-
   const analyticsQuery = useQuery({
     queryKey: ["social-analytics"],
     queryFn: fetchLatestSocialAnalytics,
     retry: false,
   });
 
-  const refreshMutation = useMutation({
-    mutationFn: refreshSocialAnalytics,
-    onSuccess: (freshData) => {
-      queryClient.setQueryData(["social-analytics"], freshData);
-    },
-  });
-
   const data = analyticsQuery.data;
-  const isBusy = analyticsQuery.isLoading || refreshMutation.isPending;
-  const error = refreshMutation.error ?? analyticsQuery.error;
+  const isBusy = analyticsQuery.isLoading;
+  const error = analyticsQuery.error;
 
   return (
     <AdminLayout
@@ -239,14 +208,6 @@ const SocialMediaDashboard = () => {
               Refresh the models and charts whenever new posts are added to the database.
             </p>
           </div>
-          <button
-            onClick={() => refreshMutation.mutate()}
-            disabled={isBusy || !hasLiveApi}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <RefreshCw className={`h-4 w-4 ${isBusy ? "animate-spin" : ""}`} />
-            {hasLiveApi ? "Refresh analytics" : "Bundled analytics"}
-          </button>
         </div>
 
         {analyticsQuery.isLoading ? (
