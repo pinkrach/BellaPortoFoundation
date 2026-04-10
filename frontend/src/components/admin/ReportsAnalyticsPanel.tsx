@@ -73,6 +73,8 @@ type ChartRow = AnalyticsChartRow;
 type ReportsSummary = {
   generatedAt: string;
   asOf: string;
+  refreshWarning?: string;
+  refreshMode?: string;
   availableFilters: {
     safehouses: Array<{ value: string; label: string }>;
     campaigns: Array<{ value: string; label: string }>;
@@ -378,6 +380,10 @@ export function ReportsAnalyticsPanel() {
     mutationFn: () => refreshReportsSummary(filters),
     onSuccess: (freshData) => {
       queryClient.setQueryData(["reports-summary", filters], freshData);
+      if (freshData.refreshMode === "cached_fallback") {
+        toast.warning(freshData.refreshWarning ?? "Live refresh is unavailable right now. Showing the latest saved dashboard snapshot.");
+        return;
+      }
       toast.success("Reports dashboard refreshed.");
     },
     onError: (err) => {

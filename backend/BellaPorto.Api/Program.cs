@@ -1913,14 +1913,16 @@ app.MapGet("/api/reports/summary", async (
             SafehouseId = safehouseId,
             CampaignName = campaignName,
         };
-        var summary = await BuildReportsSummaryAsync(
+        var hasFilters = HasReportsFilters(filters);
+        var summary = await BuildReportsSummaryWithFallbackAsync(
             configuration,
             httpClientFactory,
             environment,
             logger,
             filters,
             persistArtifact: true,
-            useCache: false);
+            useCache: !hasFilters,
+            allowCachedFallback: !hasFilters);
         return Results.Json(summary);
     }
     catch (Exception ex)
@@ -1995,14 +1997,16 @@ app.MapPost("/api/reports/refresh", async (
         }
 
         var filters = requestBody ?? new ReportsQuery();
-        var summary = await BuildReportsSummaryAsync(
+        var hasFilters = HasReportsFilters(filters);
+        var summary = await BuildReportsSummaryWithFallbackAsync(
             configuration,
             httpClientFactory,
             environment,
             logger,
             filters,
             persistArtifact: true,
-            useCache: false);
+            useCache: false,
+            allowCachedFallback: !hasFilters);
         return Results.Json(summary);
     }
     catch (Exception ex)
@@ -2533,6 +2537,81 @@ static async Task<JsonNode> BuildReportsSummaryAsync(
     }
 
     return node;
+}
+
+static async Task<JsonNode> BuildReportsSummaryWithFallbackAsync(
+    IConfiguration configuration,
+    IHttpClientFactory httpClientFactory,
+    IWebHostEnvironment environment,
+    ILogger logger,
+    ReportsQuery filters,
+    bool persistArtifact,
+    bool useCache,
+    bool allowCachedFallback)
+{
+    try
+    {
+        return await BuildReportsSummaryAsync(
+            configuration,
+            httpClientFactory,
+            environment,
+            logger,
+            filters,
+            persistArtifact,
+            useCache);
+    }
+    catch (Exception ex) when (allowCachedFallback)
+    {
+        var cached = await TryLoadSavedReportsSummaryAsync(environment, logger);
+        if (cached is null)
+        {
+            throw;
+        }
+
+        logger.LogWarning(ex, "Falling back to saved reports summary artifact because live recompute was unavailable.");
+        if (cached is JsonObject obj)
+        {
+            obj["refreshWarning"] = "Live reports refresh is unavailable in this environment. Showing the latest saved dashboard snapshot.";
+            obj["refreshMode"] = "cached_fallback";
+        }
+
+        return cached;
+    }
+}
+
+static async Task<JsonNode?> TryLoadSavedReportsSummaryAsync(
+    IWebHostEnvironment environment,
+    ILogger logger)
+{
+    var repoRoot = GetRepoRoot(environment);
+    var candidatePaths = new[]
+    {
+        Path.Combine(repoRoot, "ml-pipelines", "artifacts", "reports_summary.json"),
+        Path.Combine(environment.ContentRootPath, "ml-pipelines", "artifacts", "reports_summary.json"),
+    };
+
+    foreach (var candidatePath in candidatePaths.Distinct(StringComparer.OrdinalIgnoreCase))
+    {
+        try
+        {
+            if (!File.Exists(candidatePath))
+            {
+                continue;
+            }
+
+            var node = JsonNode.Parse(await File.ReadAllTextAsync(candidatePath));
+            if (node is not null)
+            {
+                return node;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Unable to read cached reports summary from {CandidatePath}.", candidatePath);
+        }
+    }
+
+    return null;
 }
 
 static async Task<JsonNode> BuildAnnualAccomplishmentReportAsync(
