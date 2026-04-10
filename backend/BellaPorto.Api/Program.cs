@@ -2073,7 +2073,57 @@ app.Run();
 
 static string GetRepoRoot(IWebHostEnvironment environment)
 {
-    return Path.GetFullPath(Path.Combine(environment.ContentRootPath, "..", ".."));
+    var configured =
+        Environment.GetEnvironmentVariable("BELLA_PORTO_REPO_ROOT")
+        ?? Environment.GetEnvironmentVariable("REPO_ROOT");
+    if (!string.IsNullOrWhiteSpace(configured))
+    {
+        var configuredRoot = Path.GetFullPath(configured);
+        if (Directory.Exists(configuredRoot))
+        {
+            return configuredRoot;
+        }
+    }
+
+    static bool LooksLikeProjectRoot(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        {
+            return false;
+        }
+
+        return Directory.Exists(Path.Combine(path, "ml-pipelines"))
+            || (Directory.Exists(Path.Combine(path, "backend")) && Directory.Exists(Path.Combine(path, "frontend")));
+    }
+
+    var probeRoots = new List<string>
+    {
+        environment.ContentRootPath,
+        AppContext.BaseDirectory,
+        Directory.GetCurrentDirectory(),
+    };
+
+    foreach (var probeRoot in probeRoots)
+    {
+        try
+        {
+            var current = new DirectoryInfo(Path.GetFullPath(probeRoot));
+            while (current is not null)
+            {
+                if (LooksLikeProjectRoot(current.FullName))
+                {
+                    return current.FullName;
+                }
+                current = current.Parent;
+            }
+        }
+        catch
+        {
+            // Keep probing other candidate roots.
+        }
+    }
+
+    return Path.GetFullPath(environment.ContentRootPath);
 }
 
 static void EnsureSupabaseConfigured(SupabaseSettings settings)
