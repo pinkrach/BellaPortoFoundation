@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -9,6 +9,7 @@ import {
   LineChart,
   Pie,
   PieChart,
+  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -64,46 +65,52 @@ export type AnalyticsDetailConfig = {
 
 const PIE_COLORS = ["#5A8FA0", "#C17A3A", "#4A7A52", "#C06080", "#9B7FC0", "#406B83"];
 
-function SharedChartRenderer({ view, width, height }: { view: AnalyticsChartView; width: number; height: number }) {
+function SharedChartRenderer({ view, chartData }: { view: AnalyticsChartView; chartData: AnalyticsChartRow[] }) {
   const labelKey = view.labelKey ?? view.xKey ?? "label";
   const valueKey = view.valueKey ?? view.dataKey ?? "value";
 
   if (view.chartType === "line") {
     return (
-      <LineChart data={view.data} width={width} height={height}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey={view.xKey ?? "label"} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-        <Tooltip />
-        <Legend />
-        <Line type="monotone" dataKey={view.dataKey ?? "value"} stroke="hsl(var(--primary))" strokeWidth={3} dot={false} />
-        {view.secondaryKey ? <Line type="monotone" dataKey={view.secondaryKey} stroke="hsl(var(--secondary))" strokeWidth={3} dot={false} /> : null}
-      </LineChart>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis dataKey={view.xKey ?? "label"} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+          <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+          <Tooltip />
+          <Legend />
+          <Line type="monotone" dataKey={view.dataKey ?? "value"} stroke="hsl(var(--primary))" strokeWidth={3} dot={false} />
+          {view.secondaryKey ? <Line type="monotone" dataKey={view.secondaryKey} stroke="hsl(var(--secondary))" strokeWidth={3} dot={false} /> : null}
+        </LineChart>
+      </ResponsiveContainer>
     );
   }
 
   if (view.chartType === "pie") {
     return (
-      <PieChart width={width} height={height}>
-        <Tooltip />
-        <Legend />
-        <Pie data={view.data} dataKey={valueKey} nameKey={labelKey} innerRadius={55} outerRadius={110} paddingAngle={3}>
-          {view.data.map((entry, index) => (
-            <Cell key={`${String(entry[labelKey] ?? "slice")}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-          ))}
-        </Pie>
-      </PieChart>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Tooltip />
+          <Legend />
+          <Pie data={chartData} dataKey={valueKey} nameKey={labelKey} innerRadius={55} outerRadius={110} paddingAngle={3}>
+            {chartData.map((entry, index) => (
+              <Cell key={`${String(entry[labelKey] ?? "slice")}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+            ))}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
     );
   }
 
   return (
-    <BarChart data={view.data} width={width} height={height} layout="vertical" margin={{ left: 12, right: 18 }}>
-      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-      <XAxis type="number" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-      <YAxis type="category" dataKey={labelKey} width={180} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-      <Tooltip />
-      <Bar dataKey={valueKey} fill="hsl(var(--primary))" radius={[0, 12, 12, 0]} />
-    </BarChart>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={chartData} layout="vertical" margin={{ left: 12, right: 18 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis type="number" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+        <YAxis type="category" dataKey={labelKey} width={180} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+        <Tooltip />
+        <Bar dataKey={valueKey} fill="hsl(var(--primary))" radius={[0, 12, 12, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -121,30 +128,6 @@ export function AnalyticsDetailDialog({
   const [search, setSearch] = useState("");
   const [limit, setLimit] = useState("10");
   const [viewKey, setViewKey] = useState<string>("");
-  const chartContainerRef = useRef<HTMLDivElement | null>(null);
-  const [chartWidth, setChartWidth] = useState(0);
-
-  useEffect(() => {
-    const element = chartContainerRef.current;
-    if (!element) return;
-
-    const updateWidth = () => {
-      const nextWidth = Math.max(Math.floor(element.getBoundingClientRect().width) - 8, 0);
-      setChartWidth(nextWidth);
-    };
-
-    updateWidth();
-    const observer = new ResizeObserver(() => updateWidth());
-    observer.observe(element);
-    const raf = window.requestAnimationFrame(updateWidth);
-    const timeout = window.setTimeout(updateWidth, 60);
-
-    return () => {
-      observer.disconnect();
-      window.cancelAnimationFrame(raf);
-      window.clearTimeout(timeout);
-    };
-  }, [open, detail, viewKey]);
 
   useEffect(() => {
     if (!detail) {
@@ -153,13 +136,33 @@ export function AnalyticsDetailDialog({
       setLimit("10");
       return;
     }
-    setViewKey((current) => current || detail.views[0]?.key || "");
+    setViewKey(detail.views[0]?.key || "");
+    setSearch("");
+    setLimit("10");
   }, [detail]);
 
   const activeView = useMemo(() => {
     if (!detail) return null;
     return detail.views.find((view) => view.key === viewKey) ?? detail.views[0] ?? null;
   }, [detail, viewKey]);
+
+  const filteredChartData = useMemo(() => {
+    if (!activeView) return [];
+    const normalizedSearch = search.trim().toLowerCase();
+    const labelKey = activeView.labelKey ?? activeView.xKey ?? "label";
+    const valueKey = activeView.valueKey ?? activeView.dataKey ?? "value";
+    let rows = activeView.data.filter((row) => {
+      if (!normalizedSearch) return true;
+      return String(row[labelKey] ?? row[detail?.rowAction?.textKey ?? ""] ?? "").toLowerCase().includes(normalizedSearch);
+    });
+    if (activeView.chartType !== "line") {
+      rows = [...rows].sort((left, right) => Number(right[valueKey] ?? 0) - Number(left[valueKey] ?? 0));
+    }
+    if (limit !== "all") {
+      rows = rows.slice(0, Number(limit));
+    }
+    return rows;
+  }, [activeView, detail, limit, search]);
 
   const filteredRows = useMemo(() => {
     if (!activeView) return [];
@@ -256,8 +259,8 @@ export function AnalyticsDetailDialog({
               ) : null}
 
               <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-warm">
-                <div ref={chartContainerRef} className="h-80 w-full">
-                  {chartWidth > 0 ? <SharedChartRenderer key={`${activeView.key}-${chartWidth}`} view={activeView} width={chartWidth} height={320} /> : null}
+                <div className="h-80 w-full">
+                  <SharedChartRenderer key={`${detail.title}-${activeView.key}-${filteredChartData.length}`} view={activeView} chartData={filteredChartData} />
                 </div>
               </div>
 

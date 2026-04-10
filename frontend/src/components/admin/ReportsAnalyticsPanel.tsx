@@ -87,6 +87,12 @@ type ReportsSummary = {
     allocationByProgramArea: ChartRow[];
     campaignPerformance: ChartRow[];
     donorUpgradeOpportunities: ChartRow[];
+    donorUpgradeModel?: {
+      isTrained?: boolean;
+      classificationModel?: string | null;
+      regressionModel?: string | null;
+      metrics?: ChartRow[];
+    };
   };
   residentOutcomes: {
     educationTrend: ChartRow[];
@@ -105,6 +111,12 @@ type ReportsSummary = {
   };
   reintegration: {
     readiness: ChartRow[];
+    heuristicReadiness?: ChartRow[];
+    readinessModel?: {
+      isTrained?: boolean;
+      selectedModel?: string | null;
+      metrics?: ChartRow[];
+    };
     completionRate: number;
     funnel: ChartRow[];
     interventionCompletion: ChartRow[];
@@ -130,8 +142,10 @@ type ReportsSummary = {
 type DetailConfig = {
   title: string;
   description: string;
-  chartType: "line" | "bar" | "pie";
-  data: ChartRow[];
+  miniKpis?: SharedAnalyticsDetailConfig["miniKpis"];
+  views?: SharedAnalyticsDetailConfig["views"];
+  chartType?: "line" | "bar" | "pie";
+  data?: ChartRow[];
   rows?: ChartRow[];
   xKey?: string;
   dataKey?: string;
@@ -273,16 +287,26 @@ function DetailDialog({
 }) {
   const sharedDetail = useMemo<SharedAnalyticsDetailConfig | null>(() => {
     if (!detail) return null;
+    if (detail.views?.length) {
+      return {
+        title: detail.title,
+        description: detail.description,
+        miniKpis: detail.miniKpis,
+        views: detail.views,
+        rowAction: detail.rowAction,
+      };
+    }
     return {
       title: detail.title,
       description: detail.description,
+      miniKpis: detail.miniKpis,
       views: [
         {
           key: "default",
           label: detail.title,
           description: detail.description,
-          chartType: detail.chartType,
-          data: detail.data,
+          chartType: detail.chartType!,
+          data: detail.data ?? [],
           rows: detail.rows,
           xKey: detail.xKey,
           dataKey: detail.dataKey,
@@ -390,6 +414,40 @@ export function ReportsAnalyticsPanel() {
         label: row.supporter_name ?? "Supporter",
         value: Math.round(Number(row.lapse_score ?? 0) * 100),
       }));
+  }, [data]);
+  const donorUpgradeRows = useMemo<Array<ChartRow>>(() => {
+    const source = data?.donation.donorUpgradeOpportunities ?? [];
+    return source
+      .map((row) => ({
+        ...row,
+        supporter_name: row.supporter_name ?? row.supporterName ?? "Supporter",
+        label: row.supporter_name ?? row.supporterName ?? "Supporter",
+        value: Math.round(Number((row.upgrade_probability ?? row.upgradeScore ?? 0)) * 100),
+      }))
+      .sort((left, right) => Number(right.value ?? 0) - Number(left.value ?? 0))
+      .slice(0, 10);
+  }, [data]);
+  const pipelineReadinessRows = useMemo<Array<ChartRow>>(() => {
+    const source = data?.reintegration.readiness ?? [];
+    return source
+      .map((row) => ({
+        ...row,
+        label: row.internal_code ?? row.safehouseName ?? "Resident",
+        value: Number(row.readinessScore ?? 0),
+      }))
+      .sort((left, right) => Number(right.value ?? 0) - Number(left.value ?? 0))
+      .slice(0, 10);
+  }, [data]);
+  const heuristicReadinessRows = useMemo<Array<ChartRow>>(() => {
+    const source = data?.reintegration.heuristicReadiness ?? [];
+    return source
+      .map((row) => ({
+        ...row,
+        label: row.internal_code ?? row.safehouseName ?? "Resident",
+        value: Number(row.readinessScore ?? 0),
+      }))
+      .sort((left, right) => Number(right.value ?? 0) - Number(left.value ?? 0))
+      .slice(0, 10);
   }, [data]);
 
   const kpiDetails = useMemo<Record<string, DetailConfig>>(() => {
@@ -674,12 +732,31 @@ export function ReportsAnalyticsPanel() {
                   onClick={() =>
                     setDetail({
                       title: "Donor retention and lapse risk",
-                      description: "This view ranks supporters by lapse risk so fundraising staff can see who most needs reactivation outreach. Open any supporter row to jump into that donor profile.",
-                      chartType: "bar",
-                      data: lapseRiskRows,
-                      rows: lapseRiskRows,
-                      labelKey: "label",
-                      valueKey: "value",
+                      description: "This view ranks supporters by pipeline-backed reactivation and upgrade opportunity signals so fundraising staff can decide who needs follow-up and who may be ready for a larger ask.",
+                      views: [
+                        {
+                          key: "lapse-risk",
+                          label: "Lapse risk",
+                          description: "This chart ranks supporters by lapse risk so fundraising staff can see who most needs reactivation outreach.",
+                          chartType: "bar",
+                          data: lapseRiskRows,
+                          rows: lapseRiskRows,
+                          labelKey: "label",
+                          valueKey: "value",
+                          searchable: true,
+                        },
+                        {
+                          key: "upgrade-potential",
+                          label: "Upgrade potential",
+                          description: "This chart ranks supporters by donor-upgrade probability and helps staff identify who may be ready for a higher ask.",
+                          chartType: "bar",
+                          data: donorUpgradeRows,
+                          rows: donorUpgradeRows,
+                          labelKey: "label",
+                          valueKey: "value",
+                          searchable: true,
+                        },
+                      ],
                       searchable: true,
                       rowAction: { label: "Open supporter", type: "supporter", idKey: "supporter_id", textKey: "supporter_name" },
                     })
@@ -773,7 +850,7 @@ export function ReportsAnalyticsPanel() {
                   </ResponsiveContainer>
                 </MetricCard>
 
-                <MetricCard title="Incident and risk distribution" description="Incident trend plus current risk-level distribution." icon={ShieldAlert} onClick={() => setDetail({ title: "Risk-level distribution", description: "This shows how residents are currently distributed across risk levels in the filtered scope.", chartType: "pie", data: data.residentOutcomes.riskLevelDistribution, rows: data.residentOutcomes.riskLevelDistribution })}>
+                <MetricCard title="Incident and risk distribution" description="Incident trend plus current risk-level distribution." icon={ShieldAlert} onClick={() => setDetail({ title: "Incident and risk distribution", description: "Compare recent incident volume with the current resident risk distribution.", views: [{ key: "incidents", label: "Incident trend", description: "This chart shows incident counts over time in the filtered reporting scope.", chartType: "line", data: data.residentOutcomes.incidentTrend, rows: data.residentOutcomes.incidentTrend, xKey: "label", dataKey: "incidentCount", secondaryKey: "unresolvedCount" }, { key: "risk-distribution", label: "Risk distribution", description: "This shows how residents are currently distributed across risk levels in the filtered scope.", chartType: "pie", data: data.residentOutcomes.riskLevelDistribution, rows: data.residentOutcomes.riskLevelDistribution, labelKey: "label", valueKey: "value" }] })}>
                   <div className="grid h-full gap-4 md:grid-cols-2">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={data.residentOutcomes.incidentTrend}>
@@ -831,19 +908,19 @@ export function ReportsAnalyticsPanel() {
             <section className="space-y-4">
               <h3 className="font-heading text-xl font-semibold text-foreground">Reintegration + case risk</h3>
               <div className="grid gap-6 xl:grid-cols-2">
-                <MetricCard title="Readiness score" description="Residents with the strongest current readiness signals." icon={Users} onClick={() => setDetail({ title: "Readiness score", description: "This ranks residents by current readiness score based on education, health, interventions, incidents, and risk signals.", chartType: "bar", data: data.reintegration.readiness.slice(0, 10).map((row) => ({ label: row.internal_code ?? row.safehouseName ?? "Resident", value: row.readinessScore })), rows: data.reintegration.readiness, labelKey: "label", valueKey: "value" })}>
+                <MetricCard title="Readiness score" description="Residents with the strongest reintegration readiness signals." icon={Users} onClick={() => setDetail({ title: "Readiness score", description: "This compares the deployed reintegration-readiness pipeline with the original heuristic readiness view so staff can review both perspectives.", views: [{ key: "pipeline", label: "ML readiness", description: "This chart ranks residents by the deployed reintegration-readiness pipeline output.", chartType: "bar", data: pipelineReadinessRows, rows: data.reintegration.readiness, labelKey: "label", valueKey: "value" }, { key: "heuristic", label: "Heuristic readiness", description: "This chart keeps the legacy readiness formula visible for comparison with the pipeline output.", chartType: "bar", data: heuristicReadinessRows, rows: data.reintegration.heuristicReadiness ?? [], labelKey: "label", valueKey: "value" }] })}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.reintegration.readiness.slice(0, 8)}>
+                    <BarChart data={pipelineReadinessRows.slice(0, 8)}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="internal_code" />
+                      <XAxis dataKey="label" />
                       <YAxis />
                       <Tooltip />
-                      <Bar dataKey="readinessScore" fill="hsl(var(--primary))" radius={[12, 12, 0, 0]} />
+                      <Bar dataKey="value" fill="hsl(var(--primary))" radius={[12, 12, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </MetricCard>
 
-                <MetricCard title="Funnel and intervention completion" description="Case progression and plan completion status." icon={BarChart3} onClick={() => setDetail({ title: "Reintegration funnel", description: "This shows how residents are distributed across reintegration stages in the current reporting scope.", chartType: "bar", data: data.reintegration.funnel, rows: data.reintegration.funnel, labelKey: "label", valueKey: "value" })}>
+                <MetricCard title="Funnel and intervention completion" description="Case progression and plan completion status." icon={BarChart3} onClick={() => setDetail({ title: "Reintegration funnel and intervention completion", description: "Review both case-stage distribution and intervention-plan completion status.", views: [{ key: "funnel", label: "Reintegration funnel", description: "This shows how residents are distributed across reintegration stages in the current reporting scope.", chartType: "bar", data: data.reintegration.funnel, rows: data.reintegration.funnel, labelKey: "label", valueKey: "value" }, { key: "completion", label: "Intervention completion", description: "This shows intervention-plan completion status distribution.", chartType: "pie", data: data.reintegration.interventionCompletion, rows: data.reintegration.interventionCompletion, labelKey: "label", valueKey: "value" }] })}>
                   <div className="grid h-full gap-4 md:grid-cols-2">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.reintegration.funnel}>

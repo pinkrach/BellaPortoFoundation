@@ -12,6 +12,8 @@ import pandas as pd
 from annual_accomplishment_report_builder import build_annual_report
 from donation_allocation_dashboard_data import build_allocation_dashboard_data
 from donor_lapse_risk import build_donor_lapse_artifacts, donor_lapse_export_rows
+from donor_upgrade_potential import build_donor_upgrade_artifacts
+from reintegration_readiness import build_reintegration_readiness_artifacts
 
 
 def _series(df: pd.DataFrame, name: str) -> pd.Series:
@@ -434,26 +436,7 @@ def _build_summary(tables: dict[str, pd.DataFrame], filters: dict[str, Any], art
         ).round(2)
         campaign_performance["label"] = campaign_performance["month"].dt.strftime("%b %Y")
 
-    top_upgrade = (
-        donations.sort_values(["supporter_id", "donation_date"])
-        .groupby("supporter_id")
-        .agg(
-            supporterName=("supporter_id", lambda ids: ids.iloc[0]),
-            donationCount=("donation_id", "count"),
-            avgDonationValue=("donation_value", "mean"),
-            latestDonationValue=("donation_value", "last"),
-        )
-        .reset_index()
-    )
-    if not top_upgrade.empty:
-        name_lookup = supporters.set_index("supporter_id").get("display_name", pd.Series(dtype="object")).to_dict() if not supporters.empty else {}
-        top_upgrade["supporterName"] = top_upgrade["supporter_id"].map(name_lookup).fillna("Unknown supporter")
-        top_upgrade["upgradeScore"] = ((top_upgrade["latestDonationValue"] / top_upgrade["avgDonationValue"].replace({0: np.nan})) - 1).fillna(0)
-        top_upgrade["upgradeScore"] = top_upgrade["upgradeScore"].clip(lower=-1, upper=3)
-        top_upgrade = top_upgrade.sort_values("upgradeScore", ascending=False).head(10)
-        top_upgrade["avgDonationValue"] = top_upgrade["avgDonationValue"].round(2)
-        top_upgrade["latestDonationValue"] = top_upgrade["latestDonationValue"].round(2)
-        top_upgrade["upgradeScore"] = top_upgrade["upgradeScore"].round(2)
+    donor_upgrade = build_donor_upgrade_artifacts(supporters, donations, allocations, social_posts)
 
     education_trend = _monthly_mean(education, "record_date", "progress_percent", "value")
     health_trend = _monthly_mean(health, "record_date", "general_health_score", "value")
@@ -586,6 +569,26 @@ def _build_summary(tables: dict[str, pd.DataFrame], filters: dict[str, Any], art
             - risk_penalty
         ).round(1)
         reintegration_base["safehouseName"] = reintegration_base["safehouse_id"].map(safehouse_map)
+    reintegration_pipeline = build_reintegration_readiness_artifacts(
+        residents=residents,
+        education=education,
+        health=health,
+        visits=visits,
+        process=process,
+        plans=interventions,
+        incidents=incidents,
+        safehouses=safehouses,
+    )
+    pipeline_readiness = reintegration_pipeline.residents.copy()
+    if not pipeline_readiness.empty:
+        pipeline_readiness = pipeline_readiness.rename(
+            columns={
+                "education_progress_percent_latest": "educationProgress",
+                "health_general_health_score_latest": "healthScore",
+                "incident_count": "incidentCount",
+                "plan_completed_share": "planCompletedShare",
+            }
+        )
     reintegration_funnel = [
         {
             "label": "In care",
@@ -727,7 +730,13 @@ def _build_summary(tables: dict[str, pd.DataFrame], filters: dict[str, Any], art
             "segmentSummary": donor_lapse.segment_summary.to_dict(orient="records"),
             "allocationByProgramArea": allocation_dashboard["allocation_mix"].rename(columns={"program_area": "label", "amount": "value"}).to_dict(orient="records"),
             "campaignPerformance": campaign_performance.tail(18).to_dict(orient="records") if not campaign_performance.empty else [],
-            "donorUpgradeOpportunities": top_upgrade.to_dict(orient="records") if not top_upgrade.empty else [],
+            "donorUpgradeOpportunities": donor_upgrade.opportunities.to_dict(orient="records") if not donor_upgrade.opportunities.empty else [],
+            "donorUpgradeModel": {
+                "isTrained": donor_upgrade.is_trained,
+                "classificationModel": donor_upgrade.classification_model_name,
+                "regressionModel": donor_upgrade.regression_model_name,
+                "metrics": donor_upgrade.metrics.to_dict(orient="records") if not donor_upgrade.metrics.empty else [],
+            },
         },
         "residentOutcomes": {
             "educationTrend": education_trend.to_dict(orient="records"),
@@ -745,7 +754,13 @@ def _build_summary(tables: dict[str, pd.DataFrame], filters: dict[str, Any], art
             "staffingPressure": staffing_indicators.to_dict(orient="records") if not staffing_indicators.empty else [],
         },
         "reintegration": {
-            "readiness": reintegration_base.sort_values("readinessScore", ascending=False).head(10).to_dict(orient="records") if not reintegration_base.empty else [],
+            "readiness": pipeline_readiness.sort_values("readiness_probability", ascending=False).head(10).to_dict(orient="records") if not pipeline_readiness.empty else [],
+            "heuristicReadiness": reintegration_base.sort_values("readinessScore", ascending=False).head(10).to_dict(orient="records") if not reintegration_base.empty else [],
+            "readinessModel": {
+                "isTrained": reintegration_pipeline.is_trained,
+                "selectedModel": reintegration_pipeline.selected_model_name,
+                "metrics": reintegration_pipeline.metrics.to_dict(orient="records") if not reintegration_pipeline.metrics.empty else [],
+            },
             "completionRate": round(reintegration_success_rate * 100, 1),
             "funnel": reintegration_funnel,
             "interventionCompletion": intervention_completion.to_dict(orient="records"),
